@@ -5,10 +5,12 @@ import {
   formatScheduleDiff,
 } from "./scheduleDiff";
 import type { ScheduleDiffEntry } from "./scheduleDiffEntry";
+import type { ScheduleFieldDef } from "./types";
 import {
   isTauri,
   parseScheduleText,
   readOpenScheduleFileViaTauri,
+  resolveScheduleComparisonPath,
   safeScheduleJsonFilename,
 } from "./scheduleFile";
 
@@ -19,9 +21,11 @@ export type ScheduleDiffLoadResult =
 export async function loadScheduleDiffText(
   filePath: string | null,
   screenJson: string,
+  fields?: readonly ScheduleFieldDef[],
 ): Promise<ScheduleDiffLoadResult> {
+  const resolvedPath = await resolveScheduleComparisonPath(filePath);
   const canCompareOnDisk =
-    filePath != null &&
+    resolvedPath != null &&
     (isTauri() || import.meta.env.MODE === "manual-screenshot");
   if (!canCompareOnDisk) {
     return {
@@ -30,7 +34,7 @@ export async function loadScheduleDiffText(
       isError: false,
     };
   }
-  const filename = safeScheduleJsonFilename(filePath);
+  const filename = safeScheduleJsonFilename(resolvedPath);
   try {
     const contents =
       import.meta.env.MODE === "manual-screenshot"
@@ -59,8 +63,8 @@ export async function loadScheduleDiffText(
     const fileDoc = fileParsed.document;
     return {
       ok: true,
-      text: formatScheduleDiff(screenDoc, fileDoc, filename),
-      entries: collectScheduleDiffEntries(screenDoc, fileDoc),
+      text: formatScheduleDiff(screenDoc, fileDoc, filename, fields),
+      entries: collectScheduleDiffEntries(screenDoc, fileDoc, fields),
     };
   } catch (error: unknown) {
     return {

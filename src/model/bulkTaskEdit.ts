@@ -1,4 +1,11 @@
+import { assigneeIdsEqual } from "./assigneeIds";
+import { applyTaskColorId } from "./taskColorId";
 import { tryAddPredecessorLink } from "./dependencies";
+import {
+  findTaskInOutline,
+  mapAllTasksInOutline,
+  tryAddPredecessorLinkInOutline,
+} from "./outlineTasks";
 import { findTaskById } from "./rows";
 import {
   validateDependencyCycles,
@@ -12,6 +19,7 @@ import { mapTasks } from "./tasks";
 import type {
   Category,
   Milestone,
+  OutlineRoot,
   ScheduleDocument,
   ScheduleId,
   Task,
@@ -19,23 +27,31 @@ import type {
   TaskStatus,
 } from "./types";
 
-export type BulkFieldAssignee = MemberId | null | "unchanged";
+export type BulkFieldAssignee = readonly MemberId[] | "unchanged";
 export type BulkFieldMilestone = ScheduleId | null | "unchanged";
 
 export type BulkTaskDraft = {
   start?: string;
   end?: string;
-  assigneeId?: BulkFieldAssignee;
+  assigneeIds?: BulkFieldAssignee;
   status?: TaskStatus;
   confidence?: TaskConfidence;
   milestoneId?: BulkFieldMilestone;
   addPredecessorIds?: ScheduleId[];
   addSuccessorIds?: ScheduleId[];
   addTags?: string[];
+  colorId?: string | null;
 };
+
+/** 一括パネルで「色なし」を書く `<option>` の value。一覧の id と重ならない。 */
+export const BULK_COLOR_CLEAR = "__bulk_clear_color__";
 
 export type BulkApplyResult =
   | { ok: true; categories: Category[] }
+  | { ok: false; message: string };
+
+export type BulkApplyOutlineResult =
+  | { ok: true; outline: OutlineRoot }
   | { ok: false; message: string };
 
 function rejectGraph(
@@ -73,8 +89,8 @@ function taskAfterScalarDraft(
     };
   }
   let next: Task = { ...task, start, end };
-  if (draft.assigneeId !== undefined && draft.assigneeId !== "unchanged") {
-    next = { ...next, assigneeId: draft.assigneeId };
+  if (draft.assigneeIds !== undefined && draft.assigneeIds !== "unchanged") {
+    next = { ...next, assigneeIds: [...draft.assigneeIds] };
   }
   if (draft.status !== undefined) next = { ...next, status: draft.status };
   if (draft.confidence !== undefined) {
@@ -89,6 +105,9 @@ function taskAfterScalarDraft(
       if (!tags.includes(tag)) tags = [...tags, tag];
     }
     next = applyTaskTags(next, tags);
+  }
+  if ("colorId" in draft) {
+    next = applyTaskColorId(next, draft);
   }
   return { task: next, error: null };
 }
@@ -192,6 +211,140 @@ export function applyBulkTaskEdit(
   return { ok: true, categories: next };
 }
 
+function rejectOutlineGraph(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+): string | null {
+  const candidate: ScheduleDocument = {
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    title,
+    milestoneGroups: [],
+    milestones,
+    categories: [],
+    outline,
+  };
+  const issues = [
+    ...validateDependencyCycles(candidate),
+    ...validatePredecessorRefs(candidate),
+  ];
+  if (issues.length === 0) return null;
+  return formatValidationErrors(issues);
+}
+
+export function applyBulkTaskEditOutline(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+  taskIds: readonly ScheduleId[],
+  draft: BulkTaskDraft,
+): BulkApplyOutlineResult {
+  if (taskIds.length === 0) {
+    return { ok: false, message: "タスクが選択されていません。" };
+  }
+  if (
+    draft.start !== undefined &&
+    draft.end !== undefined &&
+    draft.end < draft.start
+  ) {
+    const first = findTaskInOutline(outline, taskIds[0]!);
+    const suffix = first ? `（${first.name}）` : "";
+    return {
+      ok: false,
+      message: `終了日は開始日以降にしてください${suffix}`,
+    };
+  }
+
+  const idSet = new Set(taskIds);
+  const beforeKey = JSON.stringify(outline);
+  let next = outline;
+  for (const taskId of taskIds) {
+    const task = findTaskInOutline(next, taskId);
+    if (!task) {
+      return { ok: false, message: "選択したタスクがありません。" };
+    }
+    const { task: patched, error } = taskAfterScalarDraft(task, draft);
+    if (error) return { ok: false, message: error };
+    next = mapAllTasksInOutline(next, (item) =>
+      item.id === taskId ? patched : item,
+    );
+  }
+
+  const milestoneIdSet = new Set(milestones.map((m) => m.id));
+  if (draft.milestoneId !== undefined && draft.milestoneId !== "unchanged") {
+    const mid = draft.milestoneId;
+    next = mapAllTasksInOutline(next, (task) => {
+      if (!idSet.has(task.id)) return task;
+      return {
+        ...task,
+        milestoneId:
+          mid != null && milestoneIdSet.has(mid) ? mid : null,
+      };
+    });
+  }
+
+  const preds = draft.addPredecessorIds ?? [];
+  for (const taskId of taskIds) {
+    for (const predId of preds) {
+      const successor = findTaskInOutline(next, taskId);
+      if (!successor) {
+        return { ok: false, message: "選択したタスクがありません。" };
+      }
+      if (successor.predecessors.includes(predId)) continue;
+      const result = tryAddPredecessorLinkInOutline(
+        next,
+        milestones,
+        title,
+        predId,
+        taskId,
+      );
+      if (!result.ok) return { ok: false, message: result.message };
+      next = result.outline;
+    }
+  }
+
+  const succs = draft.addSuccessorIds ?? [];
+  for (const succId of succs) {
+    for (const taskId of taskIds) {
+      const successor = findTaskInOutline(next, succId);
+      if (!successor) {
+        return { ok: false, message: "後続のタスクがありません。" };
+      }
+      if (successor.predecessors.includes(taskId)) continue;
+      const result = tryAddPredecessorLinkInOutline(
+        next,
+        milestones,
+        title,
+        taskId,
+        succId,
+      );
+      if (!result.ok) return { ok: false, message: result.message };
+      next = result.outline;
+    }
+  }
+
+  const graphMessage = rejectOutlineGraph(next, milestones, title);
+  if (graphMessage) return { ok: false, message: graphMessage };
+
+  if (JSON.stringify(next) === beforeKey) {
+    if (draft.addTags && draft.addTags.length > 0) {
+      return {
+        ok: false,
+        message: "選択中のタスクには、すでにこのタグがあります。",
+      };
+    }
+    if (preds.length > 0 || succs.length > 0) {
+      return {
+        ok: false,
+        message: "選択中のタスクには、すでにこの前後関係があります。",
+      };
+    }
+    return { ok: false, message: "変更する項目がありません。" };
+  }
+
+  return { ok: true, outline: next };
+}
+
 export function commonStringField(
   tasks: readonly Task[],
   read: (task: Task) => string,
@@ -204,13 +357,13 @@ export function commonStringField(
   return first;
 }
 
-export function commonAssigneeId(
+export function commonAssigneeIds(
   tasks: readonly Task[],
-): MemberId | null | "mixed" {
+): readonly MemberId[] | "mixed" {
   if (tasks.length === 0) return "mixed";
-  const first = tasks[0]!.assigneeId ?? null;
+  const first = tasks[0]!.assigneeIds;
   for (let i = 1; i < tasks.length; i++) {
-    if ((tasks[i]!.assigneeId ?? null) !== first) return "mixed";
+    if (!assigneeIdsEqual(tasks[i]!.assigneeIds, first)) return "mixed";
   }
   return first;
 }
@@ -238,4 +391,15 @@ export function commonConfidence(
   return commonStringField(tasks, (t) => t.confidence) as
     | TaskConfidence
     | "mixed";
+}
+
+export function commonColorId(
+  tasks: readonly Task[],
+): string | null | "mixed" {
+  if (tasks.length === 0) return "mixed";
+  const first = tasks[0]!.colorId ?? null;
+  for (let i = 1; i < tasks.length; i++) {
+    if ((tasks[i]!.colorId ?? null) !== first) return "mixed";
+  }
+  return first;
 }

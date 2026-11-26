@@ -21,6 +21,9 @@ const EMPTY_LAYOUT: StickyLayout = {
   clipTop: 0,
 };
 
+/** 見出しが最大4段のとき、固定段の高さが scrollY に追いつく回数。 */
+const STICKY_REVEAL_ITERATIONS = 6;
+
 type CategorySpan = {
   index: number;
   y: number;
@@ -47,6 +50,10 @@ export function layoutStickyHeaders(
   if (rows.length === 0 || rowHeight <= 0) return EMPTY_LAYOUT;
   const contentHeight = rows[rows.length - 1].y + rowHeight;
   if (contentHeight <= viewportHeight) return EMPTY_LAYOUT;
+
+  if (rows.some((row) => row.type === "hierarchy")) {
+    return layoutStickyHierarchyHeaders(rows, scrollY, rowHeight, viewportHeight);
+  }
 
   const category = currentCategory(rows, scrollY, rowHeight);
   if (category == null) return EMPTY_LAYOUT;
@@ -119,7 +126,7 @@ export function scrollYToRevealTask(
   viewportHeight: number,
 ): number {
   let scrollY = taskY;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < STICKY_REVEAL_ITERATIONS; attempt += 1) {
     const layout = layoutStickyHeaders(rows, scrollY, rowHeight, viewportHeight);
     if (taskY - scrollY >= layout.clipTop) return scrollY;
     scrollY = Math.max(0, taskY - layout.clipTop);
@@ -162,7 +169,7 @@ export function scrollYToShowSelectedTask(
   }
 
   let next = clampScrollY(taskY + rowHeight - viewportHeight, maxScrollY);
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < STICKY_REVEAL_ITERATIONS; attempt += 1) {
     const nextLayout = layoutStickyHeaders(rows, next, rowHeight, viewportHeight);
     const top = taskY - next;
     if (top >= nextLayout.clipTop && top + rowHeight <= viewportHeight) {
@@ -179,6 +186,163 @@ export function scrollYToShowSelectedTask(
 
 function clampScrollY(scrollY: number, maxScrollY: number): number {
   return Math.max(0, Math.min(scrollY, maxScrollY));
+}
+
+function isStickyHeaderRow(
+  row: VisibleRow,
+): row is Extract<VisibleRow, { type: "category" | "group" | "hierarchy" }> {
+  return (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  );
+}
+
+function hierarchyHeaderSectionEnd(
+  rows: readonly VisibleRow[],
+  startIndex: number,
+): number {
+  const start = rows[startIndex];
+  if (start == null) return rows.length;
+  if (!isStickyHeaderRow(start)) return rows.length;
+  if (start.type === "category") return sectionEnd(rows, startIndex);
+  if (start.type === "group") {
+    for (let index = startIndex + 1; index < rows.length; index += 1) {
+      const row = rows[index];
+      if (row.type === "category" || row.type === "group") return index;
+    }
+    return rows.length;
+  }
+  if (start.type !== "hierarchy") return rows.length;
+  const levelIndex = start.levelIndex;
+  for (let index = startIndex + 1; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!isStickyHeaderRow(row)) continue;
+    if (row.type === "hierarchy" && row.levelIndex <= levelIndex) return index;
+    if (row.type === "category") return index;
+  }
+  return rows.length;
+}
+
+function sameAncestorIds(
+  a: readonly string[],
+  b: readonly string[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false;
+  }
+  return true;
+}
+
+function nextHierarchySibling(
+  rows: readonly VisibleRow[],
+  headerIndex: number,
+): { index: number; y: number } | null {
+  const row = rows[headerIndex];
+  if (row.type !== "hierarchy") return null;
+  const { levelIndex, ancestorIds } = row;
+  for (let index = headerIndex + 1; index < rows.length; index += 1) {
+    const candidate = rows[index];
+    if (!isStickyHeaderRow(candidate)) continue;
+    if (candidate.type === "hierarchy") {
+      if (candidate.levelIndex < levelIndex) return null;
+      if (candidate.levelIndex === levelIndex) {
+        if (
+          !candidate.collapsed &&
+          sameAncestorIds(candidate.ancestorIds, ancestorIds)
+        ) {
+          return { index, y: candidate.y };
+        }
+      }
+      continue;
+    }
+    if (candidate.type === "category") return null;
+  }
+  return null;
+}
+
+/** 見ている枝の展開した祖先を、浅い方から段の数だけ上端に残す。 */
+function layoutStickyHierarchyHeaders(
+  rows: readonly VisibleRow[],
+  scrollY: number,
+  rowHeight: number,
+  viewportHeight: number,
+): StickyLayout {
+  void viewportHeight;
+  const levelCount = rows.reduce(
+    (max, row) =>
+      row.type === "hierarchy" ? Math.max(max, row.levelIndex + 1) : max,
+    0,
+  );
+  if (levelCount < 1) return EMPTY_LAYOUT;
+
+  let innerIndex: number | null = null;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!isStickyHeaderRow(row)) continue;
+    if (row.collapsed) continue;
+    const end = hierarchyHeaderSectionEnd(rows, index);
+    const lastBottom = rows[end - 1].y + rowHeight;
+    if (lastBottom <= scrollY) continue;
+    if (row.y > scrollY) break;
+    innerIndex = index;
+  }
+  if (innerIndex == null) return EMPTY_LAYOUT;
+
+  const chain: number[] = [];
+  const innerRow = rows[innerIndex]!;
+  if (innerRow.type === "hierarchy") {
+    for (const ancestorId of innerRow.ancestorIds) {
+      const ancestorIndex = rows.findIndex((candidate) => {
+        if (!isStickyHeaderRow(candidate)) return false;
+        return candidate.id === ancestorId;
+      });
+      if (ancestorIndex >= 0) chain.push(ancestorIndex);
+    }
+    chain.push(innerIndex);
+  } else if (innerRow.type === "group") {
+    for (let index = innerIndex - 1; index >= 0; index -= 1) {
+      if (rows[index].type === "category") {
+        chain.push(index, innerIndex);
+        break;
+      }
+    }
+    if (chain.length === 0) chain.push(innerIndex);
+  } else {
+    chain.push(innerIndex);
+  }
+
+  const draws: StickyDraw[] = [];
+  const hiddenIndexes: number[] = [];
+  for (let slot = 0; slot < chain.length; slot += 1) {
+    const index = chain[slot]!;
+    const slotMin = slot * rowHeight;
+    const slotMax = (slot + 1) * rowHeight;
+    const nextSibling = nextHierarchySibling(rows, index);
+    if (nextSibling != null) {
+      const nextTop = nextSibling.y - scrollY;
+      if (nextTop > slotMin && nextTop < slotMax) {
+        draws.push({
+          index,
+          top: nextTop - rowHeight,
+          clipTop: slotMin,
+          clipBottom: nextTop,
+        });
+        draws.push({
+          index: nextSibling.index,
+          top: nextTop,
+          clipTop: nextTop,
+          clipBottom: nextTop + rowHeight,
+        });
+        hiddenIndexes.push(index, nextSibling.index);
+        continue;
+      }
+    }
+    pushSlot(draws, hiddenIndexes, index, slotMin, slotMax);
+  }
+  const clipTop = draws.reduce((max, draw) => Math.max(max, draw.clipBottom), 0);
+  return { draws, hiddenIndexes, clipTop };
 }
 
 function pushSlot(

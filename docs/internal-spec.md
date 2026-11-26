@@ -1,6 +1,6 @@
 # 内部仕様
 
-開発者が構成と処理の流れを追うための文書である。正本はソースコードで、この文書と食い違ったときはコードに合わせる。画面の挙動は [外部仕様](external-spec.md)、ファイルの形は [データ仕様](data-format.md) にある。
+開発者が構成と処理の流れを追うための文書である。正本はソースコードで、この文書と食い違ったときはコードに合わせる。画面の挙動は [外部仕様](external-spec.md)、ファイルの形は [データ仕様](data-format.md)、仕様を足すときの影響は [機能チェックリスト](feature-checklist.md) にある。
 
 ## 全体構成
 
@@ -27,17 +27,45 @@ flowchart TD
 | `src/components/` | ツールバー、サイドバー、タイムライン、各ダイアログ |
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
-| `src/sample/` | 起動時のサンプル |
+| `src/sample/` | 起動時のサンプル。同梱テンプレートの日付を `SAMPLE_REFERENCE_TODAY` から開いた日までの暦日差だけずらす（`anchorSampleSchedule`）。`App.tsx` は起動時の `todayIso()` で一度だけ載せ、`useToday` が日付変更で更新してもサンプル JSON は作り直さない |
 | `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
 | `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
-| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、送り先 webview への `mcp-screen-request`。`open_windows` は Rust だけで一覧を返す |
+| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、送り先 webview への `mcp-screen-request`。`open_windows` は Rust だけで一覧を返す。`focus_window` と `minimize_window` も Rust だけで前面操作する |
+| `src-tauri/src/mcp_tool_names.rs` | MCP と `--screen` で共通のツール名と、`--window` 拒否文 |
 | `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める。Windows の名前付きパイプ名も組み立てる |
 | `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期、操作マニュアルの GitHub Pages 用サイトビルド |
 | `docs/*.schema.json` | JSON Schema の正本 |
-| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビュー、`review-implementation` は計画を実装したあとのレビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar`、`write-workspace` は他のリポジトリへコピーして使う |
+| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビュー、`review-implementation` は計画を実装したあとのレビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields` は他のリポジトリへコピーして使う |
 
-依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。
+依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。`hooks` は `components` を import しない（Issue #490 PR 1 で ESLint が検査する）。
+
+### 段 8 の自動検査（Issue #490 PR 1）
+
+| コマンド | 内容 | CI |
+| --- | --- | --- |
+| `npm run check:mcp-tool-names` | `src/model/mcpToolNames.ts` と `src-tauri/src/mcp_tool_names.rs` のツール名集合 | 失敗で止める |
+| `npm run check:madge-circular-baseline` | madge 循環と [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) の一致（`cycles: []` 可）。**CI frontend で必須。循環が 1 件でも増えたら失敗**。意図的に解消・再計測した PR では JSON を同じ変更で更新する | 失敗で止める |
+| `npm run lint` | `src/model/**` は hooks / components / operations を import しない。`src/hooks/**` は components を import しない | 失敗で止める |
+| `npm run check:architecture-warn` | jscpd の重複 clone。重複率の上限は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold`（循環 import は `check:madge-circular-baseline`） | 警告のみ。上限を超えてもジョブは失敗しない |
+| `npm run test:coverage` | Vitest の coverage。閾値は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds`。上げ方と緩和時の記載は [development.md](development.md) | 失敗で止める |
+
+## コードの境界（#436 ステップ 8）
+
+Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** は完了済みの履歴である。**この節が層・import・自動検査の正本**である。[AGENTS.md](../AGENTS.md) は 8 原則のみ（分析・作業記録は [agents-d0-inventory.md](agents-d0-inventory.md) §分析）。要約は [agents-agent-index.md](agents-agent-index.md)。リファクタ PR では挙動を変えない（不具合・audit・性能は Issue #491 など別 Issue）。各塊は特性テストを先に足して小 PR に分ける。
+
+| 層 | 置くもの | import してよい先 |
+| --- | --- | --- |
+| `src/operations/` | 操作 ID（`operationIds.ts`）、入口定義とラベル（`operationLabelLink.ts`）、パレット／☰／macOS ファイルメニューの dispatch（`dispatchPaletteCommand.ts`）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
+| `src/components/`、`App.tsx` | UI、Konva、ダイアログ。操作の**実行**は hooks のコールバック | `operations`（定義）、`hooks`、`model` |
+| `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
+| `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |
+
+操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査: `check:mcp-tool-names`、`check:operation-entries`（P-CI-06、段階2。`operationEntryCatalog.ts` と `operationEntryCoverage.mjs` で主表の列とソース由来カタログを照合）、import 境界（`lint`）、循環（`check:madge-circular-baseline`）。
+
+段 8 の実装順序（**C0–C4**、**T0–T5**、**M0–M3b**、Toolbar/FilterPanel、hooks 循環解消）は **完了済み**（Issue #490 段 8 コード整理）。手順の履歴と madge 解消の記録は [model-circular-import-plan.md](model-circular-import-plan.md)。エージェント向け文書の **D0（#525）・D1（#526）・D2（#527）** も完了済み（[agents-d0-inventory.md](agents-d0-inventory.md) §4）。**Issue #553** では、相談モード本文の遅延読み込み（PR #586）、エージェント向け文書の相対リンク・`SKILL.md` の frontmatter・`alwaysApply` と `AGENTS.md` のバイト数ガード（項目7）、品質ゲート数値の正本参照（項目2）、implement-change の再発防止（検査優先、項目8）、段階ログ用実行記録の整形（項目5、PR #588）、読むだけレビュー役（項目4）、implement-change の入口＋references 分割（項目3、PR #592）、項目6（`beforeShellExecution`、PR #591）、implement-change 条項マッピング表（PR #594）が **feature-436 上で** マージ済みである。#553 全体の完了とは書かない。**残り**は段階ログの実践と、P-CI-06 段階2の未照合セル解消である（`check:operation-entries` は **PR #595** でマージ済み。未照合セルはチェッカーが列挙し続け、全列の機械照合が終わるまでは #553 も P-CI-06 も完了にしない）。
+
+**以前の目安順序（履歴）:** カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環 0 件。詳細な PR 分解表は git 履歴上の internal-spec または Issue #490 を参照。
 
 ## モジュール一覧
 
@@ -46,24 +74,52 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
-| `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
-| `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める |
+| `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニューの枠。項目の組み立ては `src/operations/contextMenuItems.tsx`（操作 ID は `operationIds.ts`、ラベルは `operationLabelLink.ts`）。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
+| `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。`fields` があるときは追加項目を `setTaskFieldValue` で1キーずつ更新する。必須で値が空のときだけラベルに「空欄」を付ける。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める。日付のカレンダーへフォーカスが移っても、パネル内の編集として扱う。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、ステータスの直後に `ColorSelectField` で「色」を出す。一覧にある色は名前の左に小さな角丸の四角で示す |
+| `DateInput.tsx` | 日付欄。カレンダーは欄の下に空きが足りないとき上に開き、`datePopover.ts` が `anchoredMenu.ts` の `menuShiftForRect` で画面内に収める |
+| `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、一括用の `ColorSelectField` で「色」を出す |
 | `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
 | `DiffStrip.tsx` | チャート右の差分列。畳んだ取っ手と、開いた変更の一覧。空の結果だけ閉じる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分列を開く |
 | `Toolbar.tsx` | `ScheduleToolbarTitle`、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
-| `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集。パレットの要求番号だけで編集を始める |
+| `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集、鉛筆の右の EDIT-21「階層編集」入口。パレットの要求番号だけで編集を始める |
+| `HierarchyLevelsDialog.tsx` | EDIT-21。段ごとの名前・意味・指示、見出し段の上下と削除、段の追加、不一致時の alert、閉じるで `useSchedule.commitLevelDefinitions` |
+| `FieldExtensionEditorOverlay.tsx` | SET-10。主画面の覆い。拡張 JSON の定義を `fieldDefinitionEdit.ts` の下書きで直し、保存で拡張ファイルだけを上書きする |
+| `CatalogEditorOverlay.tsx` | SET-02 / SET-08 / SET-09 の覆いの共通 DOM。`catalogEditorCopy` と render prop で各 Panel を載せる |
+| `CatalogEditorPanelFooter.tsx` | 三種 Panel 共通のフッター（足す・保存・編集を戻す・JSON を書き出す） |
+| `SettingsCatalogSection.tsx` | SET-02 / SET-08 / SET-09 の設定節共通 UI。取り込み、一覧の選択と外す、上書き確認、項目を編集の入口 |
+| `SettingsColorsSection.tsx` | SET-09。`SettingsCatalogSection` に色の説明と `validateColors` を渡す |
+| `SettingsMembersSection.tsx` | SET-02。`SettingsCatalogSection` にメンバー用の説明と `validateMembers` を渡す |
+| `SettingsStatusesSection.tsx` | SET-08。`SettingsCatalogSection` にステータス用の説明と `validateStatuses` を渡す |
+| `MemberCatalogEditorOverlay.tsx` | SET-02。`CatalogEditorOverlay` に `memberCatalogEditorCopy` と `MemberCatalogEditorPanel` を渡す |
+| `MemberCatalogEditorPanel.tsx` | 覆いの一覧と右欄。削除確認などは覆いが持つ |
+| `FieldDefinitionEditorPanel.tsx` | 覆いの一覧と右欄。削除確認は覆いが持つ |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
-| `FilterPanel.tsx` | 絞り込みの選択欄。タグとマイルストンは候補を絞る入力欄 |
+| `FilterPanel.tsx` | 絞り込みの選択欄。欄が窓に収まらないときはパネル内だけ縦スクロールする。タグ、マイルストン、追加項目は候補を絞る入力欄で、候補一覧は `body` に固定配置する。`fields` があるときは `FilterFieldFiltersSection` で、選んだ追加項目だけ条件行を出す |
 | `GuideDialog.tsx` | 操作の案内（`guideContent.ts` の文） |
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
-| `Sidebar.tsx` | 左の行、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊 |
-| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
+| `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊。説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
+| `Timeline.tsx` | チャート全体の配線（T5 後おおよそ 738 行）。日付ヘッダー Stage は `TimelineHeaderPanel`、本体 Konva Stage は `TimelineChartBodyStage`。ポインターの当たりは `useTimelinePointer`。親バー・タスクバー・選択時リサイズは T2。ドラッグ日付チップ・前後の線・接続アーク・系統プレビューと pan／系統ジェスチャは T3。説明は T4（各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`、吹き出しは `TimelineExplanationBalloons.tsx`）。背景・固定親行・イナズマ・本体ガイド・スペース pan・マイルストンホバーは T5 |
+| `TimelineChartBodyStage.tsx` | チャート本体の Konva `Stage` と Layer 束（T5） |
+| `TimelineBodyBackground.tsx` | `buildTimelineBodyBackgroundContent` — 行の色塗り・グリッド・横罫（T5） |
+| `TimelineStickyParentRows.tsx` | `buildTimelineStickyParentRowContent` — スクロール固定の親行（T5） |
+| `TimelineHeaderPanel.tsx` | チャート上部の日付ヘッダー Stage（T1）。`buildTimelineChartHeaderContent` の Layer と説明ベール |
+| `TimelineChartHeaderContent.tsx` | `buildTimelineChartHeaderContent` — 日・週・月ヘッダーの Konva ノード（T1） |
+| `TimelineBodyGrid.tsx` | `buildTimelineBodyColumnNodes` — チャート本体と固定行の背景グリッド（T1） |
+| `TimelineSummaryBar.tsx` | カテゴリ・グループ・見出し行の親バー（T2） |
+| `TimelineTaskBar.tsx` | タスクバーの Konva（移動・未選択時の端ドラッグ・ラベル・系統モードの押下）（T2） |
+| `TimelineResizeHandles.tsx` | 選択タスクの見えるリサイズハンドル（T2） |
+| `timelineBarResizeHit.ts` | 端ドラッグ用の Konva `hitFunc` とクリック伝播止め（T2） |
+| `TimelineDragDateLabels.tsx` | 棒ドラッグ中の開始・終了日チップ（T3） |
+| `TimelineConnectionLinks.tsx` | 前後関係の矢印と系統プレビュー矢印（T3） |
+| `TimelineConnectionArcs.tsx` | タスク間接続アークとラベル（T3） |
+| `TimelineBodyExplanationLayers.tsx` | 本体 Stage 内の説明ベール・試し棒 Layer（T4） |
+| `TimelineMilestoneExplanationBalloons.tsx` | マイルストン帯上の説明吹き出し DOM（T4） |
+| `ExplanationKonvaVeilLayer.tsx` | 説明セッションの Konva ベールと抜き。日付ヘッダー、マイルストン帯、チャート本体の Stage に載せる。MCP 読み取り PNG では `explanationKonvaCapture.ts` 経由で Layer を一時的に隠す |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
-| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
+| `ModalDialog.tsx` | 共通の枠。見出し右に × の閉じる（読み上げ名「閉じる」、ツールチップ Esc）。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
 | `TaskNoteButton.tsx` | ノートの有無で色を分けるボタン |
 
 ### フック
@@ -72,44 +128,64 @@ flowchart TD
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー |
+| `useSchedule` | `useSchedule` が文書 React 状態と表示用フックを組み立てる。編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー、`visibleRows`（文書の行）と `displayVisibleRows`（試しの新規タスク行だけ `buildDisplayVisibleRowsWithExplanationTrials` で挿した画面用の行）。書き出し・保存・差分・並べ替えの確定は文書行だけを使う。選択・絞り込み・折りたたみ・系統・説明のための見え方と半透明は `src/hooks/schedule/useScheduleSelection.ts`、`useScheduleFilters.ts`、`useScheduleLineage.ts`、`useScheduleExplain.ts`。文書変更後の選択と系統 id の整理は `scheduleViewPrune.ts`。文書の確定（履歴付き `commitDocument`）、取り消し・やり直し、`replaceScheduleDocument`・`applyMergedDocument`・`replaceDocument`・`reloadDocumentFromDisk` は `useScheduleDocumentCommit.ts` |
+| `useScheduleDocumentCommit` | `documentRef`、履歴、`commitDocument` / `commitCategories` / `commitMilestones`、canonical JSON、MCP 置換、マージ反映、別ファイルへの置換、ディスク再読み込み、取り消し・やり直し。React の setter は `useSchedule` から渡す bridge で更新する |
+| `useScheduleSelection` | `taskSelection` と `selectTask` / `selectTaskWithClick` / `selectTaskFromContextMenu` / `navigateTaskSelection` / `clearSelection` |
+| `useScheduleFilters` | 絞り込み、`searchField`、折りたたみ、マイルストン帯の非表示 id、フィルタ永続化の `setFilterViewState` / `getFilterViewState` / `applyPartialFilterViewState`、担当者候補、タグと追加項目条件の整理 effect。折りたたみの永続化反映で階層キーを残す処理は `scheduleFilterViewApply.ts` |
+| `useScheduleLineage` | 系統の表示対象 id、`lineageIds`、`toggleLineage` / `showLineage` / `showLineageWithConnections` / `clearLineage`。トグル遷移は `scheduleLineageToggle.ts` |
+| `useScheduleExplain` | `explanationView` と `explanationOverlay`、`clearExplanationSession`、`runExplainViewAction` / `runExplainOverlayAction`。利用者の見方変更で説明を片付ける判定は `scheduleExplainSession.ts` |
 | `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
 | `useScheduleFile` | パス、未保存の基準、開く、履歴から開く、ドロップで開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useRecentFiles` | `recent-files.json` の読み直しと消去。ウィンドウが前面になったときも読み直す |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
-| `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts` |
+| `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts`。クライアント座標のオフセットは `clientOffsetInRect`（T0）。線ジェスチャのバー当たりも同じオフセット |
+| `useTimelineDragDates` | 棒ドラッグ中の日付チップ用プレビュー列と障害矩形（T3） |
+| `useTimelineChartPan` | チャート本体のマウスパン（T3） |
+| `useTimelineLinkGesture` | 系統モードの押下・スクロール・対象クリック（T3）。`resolveLinkModeGesture` と `shouldFireTimelineLinkPointerClick` を使う |
+| `useTimelineExplanationLayers` | 説明オーバーレイの幾何、試しマイルストン／棒／前後アーク、MCP 用 liveAnchors ref の同期（T4） |
+| `useTimelineSpacePanArm` | スペースキーでチャート pan を中ボタン相当として扱う（T5） |
+| `useTimelineMilestoneHover` | マイルストン帯ホバーから本体上のラベル用 state（T5） |
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
+| `useCatalogEditorOverlayCore` | SET-02 / SET-08 / SET-09 の覆いに共通する編集セッション。開閉、世代番号、claim の待ち合わせ、破棄確認、設定ファイルモードの同期、外部取り込み・外しへの反応。種別差は呼び出し側の設定で渡す |
+| `useMemberCatalogEditorOverlay` | SET-02 の覆い。`useCatalogEditorOverlayCore` にメンバー用の read・claim・`write_members_at_path`・`overlayReactionToMemberCatalogChange` を渡す |
+| `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
+| `useStatusCatalogEditorOverlay` | SET-08 の覆い。`useCatalogEditorOverlayCore` にステータス用の read・claim・`write_statuses_at_path`・`overlayReactionToCatalogChange` を渡す |
+| `useColorCatalogEditorOverlay` | SET-09 の覆い。`useCatalogEditorOverlayCore` に色の一覧用の read・claim・`write_colors_at_path`・`overlayReactionToColorCatalogChange` を渡す |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる（`window` は橋渡しで外れる）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールと前面向け操作ツールを組み立てる。操作ツールは `assessMcpOperationGate` と `mcpActionExecutor` を通す（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、使用中のメンバー `mcpMembers`（`displayMembers`）、追加項目定義 `fields`、見方 `view`（折りたたみ集合、`explanation`、 `visible` の日付と行、表示サイズ、行の密度、イナズマ線、追加列、配色、カレンダー）とタスクの `visibility` を `screenContext` に渡す。`explain_view` は `explainView.ts` で検証し（タスク id、マイルストン帯の行 id、星 id、`resolveExplanationMilestoneBand`）、`useSchedule.runExplainViewAction` で `explanationView` を更新し、帯レイアウトは `milestonesForBandLayout` と `visibleMilestoneGroupIds` に載せる。`explain_overlay` は `explainOverlay.ts` で検証し（各印の任意 `color` は `#rgb` / `#rrggbb` のみ）、`explainOverlayLayout.ts` で印の吹き出しとスクロールを計算し、`taskBarLayout.ts` の棒矩形を抜きに使い、`explanationMarkColor.ts` で色の正規化と枠の下敷きを決め、`useSchedule.runExplainOverlayAction` で `explanationOverlay`（半透明、`summary`、`marks`、`patterns`）を更新する。`ExplanationKonvaVeilLayer.tsx` が Konva でベールと抜きを描き、`ExplanationTrialBarsLayer.tsx` が試しの棒を描き、`ExplanationTrialMilestonesLayer.tsx` が試しの星を描き、`TimelineExplanationBalloons.tsx` が DOM で吹き出しを描く。読み取り 3 ツールは `captureMainForMcp.ts` が `data-explanation-overlay` を除いた `.main` を PNG にし、Konva の説明 Layer は取得前後で隠す。読み取りの `view.visible.rows` とチャート・左一覧は `App.tsx` の画面用行（試し行挿入後）を渡し、PNG 取得の直前だけ文書行に切り替え、同じ `try` / `finally` で必ず画面行へ戻す。`.main` の絵が取れないときも読み取り自体は成功とし、JSON の `screenCapture.message` に「今の画面の絵を取れませんでした。」または「絵が大きすぎるため、絵だけ渡せません。」を載せる。`apply_explanation_pattern` は `explainOverlayPatterns.ts` の `applyExplanationPatternToDocument` で `explanationOverlay.patterns` の1件を文書へ反映し、`mcpActionExecutor` から `replaceScheduleDocument` と `scheduleDiffLoad` で `edit_plan` と同じ差分を返す。成功時は試しの計画と半透明を消す。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
-| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
-| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
-| 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
+| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`taskTodos.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
+| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`timelineHeaderScrollAnchor.ts`（T1）、`timelineVisibleBarObstacles.ts`（T0）、`timelineDragCommit.ts`（T0）、`timelineLinkPointerClick.ts`（T0）、`mcpInProgressInvalidation.ts`（T0）、`summaryBarLayout.ts`（T2）、`timelineLiveAnchors.ts` / `timelineDragDatePreviews.ts` / `timelinePreparedConnectionArcs.ts` / `timelineLinkPolylines.ts` / `timelineLinkPreviewPoints.ts` / `connectionArcLabelFontSize.ts`（T3）、`timelineExplanationTrialIds.ts` / `timelineExplanationBandProps.ts` / `timelineExplainLiveAnchorsRef.ts`（T4）、`buildTimelineLightningPolyline` / `timelineDragDateChipMetrics` / `filterTimelineBodyGuideLineMilestones`（T5）、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
+| 担当とノート | `assigneeIds.ts`（JSON との変換と意味規則）、`assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffEntry.ts`、`diffNavigation.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
-| 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsLoad.ts` |
-| 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`） |
-| 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
+| 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsOutline.ts`（`levels` と `outline` の分類と合成）、`baselineDiffsLoad.ts` |
+| 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
+| 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`、`buildBaselineMergeConflictReview`。`collectScheduleDiffBlocks` と衝突一覧の追加項目に使用中の定義を渡す） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
+| MCP bridge の snap 写像 | `mcpScreenBridgeSnap.ts`（`McpScreenRequest`、`useMcpScreenBridge` が渡す snap から `screenContext` の読み取り用引数へ写す picker） |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`（バーの色を含む）、続けて `colors`、続けて `members`、続けて `fields`、続けて `view`（折りたたみ、`explanation`、表示サイズ、行の密度、イナズマ線、追加列、配色、稼働日カレンダー）。`view` の外側に、半透明が on のときだけ `explanationOverlay`（`translucent`、`summary`、各印と、色を付けた印だけ `color`、`visible`、任意の `patterns`）。`members` は `memberEntriesForMcp` で `id`・`name` と、空でないときだけ `description`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`explainView.ts`（`explain_view` の JSON と `explanationView`）、`explainOverlay.ts`（`explain_overlay` の JSON と `explanationOverlay`）、`explainOverlayPatterns.ts`（試しの計画の検証、棒矩形、文書への反映）、`explainOverlayLayout.ts`（吹き出し配置とスクロール）、`taskBarLayout.ts`（棒矩形）、`explanationKonvaCapture.ts`（PNG 用 Konva 非表示）、`captureMainForMcp.ts`（読み取り PNG から説明用 DOM と Konva を除く）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `catalogAppDataLoader.ts`（メンバー・ステータス・色の一覧の共通 loader。`memberAppData.ts`・`statusAppData.ts`・`colorAppData.ts` は parse・validate・claim/release と種別ごとの Tauri 呼び出し）、`catalogEditorCopy.ts`・`catalogEditorUi.ts`（カタログ編集覆いと Panel フッターの文言と UI 判定。C3）、`settingsCatalogSectionCopy.ts`（設定の色・メンバー・ステータス節の文言と UI フラグ。C4）、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
-| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
+| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |
+| 操作の正式名とツールバー略称 | `operationLabels.ts`（`OPERATION_FORMAL`、`TOOLBAR_SHORT`） |
+| ☰ と macOS ファイルメニューの共通行 | `appMenuStructure.ts`（`SHARED_FILE_MENU_ROWS`、`macMenuAccelerator`） |
+| コマンドパレット行のショートカット表示 | `commandPaletteShortcuts.ts` |
 | 操作の案内の文 | `guideContent.ts` |
 
 ## 状態
@@ -118,11 +194,11 @@ flowchart TD
 
 | 種類 | 中身 | 置く場所 | 残るか |
 | --- | --- | --- | --- |
-| 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストングループ、マイルストン | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
-| 表示 | 絞り込み、帯の線と帯の印の表示、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、帯の印、折りたたみはデスクトップ版でパスごとに `schedule-filters/`（`hiddenMilestoneGroupIds` と `hiddenMilestoneIds`）。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない。開いた直後はズームと一覧の縦位置を先頭へ戻す |
+| 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストングループ、マイルストン、任意の `levels` と `outline` | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
+| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、説明のための見え方（`explanationView`）と半透明（`explanationOverlay`）、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、折りたたみはデスクトップ版でパスごとに `schedule-filters/`。説明のための見え方と半透明はメモリだけで、次回起動には残さない。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない。開いた直後はズームと一覧の縦位置を先頭へ戻す |
 | ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/`。絞り込みはパスごとに `schedule-filters/` |
 
-取り消しのスナップショットに入るのは `title`、`categories`、`milestoneGroups`、`milestones` である。絞り込みなどの表示状態は履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。
+取り消しのスナップショットに入るのは `title`、`categories`、`milestoneGroups`、`milestones`、`levels`、`outline` である。絞り込みなどの表示状態は履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。
 
 表示の状態のうち、表示サイズ、配色、左一覧の基準幅、自動更新のオンオフは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。デスクトップ版では、同じオリジンの `storage` イベントと、メンバー・カレンダー変更時の revision イベントで、他のウィンドウが設定を読み直す。行の密度、イナズマ線、一覧の列も localStorage のままアプリで一つである。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
 
@@ -149,19 +225,15 @@ flowchart TD
   accept --> replace
 ```
 
-開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。
+開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。`fieldExtensions` はピン留め、`editableFieldExtension` は編集用として別に読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayStatuses` / `displayCalendar` / `displayColors` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。拡張項目はフロントが `read_field_extension_catalog` で読んだ本文の配列を渡し、Rust が `fieldExtensions` に相対パスを書く。各拡張は 2MB 上限である。
 
 ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
-
-デスクトップ版の Windows と Linux では、`open_schedule_file` の開くダイアログは、種類を JSON とスケジュールの二つにする。JSON では末尾が `.json` のファイルが選べる。スケジュールに切り替えると、`*.schedule.json` に合うファイルだけが一覧に出る。名前そのものの `schedule.json` は JSON の方に出る。`save_schedule_file` の保存ダイアログ（別名保存と、保存先が無いときの保存）も同じ二種類で、先頭の JSON が既定である。macOS では開くと保存のどちらも種類は JSON の一つである。
-
-メンバーとカレンダーの取り込みは、デスクトップ版だけ `pick_members_json_file` と `pick_calendar_json_file` を使う。Windows と Linux では、メンバーは `members.json` と JSON、カレンダーは `calendar.json` と JSON の二種類である。macOS では JSON の一つである。フィルタの組み立ては `src-tauri/src/file_dialog_filters.rs` に置く。
 
 FILE-08 はデスクトップ版だけが Tauri の `DragDrop` を受け、`useScheduleDropOpen` が `classifyDroppedSchedulePaths` と `scheduleDropBlockedReason` で仕分けと門を見る。門はファイル操作の確認ダイアログと、その時点で開いている `role="dialog"` も見る。1件の `.json` は `read_dropped_schedule_file` で読み、検証後に `accept_opened_schedule` と `replaceDocument` の既存経路で開く。WIN-04 は `schedule_drop.rs` が起動引数、macOS の `RunEvent::Opened`、`tauri-plugin-single-instance` の引数を `ExternalDropQueue` に載せる。`Opened` は macOS の `cfg` の中だけで参照する。2つ目のプロセスの引数は先頭の実行ファイルを除き、フォルダは件数に残す。キュー内の同じ束だけ重複を捨てる。全ウィンドウの起動復旧が `report_startup_settled` で揃い、復旧の確認ダイアログを閉じたあと `report_external_schedule_drop_ready` で揃ったときだけ `schedule-external-drop` を前面ウィンドウへ送る。待ちのあいだは拒否文を出さず、キューも進めない。ルートは `routeExternalScheduleDrop` が決め、同じ正規化パスなら `focus_schedule_window`、パス無し1枚ならそのウィンドウで開く、それ以外は `create_schedule_window` または `forward_schedule_external_drop` である。`ack_external_schedule_drop` は配りを受けたウィンドウだけが送る。ブラウザ版は `main.tsx` が `dragover` と `drop` で `preventDefault` するだけである。
 
 ### 保存
 
-`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。別名保存と、保存先が無いときの保存ダイアログは、FILE-03 と同じ種類である。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。確認の待ち時間にも保存は一つだけである。この直列化は `useScheduleSave` が持つ。書き込みは一時ファイルへ書いてから置き換える。
+`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。確認の待ち時間にも保存は一つだけである。この直列化は `useScheduleSave` が持つ。保存の前に `hierarchyLevelEdit.ts` の `assessHierarchySave` が、`levels` があるとき入れ子の深さと段数を見る。一致しないときはファイルを書かず、外部仕様の文言で知らせる。書き込みは一時ファイルへ書いてから置き換える。
 
 ### 外部更新
 
@@ -176,19 +248,21 @@ flowchart TD
   decide -->|confirm| ask[読み直すか画面の編集を残すか]
 ```
 
-判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
+判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。編集中の判定には、階層の編集ダイアログ（`hierarchyLevelsOpen`）と「繋がりを足す」ダイアログ（`connectionAddDialogOpen`）も含める。読み直しと「両方を画面へ反映」の前に、これらは確定せず閉じる。編集ダイアログを開いているあいだは、そのあいだに見た差を覚えておく。ダイアログを閉じたあとの監視が即時反映と返しても、`shouldKeepExternalReloadConfirmation` が確認のままにする。確認が開いているあいだの次の監視も即時反映にしない。同じ中身がもう一度見えても、「ファイルがもう一度更新されました」は出さない。確認のダイアログは、開いている編集ダイアログより前面（z-index 80）に出す。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
 
 ### 差分
 
-「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。`collectScheduleDiffEntries` は同じブロックに移動先を付け、一覧の行を押したときの寄せ先は `diffNavigation.ts` が決める。結果はチャート右の差分列の一覧に出す。コピー用の全文は `formatScheduleDiff` の文字列のままである。未保存で差があるあいだは、列は畳み、右端の取っ手だけ出す。☰ の「差分を表示」と状態バーの「未保存」は列を開く。列の開閉は `App` の `diffPanelExpanded` で持ち、ファイルには書かない。列が消えたら開閉も忘れる。開いたあとの自動読み直しは開いたまま、畳んだあとは畳んだまま、一覧だけ更新する。一覧にフォーカスがあるあいだは、`appKeyboard.ts` の `decideAppKey` がガント向けのキーを止める。一覧の札と名前と場所は `collectScheduleDiffEntries` がブロックごとに付ける。縦の寄せは `scrollYToShowSelectedTask` を使い、見えている行では `scrollY` を変えない。マイルストンの印は `diffNavigationMark.chartMilestoneId` を `MilestoneBand` が、帯の行の印は `diffNavigationMark.milestoneGroupId` を `Sidebar` が描く。寄せた行の印は `App` の `diffNavigationMark` で持ち、タスクの選択とは別である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と列に出す。検証に失敗したときは列に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。⌘ または Ctrl+Shift+D は列を開かず全文を写す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。未保存かどうかの基準 JSON（`useScheduleFile` の `currentJson`）も保存形式と同じく `connections` を含む。右端の差分列の自動読み直しは、この JSON が変わったときに走る。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。`collectScheduleDiffEntries` は同じブロックに移動先を付け、一覧の行を押したときの寄せ先は `diffNavigation.ts` が決める。結果はチャート右の差分列の一覧に出す。コピー用の全文は `formatScheduleDiff` の文字列のままである。未保存で差があるあいだは、列は畳み、右端の取っ手だけ出す。☰ の「差分を表示」と状態バーの「未保存」は列を開く。列の開閉は `App` の `diffPanelExpanded` で持ち、ファイルには書かない。列が消えたら開閉も忘れる。開いたあとの自動読み直しは開いたまま、畳んだあとは畳んだまま、一覧だけ更新する。差分列の一覧にフォーカスがあるあいだの本文の差し替えは、`diffStripVisibility.ts` の `shouldDeferBodyUpdate` が、自動の読み直しだけ後回しにする。☰ の「差分を表示」と状態バーの「未保存」は明示の読み直しなので、フォーカス中でも新しい結果をすぐ出す。明示で本文を確定したとき、および明示の読み直しで本文が変わらず早期 return したときは、`App` の `pendingDiffBodyRef` と `pendingDiffEntriesRef` を空にし、古い自動の保留がフォーカス外れで戻らないようにする。フォーカスが外れたとき、保留していた自動の結果だけを反映する。一覧にフォーカスがあるあいだは、`appKeyboard.ts` の `decideAppKey` がガント向けのキーを止める。一覧の札と名前と場所は `collectScheduleDiffEntries` がブロックごとに付ける。縦の寄せは `scrollYToShowSelectedTask` を使い、見えている行では `scrollY` を変えない。マイルストンの印は `diffNavigationMark.chartMilestoneId` を `MilestoneBand` が、帯の行の印は `diffNavigationMark.milestoneGroupId` を `Sidebar` が描く。寄せた行の印は `App` の `diffNavigationMark` で持ち、タスクの選択とは別である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と列に出す。検証に失敗したときは列に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。⌘ または Ctrl+Shift+D は列を開かず全文を写す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+
+タスクの担当は、メモリ上は `assigneeIds`（空配列が未割当）で持ち、JSON では `assigneeId` に `null`、1人の文字列、2人以上の配列として書く。読み込みは `assigneeIds.ts` で正規化する。差分と衝突の比較は `assigneeIdsEqual` で順番まで見る。差分の1行は `assigneeId` の前後で、空は `null`、複数 id は「, 」区切りである。画面とファイルの id を和集合にしない。外部更新の非衝突合成のあと `documentToJson` 経由で検証するときは、メモリ上の空の `assigneeIds` を未割当として通し、JSON の `assigneeId` の空配列だけを拒む。
 
 ### 前回のファイルと控え
 
-開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
+開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。設定ファイルで開いたウィンドウは、同じスケジュールパスを記録し直すとき（起動復旧の `accept_opened_schedule` と上書き保存）に `workspacePath` を残す。スケジュール JSON を直接開いたとき、別名保存で保存先が変わったときは外す。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
 
-絞り込みは `useScheduleFilterPersistence` が、前面のウィンドウだけから約1秒後に `write_schedule_filter` を呼ぶ。初期値なら `delete_schedule_filter` する。閉じるときと終了・更新前の控えの書き込みと同じタイミングで、待たずに書く。書き手の決め方は控えと同じ `recovery_live_action` と `recovery_close_action` で、未保存の代わりに初期値でないかを渡す。起動で文書を載せたあと、`read_schedule_filter` で読み、`scheduleFilterPersistence.ts` で検証して `useSchedule` の表示状態へ入れる。戻すときに無くなった参照を外すのは、いま載せた文書のカテゴリ、グループ、マイルストン、マイルストングループを使う。React の state がまだ前の文書のとき、画面の `pruneContext` だけに頼らない。メンバー一覧の初回読み込みが終わるまで、戻す処理では担当者を外さない。編集中にカテゴリやグループを消したあとも、折りたたみの id は画面の集合からは外さない。次回起動の戻しだけ、文書に無い id を外す。書き込みを止めているあいだに戻した組は、その組をそのまま書く。`replaceDocument` が初期値に戻した直後の `getFilterViewState` で消さない。メンバー一覧の初回読み込みが終わるまで、担当者の参照を外す effect は動かない。パスを替えたときは `release_schedule_filter` で後始末する。
+絞り込みは `useScheduleFilterPersistence` が、前面のウィンドウだけから約1秒後に `write_schedule_filter` を呼ぶ。初期値なら `delete_schedule_filter` する。閉じるときと終了・更新前の控えの書き込みと同じタイミングで、待たずに書く。書き手の決め方は控えと同じ `recovery_live_action` と `recovery_close_action` で、未保存の代わりに初期値でないかを渡す。起動で文書を載せたあと、`read_schedule_filter` で読み、`scheduleFilterPersistence.ts` で検証して `useSchedule` の表示状態へ入れる。戻すときに無くなった参照を外すのは、いま載せた文書のカテゴリ、グループ、マイルストン、マイルストングループを使う。React の state がまだ前の文書のとき、画面の `pruneContext` だけに頼らない。絞り込みを変えたあと画面の `pruneContext` で整理するときも、いまの文書の追加項目の定義を含める。含めないと、効いている追加項目の条件は定義が無いものとして外される。メンバー一覧の初回読み込みが終わるまで、戻す処理では担当者を外さない。編集中にカテゴリやグループを消したあとも、折りたたみの id は画面の集合からは外さない。次回起動の戻しだけ、文書に無い id を外す。書き込みを止めているあいだに戻した組は、その組をそのまま書く。`replaceDocument` が初期値に戻した直後の `getFilterViewState` で消さない。メンバー一覧の初回読み込みが終わるまで、担当者の参照を外す effect は動かない。パスを替えたときは `release_schedule_filter` で後始末する。
 
-起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルか、`transientMain`（記録に `main` が無く、起動直後に閉じるだけの `main`）を返す。`transientMain` のウィンドウは、中身を描かず起動のロックだけ解く。それ以外のデスクトップ版では、`startupContentReady` が false のあいだ、ツールバーと一覧とチャートの枠だけを出し、タスク、マイルストン、日付の目盛り、見出しの題名、状態バーのファイル名と保存状態、件数は出さない。`decideRecoveryStartup` の結果に応じて文書を置くか、知らせを出すか、競合のあいだは中身を空のままにする。文書と知らせと `startupContentReady` を true にする更新は、同じ同期処理に置く。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、文書と警告を同じ描画で出す。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。そのあと起動の世代が変わっていたら、文書は置き換えない。
+起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから記録用コマンドを呼ぶ。起動復旧でスケジュールだけを載せるときは `accept_opened_schedule` とし、`preserveWorkspaceBinding` を true にして同じスケジュールパスなら既存の `workspacePath` を残す。スケジュール JSON を直接開くときは false にする。追加ウィンドウの pending に `workspacePath` があるときは、束縛を戻したあと `accept_opened_workspace` で `workspacePath` を初めて書き、履歴は設定ファイルだけを足す。束縛を戻せないときは記録用コマンドを呼ばず pending だけ確定する。pending に `workspacePath` が無いときだけ `accept_opened_schedule`（`preserveWorkspaceBinding` false）とスケジュール履歴を使う。そのあと起動の世代が変わっていたら、文書は置き換えない。
 
 ### 別ウィンドウ
 
@@ -196,17 +270,17 @@ flowchart TD
 
 設定ダイアログの下に出す今の版は、デスクトップ版では `@tauri-apps/api/app` の `getVersion`（権限 `core:app:allow-version`）を、ブラウザ版では `package.json` の `version` を、設定を初めて開いたときに 1 回だけ読む。整形した 1 行は [src/components/SettingsDialog.tsx](../src/components/SettingsDialog.tsx) のモジュール内に残し、閉じたあとも取り直さない。新しい Tauri 命令は足さない。
 
-`create_schedule_window` は async コマンドで、検証済みの内容を pending に載せたあと `run_on_main_thread` で WebView を作り、成功したあとだけ `open-windows.json` に足す。呼び出し元がメインスレッドのときは、作成の待ちを別スレッドで行う。作れなかったときは pending だけ戻す。起動時の追加分は `spawn_startup_windows` が同じビルダーで作る。記録に `main` が無く他のラベルだけがあるときは、設定で作った空の `main` を起動直後に閉じる。複数ウィンドウのうち1枚を閉じたあと、別のウィンドウが残るときは `unregister_window_session` と `WindowEvent::Destroyed` のどちらかで一覧からそのラベルを外す。前面ラベルはウィンドウの `Focused` と `register_window_focus` で更新し、起動時にフロントが無条件で前面を書くことはしない。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出し、スケジュール用のパス引数があれば `ExternalDropQueue` に載せる。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。macOS の `RunEvent::Opened` も同じキューへ入れ、同一バッチの重複は捨てる。
+`create_schedule_window` は async コマンドで、ウィンドウセッションの Mutex を一度だけ取り、`reserve_next_schedule_window_open` でラベル選定と pending 予約を同じ臨界区間で行ったあと `run_on_main_thread` で WebView を作り、成功したあとだけ `open-windows.json` に足す。呼び出し元がメインスレッドのときは、作成の待ちを別スレッドで行う。作れなかったときは pending だけ戻す。起動時の追加分は `spawn_startup_windows` が同じビルダーで作る。記録に `main` が無く他のラベルだけがあるときは、設定で作った空の `main` を起動直後に閉じる。複数ウィンドウのうち1枚を閉じたあと、別のウィンドウが残るときは `unregister_window_session` と `WindowEvent::Destroyed` のどちらかで一覧からそのラベルを外す。前面ラベルはウィンドウの `Focused` と `register_window_focus` で更新し、起動時にフロントが無条件で前面を書くことはしない。`spawn_startup_windows` は `setup` の中で動き、作った窓はイベントループが回り始めてから表示や WebView の初期化で OS のフォーカスを取る。このため、記録の前面以外の窓は `focused(false)` で作り、`WindowSessionState.startup_focus_hold` に記録の前面を置く。保留のあいだは、記録の前面以外のラベルへの `Focused` と `register_window_focus` では前面ラベルを書かない（判定は `startup_focus_hold_blocks`）。保留は、`report_startup_settled` で全窓が揃ったとき（その窓へ `set_focus` し直し、前面ラベルを書く）、`create_schedule_window` か `focus_schedule_window` で明示に前面を変えたとき、保留の対象の窓が Destroyed になったとき、30 秒（`STARTUP_FOCUS_HOLD_LIMIT`）を過ぎたとき、のいずれかで外れる。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。本番のフロントは `schedule-pending-open` を listen せず、マウント時の `useScheduleStartupRecovery` が peek で取り、自ラベルと一致するときだけ pending を適用する（Rust が `schedule-pending-open` を送る経路は残っていても、本番 UI はそれに依存しない）。pending に設定ファイルのパスがあるときは、通常起動と同じく束縛を戻してからスケジュールを載せる。束縛を戻せないときはスケジュールは載せず、起動時と同じ設定エラーを出す。設定ファイルで開いたときは履歴に設定ファイルだけを足す。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出し、スケジュール用のパス引数があれば `ExternalDropQueue` に載せる。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。macOS の `RunEvent::Opened` も同じキューへ入れ、同一バッチの重複は捨てる。
 
 起動時の `setup` は、`mcp_app_data::migrate_legacy_app_data_if_needed` で旧 identifier のアプリデータを移してから `app_data_dir` を使う。Microsoft Store の MSIX かどうかは [src-tauri/src/store_distribution.rs](../src-tauri/src/store_distribution.rs) の `is_store_distribution`（Tauri 命令 `is_store_distribution`）で見る。Store 版では起動時の自動更新確認を Rust 側で始めない。
 
-MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\io.github.shkobayashi.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始める。`open_windows` は `window_session::build_mcp_open_windows_list` で生きている webview の一覧だけを返し、webview へ回さない。それ以外の読み取りは、`window` 引数が無いとき記録の前面、OS の前面、直近の前面順の順でラベルを決め、あるときはそのラベルの生きている webview へ `mcp-screen-request` を送る。読み取り 5 つだけ、webview へ渡す直前に `window` を引数から外す。`replace_schedule` の引数に `window` キーがあるときは webview へ送らず失敗する。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen` は `screen_cli.rs` が `--screen <tool>` または読み取り 5 つに `--window <label>` を解析する。`--screen replace_schedule` は標準入力の JSON を読み、10MB を超えたら待ち受けへ送らない。Store 版の `get_executable_path` と read-screen スキルは `schedule-viewer.exe` の実行エイリアスを書き、WindowsApps 配下の絶対パスは書かない。
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。接続ごとに処理を分け、1 件の応答を待つあいだも次の接続を受け付ける。Windows は `\\.\pipe\io.github.shkobayashi.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは 5 秒（`MCP_PIPE_CONNECT_TIMEOUT`）まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始める。`open_windows` は `window_session::build_mcp_open_windows_list` で生きている webview の一覧だけを返し、webview へ回さない。それ以外の読み取りは、`window` 引数が無いとき記録の前面、OS の前面、直近の前面順の順でラベルを決め、あるときはそのラベルの生きている webview へ `mcp-screen-request` を送る。Unix では待ち受けがワーカースレッドなので、`mcp-screen-request` の emit は `run_on_main_thread` でメインスレッドに載せる。読み取り 6 つだけ、webview へ渡す直前に `window` を引数から外す。`replace_schedule` の引数に `window` キーがあるときは webview へ送らず失敗する。各ウィンドウは自ラベルのイベントだけを受ける。`useMcpScreenBridge` は `mcp-screen-request` の listen が解決したあとに `mcp_screen_listener_ready` を呼び、待ち受けはそのラベルを受け口ありとして覚える（Destroyed で外す）。待ち受けは emit の前に、送り先の受け口ができるまで `RESPONSE_TIMEOUT`（15 秒）まで待つ。間に合わなければ応答が無いときと同じ扱いにする。起動直後に listen の登録より先に emit して要求を落とさないためである。listen の解決前にクリーンアップが走ったときは、解決した時点で外す（StrictMode の再マウントで受け口が 2 つ残り、1 つの要求を 2 回処理しないため）。応答は `mcp_reply` で返し、`mcp_reply` の待ちも `RESPONSE_TIMEOUT` までとする。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 6 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、`current_schedule` は確定済み文書の canonical JSON（`getCanonicalJson`、なければ `scheduleCurrentJson`）を返し、画面とファイルは変えない。`edit_plan` は同じ canonical JSON を `parseScheduleText` で読み直した文書に対して適用し、outline 保存のときは categories を空にしてから削除や移動を行う。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`tools/list` の `current_schedule` と `replace_schedule` の説明には、ルート `connections` の読み書き規則を載せ、`write-schedule` と `read-screen` と同じ文言に揃える。`--screen` は `screen_cli.rs` が `--screen <tool>` または読み取り 6 つに `--window <label>` を解析する。`--screen replace_schedule` は標準入力の JSON を読み、10MB を超えたら待ち受けへ送らない。Store 版の `get_executable_path` と read-screen スキルは `schedule-viewer.exe` の実行エイリアスを書き、WindowsApps 配下の絶対パスは書かない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
 ### 書き出し
 
-`exportView.ts` が見える行からマイルストンと期間を決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `excelExportColumns.ts` が左の列の選び方を localStorage で持ち、`exportExcel.ts` がペイロードを組み立てる。Excel の色は `paletteFor("light")` で決まり、書き出し入力の `colorScheme` は Excel の色に使わない。HTML と SVG は同じ入力の `colorScheme` を使う。日付列は `excelTimeColumns.ts`、シートの休日色と罫線色は `excelSheetColors.ts`、日付列の縦罫線の色は `excelDateColumnBorder.ts`、タスクバーの位置と色は `excelBar.ts`、親バーの区間・点線・角は `excelSummaryBar.ts`、前後の種類と色と折れ位置は `excelConnector.ts`、イナズマ線は `excelLightning.ts`、マイルストンの日付セルの文字列とグループ名は `excelMilestone.ts` が決める。行ごとの名前の字下げ・太さ・文字色と、カテゴリ行の左列だけの塗りは payload の `rows` に載せる。本文の行高と日付列の幅は payload の `bodyRowHeightPx` と `dateColumnWidthPx` に載せ、見出し行の高さは `headerRowHeightPx` に載せる（日付列が 96px 以上なら 28、未満なら 22。本文の `bodyRowHeightPx` とは別である）。週・月のバーと線は等幅の列のうち期間に対する割合で置く。前後は payload の `connectors` に載せ、先行バー図形の右中央（接続点 3）から後続バー図形の左中央（接続点 1）へ、カギ線または直線の矢印コネクタでつなぐ。イナズマ線は payload の `todayLine` で、本文の上端から下端までの縦線 1 本を線の幅で描く。`export_xlsx.rs` が `rust_xlsxwriter` でブックとタスクバーなどのテキストボックスを作り、列幅と先頭文・マイルストン行の結合（罫線なし）、見出しと本文の左の表の罫線と日付列の縦罫線、日表示の休日の日付セルの塗り、カテゴリ行の左列だけの塗りを書く。画面の格子は出さない。図形の幅と高さは、5px 未満の辺を 5px に繰り上げてから渡す。それ未満を渡すとライブラリは既定の 192×120 になる。コネクタ、今日の縦線、親バーの点線と角は `excel_drawing_patch.rs` が `xl/drawings/drawing1.xml` に足す。親バーの点線と角の `twoCellAnchor` は、日付列の幅 `dateColumnWidthPx` で列を進めて終端を決める。追加図形の `cNvPr` の id は、ライブラリが書いた図形の id の次（`shapes.len() + 2` から）を使う。スナップの縦の通算は payload の `bodyRowHeightPx` を使う。コネクタの `twoCellAnchor` は、先行の右辺の中央と後続の左辺の中央を対角にした箱で、後続の位置に合わせて `flipH` と `flipV` を付ける。図形数の上限にはバー、コネクタ、今日の縦線、親バーの点線と角を合わせて数える。デスクトップ版だけ `save_excel_export` で保存する。書き出しの XML 契約は Rust のテストが実ブックを読んで確かめる。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
+`exportView.ts` が見える行からマイルストンと期間を決める。画面の前後の線と Excel の先行列の名前は、`hierarchy.ts` の `collectTasksFromDocument` で文書（`categories` または `outline`）から集めたタスクを使い、`dependencies.ts` の `visibleLinksFromTasks` が見えている行のリンクを決める。HTML と SVG は `exportHtml.ts` が組み立て、前後の折れ線だけを SVG に載せ、前後ではない繋がりは載せない。デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `excelExportColumns.ts` が左の列の選び方を localStorage で持ち、`exportExcel.ts` がペイロードを組み立てる。色の一覧で塗るタスク行の地は `excelRowFillForColorId` で常に `light.bg` にする。日付列は `excelTimeColumns.ts`、シートの休日色と罫線色は `excelSheetColors.ts`、日付列の縦罫線の色は `excelDateColumnBorder.ts`、タスクバーの位置と色は `excelBar.ts`、親バーの区間・点線・角は `excelSummaryBar.ts`、前後の種類と色と折れ位置は `excelConnector.ts`、見えている前後ではない繋がりの棒図形の番号、色、言葉は `excelConnectionCurve.ts` が決める（線の色は常にライトの `connectionArc`、言葉の色はライトの `connectionArcLabel`）。イナズマ線は `excelLightning.ts`、マイルストンの日付セルの文字列とグループ名は `excelMilestone.ts` が決める。行ごとの名前の字下げ・太さ・文字色と、一番上の見出し行の左列だけの塗りは payload の `rows` に載せる。`exportExcel.ts` は見出しを進めながら、直後のタスクの字下げをその見出しの字下げより 1 深くする。1段だけのときは見出しが無く、タスクの字下げは 0 である。`exportHtml.ts` の `exportHierarchyHeadingIndent` と `exportHierarchyHeadingKind` が階層見出しの字下げと Excel の行種別を決め、`exportChartRowFill` が HTML と SVG のチャート側の行の地を左一覧と揃える。本文の行高と日付列の幅は payload の `bodyRowHeightPx` と `dateColumnWidthPx` に載せ、見出し行の高さは `headerRowHeightPx` に載せる（日付列が 96px 以上なら 28、未満なら 22。本文の `bodyRowHeightPx` とは別である）。週・月のバーと線は等幅の列のうち期間に対する割合で置く。前後は payload の `connectors` に載せ、先行バー図形の右中央（接続点 3）から後続バー図形の左中央（接続点 1）へ、カギ線または直線の矢印コネクタでつなぐ。前後ではない繋がりは payload の `connectionCurves` に載せ、両方の棒の上端の中央（接続点 0）同士を、調整のない `curvedConnector3` でつなぐ。矢印は付けない。言葉は各曲線の直後に、二つの上端の中央の中点へ 8pt の文字図形を足す。イナズマ線は payload の `todayLine` で、本文の上端から下端までの縦線 1 本を線の幅で描く。`export_xlsx.rs` が `rust_xlsxwriter` でブックとタスクバーなどのテキストボックスを作り、列幅と先頭文・マイルストン行の結合（罫線なし）、見出しと本文の左の表の罫線と日付列の縦罫線、日表示の休日の日付セルの塗り、カテゴリ行の左列だけの塗りを書く。画面の格子は出さない。図形の幅と高さは、5px 未満の辺を 5px に繰り上げてから渡す。それ未満を渡すとライブラリは既定の 192×120 になる。コネクタ、繋がりの曲線コネクタ、今日の縦線、親バーの点線と角は `excel_drawing_patch.rs` が `xl/drawings/drawing1.xml` に足す。曲線コネクタは前後のカギ線のあと、各曲線の言葉の文字図形のあとに今日の縦線を足し、追加図形 id はカギ線の続きから振る。親バーの点線と角の `twoCellAnchor` は、日付列の幅 `dateColumnWidthPx` で列を進めて終端を決める。追加図形の `cNvPr` の id は、ライブラリが書いた図形の id の次（`shapes.len() + 2` から）を使う。スナップの縦の通算は payload の `bodyRowHeightPx` を使う。コネクタの `twoCellAnchor` は、先行の右辺の中央と後続の左辺の中央を対角にした箱で、後続の位置に合わせて `flipH` と `flipV` を付ける。図形数の上限にはバー、コネクタ、繋がりの曲線コネクタとその言葉の文字図形、今日の縦線、親バーの点線と角を合わせて数える。デスクトップ版だけ `save_excel_export` で保存する。書き出しの XML 契約は Rust のテストが実ブックを読んで確かめる。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
 
 ## 検証の流れ
 
@@ -221,10 +295,11 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 5. schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。既にある `confidence` はそのまま残す
 6. schemaVersion 5 なら、マイルストンが1件以上あるときは名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンに `groupId` を付けて schemaVersion 6 にする。その ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
 7. schemaVersion 6 なら schemaVersion 7 にする。タグは付けない
-8. JSON Schema（schemaVersion 7）
-9. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
+8. schemaVersion 7 なら schemaVersion 8 にする。`status` の値は変えない
+9. JSON Schema（schemaVersion 8）
+10. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
 
-メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
+メンバー、ステータス一覧、カレンダーも、JSON Schema のあとに意味規則を見る。ステータス一覧は `validateStatuses.ts` が見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
 `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
 
@@ -234,26 +309,51 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 
 | コマンド | 引数と戻り値 | 失敗と上限 | permission | TS |
 | --- | --- | --- | --- | --- |
-| `open_schedule_file` | ダイアログ。任意の初期ディレクトリ。パスと本文、または取り消し。Windows と Linux では JSON とスケジュールの二種類 | 10MB、UTF-8 | `open-schedule-file.toml` | `scheduleFile.ts` |
-| `accept_opened_schedule` | パスと本文。状態を記録 | 10MB | 同上 | 同上 |
+| `open_schedule_file` | ダイアログ。任意の初期ディレクトリ。パスと本文、または取り消し | 10MB、UTF-8 | `open-schedule-file.toml` | `scheduleFile.ts` |
+| `accept_opened_schedule` | パスと本文。任意の `preserveWorkspaceBinding`（既定 false）。状態を記録 | 10MB | 同上 | 同上 |
 | `check_schedule_file_changed` | ディスクのハッシュが記憶と違うか | ファイルを開いていない | `check-schedule-file-changed.toml` | 同上 |
 | `poll_schedule_file_update` | 変化したときだけ本文 | 同上 | `poll-schedule-file-update.toml` | 同上 |
 | `read_open_schedule_file` | 引数なし。開いているパスの本文 | ファイルを開いていない、10MB、UTF-8 以外 | `read-open-schedule-file.toml` | 同上 |
 | `acknowledge_schedule_file_contents` | 本文。ハッシュを更新 | ファイルを開いていない | `poll-schedule-file-update.toml` | 同上 |
-| `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス。別名保存の種類は FILE-03 と同じ | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
+| `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
 | `save_html_file` | 本文、提案名、拡張子 | 10MB | `save-html-file.toml` | `exportHtml.ts` |
 | `save_excel_export` | 書き出し用 JSON、提案名。保存したパス | 10MB | `save-excel-export.toml` | `exportExcel.ts` |
+| `export_workspace_bundle` | スケジュールと任意のメンバー、カレンダー、ステータス、色の一覧、拡張項目（ファイル名と本文の配列）を空フォルダへ書き、`workspace.json` を作る | スケジュール 10MB、その他 2MB | `open-schedule-file.toml` | `workspaceExport.ts` |
 | `get_members_settings` | カタログ一覧と選択中 ID | — | `members-app-data.toml` | `memberAppData.ts` |
 | `read_member_catalog` | カタログ ID。本文 | 2MB | 同上 | 同上 |
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
 | `delete_member_catalog` | ID | — | 同上 | 同上 |
 | `set_selected_member_catalog` | ID または無し | — | 同上 | 同上 |
-| `pick_members_json_file` | 取り消し、またはファイル名と本文 | 2MB | 同上 | `memberAppData.ts` |
+| `claim_member_catalog_edit` | カタログ ID または設定ファイルの `members` の絶対パス。取得できたか、他ウィンドウのラベル | — | `member-catalog-edit.toml` | `member_catalog_edit.rs` |
+| `release_member_catalog_edit` | カタログ ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_members_json` | 本文、提案名。保存したパス（覆いの「JSON を書き出す」。アプリデータには書かない） | 2MB | `members-app-data.toml` | `memberAppData.ts` の `exportMembersJson` |
+| `write_members_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `members` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-members-at-path.toml` | `memberAppData.ts` の `writeMembersAtPath` |
+| `get_statuses_settings` | 一覧の一覧と選択中 ID | — | `statuses-app-data.toml` | `statusAppData.ts` |
+| `read_status_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_status_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_status_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_status_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_status_catalog_edit` | 一覧 ID または設定ファイルの `statuses` の絶対パス。取得できたか、他ウィンドウのラベル | — | `status-catalog-edit.toml` | `statusAppData.ts` |
+| `release_status_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
+| `write_statuses_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `statuses` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-statuses-at-path.toml` | `statusAppData.ts` の `writeStatusesAtPath` |
+| `get_colors_settings` | 一覧の一覧と選択中 ID | — | `colors-app-data.toml` | `colorAppData.ts` |
+| `read_color_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_color_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_color_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_color_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_color_catalog_edit` | 一覧 ID または設定ファイルの `colors` の絶対パス。取得できたか、他ウィンドウのラベル | — | `color-catalog-edit.toml` | `colorAppData.ts` |
+| `release_color_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_colors_json` | 本文、提案名。保存したパス | 2MB | 同上 | `colorAppData.ts` の `exportColorsJson` |
+| `write_colors_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `colors` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-colors-at-path.toml` | `colorAppData.ts` の `writeColorsAtPath` |
+| `create_workspace_colors_catalog` | 設定ファイルのパス、相対ファイル名、本文。`colors` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に `colors` がある、ファイル名不正 | `workspace-colors-catalog.toml` | `colorAppData.ts` の `createWorkspaceColorsCatalog` |
+| `write_field_extension_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `editableFieldExtension` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致、編集用が無い | `field-extensions-app-data.toml` | `fieldExtensionAppData.ts` の `writeFieldExtensionAtPath` |
+| `create_workspace_editable_field_extension` | 設定ファイルのパス、相対ファイル名、本文。既存ファイルは上書きしない。`editableFieldExtension` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に編集用がある、ファイル名不正、重複 | `workspace-editable-field-extension.toml` | `fieldExtensionAppData.ts` の `createWorkspaceEditableFieldExtension` |
+| `delete_workspace_editable_field_extension` | 設定ファイルのパス。`editableFieldExtension` を外してからファイルを消す。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 編集用が無い、設定ファイルの更新失敗時はファイルを残す | 同上 | `fieldExtensionAppData.ts` の `deleteWorkspaceEditableFieldExtension` |
 | `get_calendar_state` | 表示名 | — | `calendar-app-data.toml` | `calendarAppData.ts` |
 | `read_app_calendar` | 本文 | 2MB | 同上 | 同上 |
 | `import_app_calendar` | 表示名と本文 | 2MB | 同上 | 同上 |
 | `delete_app_calendar` | なし | — | 同上 | 同上 |
-| `pick_calendar_json_file` | 取り消し、またはファイル名と本文 | 2MB | 同上 | 同上 |
 | `read_schedule_recovery` | 任意のパス。無ければ呼び出し元ウィンドウのパスの控え | 10MB | `schedule-recovery.toml` | `scheduleFile.ts` |
 | `write_schedule_recovery` | 本文（`path` を含む） | 10MB | 同上 | 同上 |
 | `delete_schedule_recovery` | パス | — | 同上 | 同上 |
@@ -305,8 +405,11 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `uninstall_json_skills` | 上と同じツールの真偽値、範囲、プロジェクトフォルダ。外したパスと無かったパス | パス不正、ツール未選択 | 同上 | 同上 |
 | `get_executable_path` | 引数なし。実行ファイルの絶対パス | — | `mcp.toml` | `mcpRegistration.ts` |
 | `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
+| `mcp_screen_listener_ready` | 引数なし。呼び出したウィンドウが `mcp-screen-request` の受け口を用意し終えた | — | 同上 | 同上 |
+| `mcp_harness_gui_trace` | ラベル、段階、詳細。標準エラーへ `[mcp-harness]` の診断行を 1 行書く（実機テストの切り分け用） | — | 同上 | 同上 |
 | `install_read_screen_skill` | Cursor、Claude Code、GitHub Copilot の各真偽値、置き換え。置いたパス、既存パス、検出した実行ファイルのパス | 同梱テンプレート欠落、パス不正、ツール未選択 | `read-screen-skill.toml` | `readScreenSkill.ts` |
 | `uninstall_read_screen_skill` | 上と同じツールの真偽値。外したパスと無かったパス | パス不正、ツール未選択 | 同上 | 同上 |
+| `dev_fresh_start_active` | 引数なし。開発ビルドかつ `SCHEDULE_VIEWER_FRESH_START` が `1` または `true` のとき true。それ以外は false | — | `dev-fresh-start.toml` | `devFreshStart.ts` |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
@@ -326,9 +429,9 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 
 上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
-JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/`、`~/.claude/skills/<name>/`、`~/.copilot/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/`、`.claude/skills/<name>/`、`.github/skills/<name>/` だけである。外すのも同じ `<name>` の4つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar`、`write-workspace` の4つだけ。ツールの真偽値は少なくとも1つが真である。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
+JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/`、`~/.claude/skills/<name>/`、`~/.copilot/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/`、`.claude/skills/<name>/`、`.github/skills/<name>/` だけである。外すのも同じ `<name>` の8つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields`、`write-colors`、`schedule-talk`、`how-to` の8つだけ。`how-to` には画像を除いたマニュアル 6 ファイルが `manual/` として同梱され、置くときにフォルダごとコピーされる。ツールの真偽値は少なくとも1つが真である。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
-画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルの呼び方を置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/`、`~/.claude/skills/read-screen/`、`~/.copilot/skills/read-screen/` だけへ書く。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行のコマンド例に置き換える。それ以外は絶対パスを、引数と別の行に書く。指定したプロジェクトフォルダへは書かない。ツールの真偽値は少なくとも1つが真である。`.cursor` と `.claude` と `.copilot` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
+画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルの呼び方を置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/`、`~/.claude/skills/read-screen/`、`~/.copilot/skills/read-screen/` だけへ書く。スキル本文は MCP と同じ `--screen` の呼び方と読み取り応答の形だけを書く。ウィンドウの当て方、未保存の置き換え、見た目で指す手順は、SET-05 で置く `schedule-talk` スキル（バンドル内 `json-skills/schedule-talk/`）にある。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行のコマンド例に置き換える。それ以外は絶対パスを、引数と別の行に書く。指定したプロジェクトフォルダへは書かない。ツールの真偽値は少なくとも1つが真である。`.cursor` と `.claude` と `.copilot` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
 
 MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、webview の読み取りと `open_windows` の一覧だけを使う。応答は送り先 1 ウィンドウ分（一覧は絶対パスを含めない）で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
@@ -338,9 +441,11 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 ## 描画
 
-`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。月表示の日付ヘッダーは、左端の固定ラベルと各月1日のラベルを描き、横に重なる月の文字だけを `monthHeader.ts` の `visibleMonthHeaderLabels` で省く。月の縦線は残す。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストン帯は `MilestoneBand.tsx` で、`milestoneGroups` の順にグループごとに積む。段は `milestones.ts` の `layoutMilestoneBand` が決める。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。超過の有無で列は動かさない。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。縦横の量の分け方は `wheelScroll.ts` の `resolveWheelScroll` である。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
+`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。月表示の日付ヘッダーは、左端の固定ラベルと各月1日のラベルを描き、横に重なる月の文字だけを `monthHeader.ts` の `visibleMonthHeaderLabels` で省く。月の縦線は残す。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストン帯は `MilestoneBand.tsx` で、`milestoneGroups` の順にグループごとに積む。段は `milestones.ts` の `layoutMilestoneBand` が決める。未確定のひし形は中を空け、確定は塗りつぶす。単クリックで切り替える点線のオンオフは `App.tsx` の state に持ち、帯と `Timeline.tsx` の本体に描く。左のグループ名行の単クリックは `Sidebar.tsx` が受け、`milestones.ts` の `toggleMilestoneGuideLinesForGroup` でそのグループだけをまとめて切り替える。幾何は `milestones.ts` の `milestoneMarkGuideGeometry` である。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。ステータス列の文字数は `statusDisplay.ts` の `statusColumnChars` で、行に出ているタスクの表示名または `id` から決める。超過の有無で列は動かさない。一覧に無いステータスと担当の判定は `catalogMismatch.ts` の `catalogMismatchKind` が、文書の全タスクと、画面に渡しているステータス一覧とメンバー Map から行う。帯の文は `catalogMismatchBannerText` である。帯の地と文字は `--unknown-bg` と `--unknown-text` である。支援技術向けの読み上げは、画面に出さない `aria-live` 領域を常時置き、不一致の種類が変わったときだけ文を差し替える。帯は `App.tsx` の `.chart-top-banners` にまとめ、`.timeline-slot` の先頭に置く。不一致の帯は線を引く `.link-banner` より上である。その実高さを `ResizeObserver` で測り、`Sidebar.tsx` の見出しの上に同じ高さの空きを置き、チャート本体の高さと最大縦スクロールからも引く。帯が無いときは空きも 0 である。ステータス列の幅は文字数に札の左右余白を足し、札は列の内側で省略する。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。縦横の量の分け方は `wheelScroll.ts` の `resolveWheelScroll` である。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
 
 前後の線は `dependencies.ts` の `linkPoints` である。間隔があるときは先行の右端から 12px 右で折れ、後続の左端へ入る。右へ出る余地が頭の長さより狭いときは、先行バーの外側を回ってから左端の手前で右を向く。最後の区間は右向きで、頭（`LINK_POINTER_LENGTH`）が後続バーの外に残る。画面の Arrow と書き出しの marker はその長さを共有する。線はバーより先に描く。
+
+前後ではない繋がりは `connections.ts` の `connectionArcGeometry` である。ルートの `connections` を `DocumentSnapshot` に載せ、保存と置き換えで落とさない。見えている2行だけ `visibleConnectionsFromTasks` で描く。端は棒上端の中央、二次ベジェで上へふくらむ。短い言葉は `layoutConnectionArcLabelsInOrder` が、`connections` 配列の順に、棒の文字の矩形と先に置いた言葉を見て、既定位置と上・左・右の3か所だけから選ぶ。棒の中と右の文字列は `taskBarChartLabelStrings`、占有矩形は `collectTaskBarLabelObstacles` が `liveAnchors` から作る。色は `palette.ts` の `connectionArc` と `connectionArcLabel`、棒の端用の縁は `connectionArcHalo`（チャート地と同じ）である。同じ点列を、先に `CONNECTION_HALO_STROKE_WIDTH`（4.75）、その上に `CONNECTION_STROKE_WIDTH`（2.25）で描く。タスクバーの Layer のあとに描く。当たりは円弧の点列を `linkPolylines` に載せ、`nearestLinkHit` で前後の線と同じ 8px しきい値で取る。矢印は `linkPolylines` の `kind` が前後の線のものだけに描き、円弧の点列は当たりにだけ使う。付け外しは `tryAddConnection` などと詳細の「繋がりを足す」ダイアログから行う。タスク削除は `removeConnectionsForDeletedTasks` でその id を含む要素だけ外す。
 
 線を引くモードでは、起点バーの右端からポインタまで、確定した矢印と同じ `linkPoints` の折れ線を通常色で描く。タスクバーの上ではそのバーの左端まで、左の一覧の上ではチャートの左端まで、それ以外はポインタの位置で終わる。スクロールで起点が動くと始点も動く。モードが終わると消える。後続にできるタスクバーだけ、選択や状態色とは別の `linkTargetStroke` で囲む。モード中のドラッグは `resolveLinkModeGesture` で分ける。空きと親バーは `CHART_PAN_THRESHOLD_PX`（3px）、タスクバーの主ボタンは `TASK_DRAG_THRESHOLD_PX`（8px）を超えたら `commitLinkScrollPan` でスクロールする。押した位置を原点に、しきい値までの移動を一度だけビューへ入れ、パン自身の 3px は重ねない。8px 未満で同じバーの上で離したときだけ `onLinkTargetClick` する。ダブルクリックの 2 回目と `pointercancel` では足さない。スペースと中ボタンは 3px でスクロールする。空きの押下は `onBodyMouseDown`、タスクバーは `linkBarPointerDown` が監視する。タスクバーの `pointerdown` が始めた監視を、本体の `mousedown` が置き換えない。モード中は期間端の幾何当たりで空きのパンを止めない。パン中は `.panning` で閉じた手になる。待機中は `.linking` の矢印のままである。パン中は `useTimelinePointer` の `panTrackActive` で、チャートの外でも追随の終点を残す。
 
@@ -352,24 +457,24 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 タスクのクリック選択と Shift+クリック、⌘ または Ctrl+クリック、↑↓、Shift+↑↓ は `taskSelection.ts` の純関数と `useSchedule` が受け、見えている行の id だけを対象にする。Mac では Ctrl+クリックはトグルに使わない。2件以上選ぶと線を引くモードは終わる。MCP の `selected_task` は `selectedTaskId` が非 null のときだけ組み立てる。MCP の `selected_tasks` は `taskSelection.ids` を文書順に並べたタスクの配列で組み立てる。
 
-キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は、フォーカスがあるメニューの直下の項目だけを ↑↓ で動かす。修飾キー付きの矢印は項目移動に使わない。☰ で「最近開いたファイル」の行にフォーカスがあるとき、修飾の無い → でサブメニューを開き、サブメニュー内では ← で閉じて行へ戻る。履歴が空で行が無効のときは、↑↓ の移動先に含めず、→ でも開かない。Escape はサブメニューが開いていればそれだけを閉じ、閉じていれば ☰ を閉じる。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId` と `navigateTaskSelection` である。移動後の `activeId` に対して `App.tsx` の `revealTaskRow` を呼び、行が縦に画面外なら入るところまでスクロールする。Alt+←→ は選択件数が1以上のとき `useSchedule` の `moveSelectedTasksByDays` で選択中のすべてを同じ日数だけ動かす。Shift+Alt+←→ は1件のときだけ終了日をずらす。Delete と Backspace、コマンドパレットの削除は選択件数が1以上のとき有効である。`useAppKeyboard` の effect の依存に `selectedTaskIds`、`navigateTaskSelection`、`moveSelectedTasksByDays` を含める。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。開く、保存、別名保存、書き出し、差分を表示、差分をコピー、JSON を表示の前に、開いているタイトル入力を `flushTitleEdit` で確定する。⌘/Ctrl+S、⌘/Ctrl+Shift+S、⌘/Ctrl+O、⌘/Ctrl+Shift+O も同じ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。ファイルメニューの開く、新しいウィンドウで開く、保存、別名保存、書き出し、JSON を表示も、先に同じ確定を呼ぶ。保存の提案ファイル名は `getDocumentTitle` から作る。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
+キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は、フォーカスがあるメニューの直下の項目だけを ↑↓ で動かす。修飾キー付きの矢印は項目移動に使わない。☰ で「最近開いたファイル」の行にフォーカスがあるとき、修飾の無い → でサブメニューを開き、サブメニュー内では ← で閉じて行へ戻る。履歴が空で行が無効のときは、↑↓ の移動先に含めず、→ でも開かない。Escape はサブメニューが開いていればそれだけを閉じ、閉じていれば ☰ を閉じる。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId` と `navigateTaskSelection` である。絞り込みパネルが開いているあいだも ↑↓ のタスク選択は動かさない（`App.tsx` の `filterPanelOpen` を `decideAppKey` に渡す）。ダイアログや絞り込み・線を引く・詳細パネル・設定の項目編集覆いなど、モード内の Esc／Enter／Tab／矢印の説明は `modeKeyboardReference.ts` とショートカット一覧ダイアログの「編集中・モード内」節に揃える。移動後の `activeId` に対して `App.tsx` の `revealTaskRow` を呼び、行が縦に画面外なら入るところまでスクロールする。Alt+←→ は選択件数が1以上のとき `useSchedule` の `moveSelectedTasksByDays` で選択中のすべてを同じ日数だけ動かす。Shift+Alt+←→ は1件のときだけ終了日をずらす。Delete と Backspace、コマンドパレットの削除は選択件数が1以上のとき有効である。`useAppKeyboard` の effect の依存に `selectedTaskIds`、`navigateTaskSelection`、`moveSelectedTasksByDays` を含める。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。開く、保存、別名保存、書き出し、差分を表示、差分をコピー、JSON を表示の前に、開いているタイトル入力を `flushTitleEdit` で確定する。⌘/Ctrl+S、⌘/Ctrl+Shift+S、⌘/Ctrl+O、⌘/Ctrl+Shift+O も同じ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。ファイルメニューの開く、新しいウィンドウで開く、保存、別名保存、書き出し、JSON を表示も、先に同じ確定を呼ぶ。保存の提案ファイル名は `getDocumentTitle` から作る。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
 
-座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間の基準は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。`useTimelineView` は、その日数に `timelineRightPadding.ts` の `extraTimelineDaysForRightEdge` で足した日数を加える。帯に出ているマイルストン名（画面は全角24文字まで）と、月表示の右端の年月ラベルが内容の右端に収まるまで延ばす。FILTER-11 で隠したグループの名前と、FILTER-13 で隠したマイルストンの名前では延ばさない。`fitPxPerDayToViewport` は「全体」表示で、延ばした日数を含めて幅に収まる `pxPerDay` を求める。ファイルを開いた直後は `fitViewAfterOpen` が前の原点の空き日を含めず新しい期間だけで 1 日幅を決め、横位置と一覧の縦位置を 0 にする。チャート幅が 0 以下のときは適用を待ち、幅が付いてから同じ計算をやり直す。「全体」は `fitToWidth` で縦位置は変えない。最も早い日が後ろへ動いて、左端のスクロールでは同じ日を保てないときは、`resolveTimelineOrigin` が描画の原点を据え置く。他のバーは動かない。ファイルを開くと原点はデータの期間に戻る。ディスクからの読み直しと MCP の `replace_schedule` は開く世代を進めず、ズームとスクロールは残す。書き出しは、見えている行から同じ余白で決め直し、右は書き出すマイルストン名の全文と年月ラベルまで延ばす。
+座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間の基準は、`categories` と `outline` の全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。`useTimelineView` は、その日数に `timelineRightPadding.ts` の `extraTimelineDaysForRightEdge` で足した日数を加える。帯に出ているマイルストン名（画面は全角24文字まで）と、月表示の右端の年月ラベルが内容の右端に収まるまで延ばす。FILTER-11 で隠したグループの名前と、FILTER-13 で隠したマイルストンの名前では延ばさない。`fitPxPerDayToViewport` は「全体」表示で、延ばした日数を含めて幅に収まる `pxPerDay` を求める。ファイルを開いた直後は `fitViewAfterOpen` が前の原点の空き日を含めず新しい期間だけで 1 日幅を決め、横位置と一覧の縦位置を 0 にする。チャート幅が 0 以下のときは適用を待ち、幅が付いてから同じ計算をやり直す。「全体」は `fitToWidth` で縦位置は変えない。最も早い日が後ろへ動いて、左端のスクロールでは同じ日を保てないときは、`resolveTimelineOrigin` が描画の原点を据え置く。他のバーは動かない。ファイルを開くと原点はデータの期間に戻る。ディスクからの読み直しと MCP の `replace_schedule` は開く世代を進めず、ズームとスクロールは残す。書き出しは、見えている行から同じ余白で決め直し、右は書き出すマイルストン名の全文と年月ラベルまで延ばす。
 
 バーの移動と端のドラッグのあいだ、開始日と終了日は `dragDates.ts` の `layoutDragDateChips` で置き、`Timeline.tsx` が Konva の文字で描く。文字の大きさは `headerHeight / 40`（表示倍率）に従い、`pxPerDay` には従わない。文書は離すまで変えない。触っているタスクが端の線だけ、`previewLinkBroken` の日付で色を決め、そのバーの見た目の位置へアンカーを移す。他の線は確定した位置と色のままである。日付は書き出しには入らない。
 
 `uiScale` は文字と行の倍率で、`layoutSizes.ts` のヘッダー 40px、行 32px、バー 20px、マイルストン段 26px に掛ける。自動は幅 1100px、高さ 780px を基準にし、1 未満にはしない。固定は 0.5 から 2 である。
 
-マイルストンの段は、グループごとに、日付順に見て、同じ1日幅でひし形が重なるときだけ段を増やす。名前の長さでは段を増やさない。画面の名前は、次のひし形の手前と、全角24文字分の幅上限のうち狭い方で `truncateMilestoneLabel` する。見積もりは `monthHeaderLabelWidth` と同じ太字余裕である。切り詰めた名前のホバー全文は `MilestoneHoverOverlay` が帯の外に重ね、`milestoneHoverLabel.ts` で折り返しと高さの切り詰めを決める。書き出しで段を増やす境界は、ひし形の右端から名前までの空きを描画と揃えて測る。書き出しは同じグループ内で、全文が次のひし形を越えるときだけ段を増やす。横位置の原点は固定なので、スクロールしても段は変わらない。FILTER-11 で隠したグループは帯にも書き出しの線にも出さない。その日付は期間の端に使わない。超過の枠は残す。
+マイルストンの段は、グループごとに、日付順に見て、同じ1日幅でひし形が重なるときだけ段を増やす。名前の長さでは段を増やさない。画面の名前は、次のひし形の手前と、全角24文字分の幅上限のうち狭い方で `truncateMilestoneLabel` する。見積もりは `monthHeaderLabelWidth` と同じ太字余裕である。切り詰めた名前のホバー全文は `MilestoneHoverOverlay` が帯の外に重ね、`milestoneHoverLabel.ts` で折り返しと高さの切り詰めを決める。帯から渡す id だけの型は同ファイルの `MilestoneHoverState` である（T5 で hooks 境界のため model に置く）。書き出しで段を増やす境界は、ひし形の右端から名前までの空きを描画と揃えて測る。書き出しは同じグループ内で、全文が次のひし形を越えるときだけ段を増やす。横位置の原点は固定なので、スクロールしても段は変わらない。FILTER-11 で隠したグループは帯にも書き出しの線にも出さない。その日付は期間の端に使わない。超過の枠は残す。
 
 ## 主なアルゴリズム
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、タグ、名前、ノートをすべて満たすタスクだけを残す。タグは選んだもののどれかを持つときだけ残す（OR）。ほかの条件とは同時に満たす。タグを一つも選んでいないときはタグでは絞らない。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
-| 見出し行の固定 | `stickyRows.ts` の `layoutStickyHeaders`、`scrollYToRevealTask`、`scrollYToShowSelectedTask` | 見えている行のうち、展開して配下が残っているカテゴリとグループを、上端へ最大2行残す。画面に収まるときと折りたたんだ行は残さない。追加と複製では `scrollYToRevealTask` で固定段の下へ寄せる。選択では `scrollYToShowSelectedTask` が、見えている行は縦位置を変えず、画面外だけ入るところまで動かす |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、タグ、名前、ノート、追加項目（`fieldFilters.ts` の `taskMatchesFieldFilters`）をすべて満たすタスクだけを残す。タグは選んだもののどれかを持つときだけ残す（OR）。ほかの条件とは同時に満たす。タグを一つも選んでいないときはタグでは絞らない。`fields` が無いときは追加項目では絞らない。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
+| 見出し行の固定 | `stickyRows.ts` の `layoutStickyHeaders`、`scrollYToRevealTask`、`scrollYToShowSelectedTask` | 見えている行のうち、展開して配下が残っているカテゴリとグループを、上端へ最大2行残す。`levels` と `outline` では見ている枝の祖先を段の数だけ残す（最大4行）。画面に収まるときと折りたたんだ行は残さない。追加と複製では `scrollYToRevealTask` で固定段の下へ寄せる。選択では `scrollYToShowSelectedTask` が、見えている行は縦位置を変えず、画面外だけ入るところまで動かす |
 | ホイールのスクロール | `wheelScroll.ts` の `resolveWheelScroll` | チャート本体と左一覧は縦と横の量で上下左右。Shift は縦の量を左右に使い、軸の入れ替えでは一度だけ。日付ヘッダーとマイルストン帯は縦と横を左右に足す。Shift で軸の入れ替えのときは一度だけ足す。Ctrl または ⌘ は `deltaY` だけで拡大縮小する |
-| 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
+| 系統 | `dependencies.ts` の `lineageTaskIdsFromTasks` と `lineageTaskIdsFromTasksWithConnections` | 起点から先行と後続を辿る。起点を通らない枝は入れない。`lineageIncludesConnections` が真のときは繋がりの相手とその前後を届くところまで足す |
 | 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
 | 前後の線 | `dependencies.ts` の `linkPoints` | 先行の右端から後続の左端へ。最後は右向きで、頭がバーの外に残る。間隔が足りないときは先行バーの外側を回る |
 | 線の当たり | `dependencies.ts` の `nearestLinkHit` | ポインタから折れ線までの距離が 8px 以内の、一番近い 1 本 |
@@ -378,10 +483,15 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | 破綻 | `dependencies.ts` の `isBrokenLink` | 後続の開始が先行の終了より前。同じ日は破綻でない |
 | ドラッグ中の日付 | `dragDates.ts` の `layoutDragDateChips` と `previewDatesForDrag` | 開始と終了を月/日で、棒と互いの地と他の棒を避けて置く。離したときに入る日に数字を合わせる |
 | ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
-| 親バー | `summary.ts` の `summarizeSpans` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す |
-| 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。完了は 100。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
-| イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。着手済みで開始が今日より後なら開始日。それ以外は今日 |
-| 期限超過 | `timeline.ts` の `isOverdue` | 完了以外で終了日が今日より前 |
+| 親バー | `summary.ts` の `summarizeSpans`、`TimelineSummaryBar.tsx` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す。カテゴリ、グループ、`levels` の見出し行のいずれも、`summary` があるとき親バーを描く |
+| 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。`status` が `done` のタスクは 100。それ以外は進捗欄の数字。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
+| タスクの項目と進捗 | `taskTodos.ts` の `normalizeScheduleDocument`、`progressFromTodoItems`、`normalizeTaskWithTodos` | 読み込みと保存で `todos` があるタスクの `progress` を件数で上書き。左のタスク行の `3/6` は `taskTodoCountLabel`。詳細は EDIT-22 |
+| イナズマ線 | `timeline.ts` の `lightningDate` | 項目の `role` と開始・終了・今日。一覧に無い `id` はどの期間でも今日 |
+| 期限超過 | `timeline.ts` の `isOverdue` | 未着手と着手済みで終了が今日より前。完了、管理外、一覧に無い `id` は超過にしない |
+| ステータスの編集 | `statusEdit.ts`、`statusCatalogEditHistory.ts` と `useStatusCatalogEditorOverlay` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。覆いの `StatusCatalogEditorPanel` が下書きを持つ。覆いを開いてから閉じるまでの取り消しは `statusCatalogEditHistory.ts` が項目の配列と選んでいる `id` を最大 100 段で持つ。色の連続変更は離すまで 1 段にまとめる。保存と「新しい一覧」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog` でアプリデータから消す。覆いからの外しでは覆いを閉じず、残った一覧の先頭を開く。設定の外しと他ウィンドウの外しでは、編集中の一覧が消えたときに覆いを閉じる。使用中の切り替えは変えない。設定ファイルモードは `writeStatusesAtPath`。覆いの開閉・claim・外部同期は `useCatalogEditorOverlayCore` |
+| メンバーの編集 | `memberEdit.ts`、`memberCatalogEditHistory.ts`、`memberCatalogEditSession.ts` と `useMemberCatalogEditorOverlay` | 人の追加、更新、並べ替え、削除、`id` の採番（`member-N`）、任意の説明、保存前の検証。空の `members` 配列も保存できる。覆いの `MemberCatalogEditorPanel` が下書きを持つ。取り消しは `memberCatalogEditHistory.ts`。保存と「新しいカタログ」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog`。同時編集は `claim_member_catalog_edit` / `release_member_catalog_edit`（`member_catalog_edit.rs`）。設定ファイルモードは `writeMembersAtPath`。書き出しだけは `save_members_json`。覆いの開閉・claim・外部同期は `useCatalogEditorOverlayCore` |
+| 拡張項目の定義 | `fieldDefinitionEdit.ts`、`fieldExtensionEdit.ts`、`FieldExtensionEditorOverlay`、`useFieldExtensionEditorOverlay` | 下書きのキー採番、保存前の検証、拡張 JSON の保存と合成キー衝突の拒否。プラグイン ID の変更は `useFieldExtensionCatalog` の `saveCatalog` が新 ID で取り込みしてから古いカタログを消す。「新しい拡張」と「コピーして作る」のあとは `App.tsx` から渡した `refreshCatalogs` でこのウィンドウの一覧を読み直してからラジオを描く。利用者が覆いを閉じたときは `App.tsx` の `onClosedByUser` で設定の「拡張項目」を開き直す。外部読み直しは `forceClose` で設定を開かない。`defaultFieldValuesForNewTask` は `useSchedule` の `addTask` が選んでいる拡張の定義だけを使う。`App.tsx` の `hasOpenEditDialog` に覆いを含め、即時反映と外部更新の読み直し前に覆いを閉じる。覆い中は ⌘/Ctrl+Z をスケジュールへ渡さない。設定ファイルモードでは `fieldExtensions` はピン留めとして読み、`editableFieldExtension` だけを覆いで直す。作成と削除は `create_workspace_editable_field_extension` と `delete_workspace_editable_field_extension`。保存は `write_field_extension_at_path` が編集用のパスだけを許可する |
+| ステータスの色 | `statusCatalog.ts` の `statusColorFor` と `timeline.ts` の `barColors` | 一覧の項目の色。無い `id` は中立色。期限超過は枠だけ赤。文字色は `labelColorOn` が地の明るさで決める |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |
 | マイルストンの編集 | `milestones.ts` の `applyMilestoneEdit` | 名前、日付、確度、`groupId` を1件だけ書く。配列の位置と `id` は残す。未知の `groupId` は元のまま |
 | 帯の縦位置のグループ | `milestones.ts` の `milestoneGroupIdAtBandY` | 見えている帯ブロックの `offsetY` と `height` で、右クリック追加の初期グループを決める |
@@ -392,7 +502,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 ## ビルドとツール
 
-Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node 上で実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
+Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node、`src/**/*.test.tsx` を jsdom の 2 プロジェクトで実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
 
 Rust は 1.98.1 で、CI は `cargo clippy -- -D warnings` と `cargo test --locked` を実行する。バージョン番号は `package.json`、`package-lock.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock` を `scripts/check-version-sync.ts` で揃える。同じ検査で `plugins.updater.endpoints` がその版のメジャー用 `updater-X` を指すことも見る。形式は `X.Y.Z`、`X.Y.Z-alpha.N`、または `X.Y.Z-beta.N` である。各数字と `N` は 1 桁なら `0` を許し、2 桁以上の先頭 `0` は付けない。`postinstall` は、その OS 向けの Tauri CLI があることを確認する。
 
@@ -405,6 +515,6 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。未保存の比較は、その schemaVersion 7 の保存形式である。実際に開けるのは 3〜7 である
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。schemaVersion 7 は `status` の値を変えずに 8 に上げる。未保存の比較は、その schemaVersion 8 の保存形式である。実際に開けるのは 3〜8 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
-- タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む。並べ替えを始めるのは各行の左端の握りだけで、`taskOrder.ts` の `classifyHandleDrag` が 3px を超えたかを見る。方向は問わない。3px 以内で離した握りは何もせず、選択を変えない。握りの右クリックも `RowGrip` が止める。並べ替え中は、`rows.ts` の `reorderDragBlockRows` が、いま見えている行の並びから半透明の塊を決め、`Sidebar.tsx` がその塊をポインタの縦位置に描く。タスクは1行、グループは見えている配下のタスク行まで、カテゴリは見えている配下のグループ行とタスク行まで含める。左の一覧の仮の位置では、塊に入った行の中身は出さない。
+- タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。左一覧の握りドラッグは `reorderBaseRows`（文書行）と比べ、ポインタの内容 Y は `reorderPointerContentYForDocumentRows` でそのより上の試し行の高さを引いてから渡す。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む。並べ替えを始めるのは各行の左端の握りだけで、`taskOrder.ts` の `classifyHandleDrag` が 3px を超えたかを見る。方向は問わない。3px 以内で離した握りは何もせず、選択を変えない。握りの右クリックも `RowGrip` が止める。並べ替え中は、`rows.ts` の `reorderDragBlockRows` が、いま見えている行の並びから半透明の塊を決め、`Sidebar.tsx` がその塊をポインタの縦位置に描く。タスクは1行、グループは見えている配下のタスク行まで、カテゴリは見えている配下のグループ行とタスク行まで含める。左の一覧の仮の位置では、塊に入った行の中身は出さない。

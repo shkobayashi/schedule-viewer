@@ -5,6 +5,11 @@ export type DiffNavTarget =
   | { kind: "title" }
   | { kind: "order" }
   | { kind: "task"; taskId: ScheduleId }
+  | {
+      kind: "connection";
+      taskIdA: ScheduleId;
+      taskIdB: ScheduleId;
+    }
   | { kind: "category"; categoryId: ScheduleId }
   | { kind: "group"; groupId: ScheduleId }
   | { kind: "milestone"; milestoneId: ScheduleId }

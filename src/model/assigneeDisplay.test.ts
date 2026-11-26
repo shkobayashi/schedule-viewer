@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   assigneeColumnChars,
   assigneeSidebarLabel,
+  duplicateMemberNamesFromCatalog,
+  formatAssigneeListLabel,
+  matchesMemberAssigneeFilter,
   matchesUnassignedFilter,
   memberOptionLabel,
-  resolveAssigneeDisplay,
+  assigneeExcelCellLabel,
+  formatUnknownAssigneeOption,
+  resolveAssigneeRowDisplay,
+  taskHasUnknownAssignee,
 } from "./assigneeDisplay";
 import { memberMapFromList } from "./assigneeDisplay";
 import type { Member } from "./memberTypes";
@@ -23,37 +29,135 @@ describe("assigneeColumnChars", () => {
   });
 });
 
-describe("resolveAssigneeDisplay", () => {
+describe("resolveAssigneeRowDisplay", () => {
   const catalog = memberMapFromList(members);
+  const duplicateNames = new Set(["田中"]);
 
-  it("keeps null as unassigned", () => {
-    expect(resolveAssigneeDisplay(null, catalog).kind).toBe("unassigned");
+  it("keeps empty as unassigned", () => {
+    expect(resolveAssigneeRowDisplay([], catalog, duplicateNames).kind).toBe(
+      "unassigned",
+    );
   });
 
-  it("resolves a known id to the display name", () => {
-    expect(resolveAssigneeDisplay("sato", catalog)).toEqual({
-      kind: "resolved",
-      id: "sato",
+  it("resolves a known id to text label", () => {
+    expect(resolveAssigneeRowDisplay(["sato"], catalog, duplicateNames)).toEqual({
+      kind: "text",
       label: "佐藤",
     });
   });
 
-  it("marks an id missing from the catalog, including when none is selected", () => {
-    expect(resolveAssigneeDisplay("missing", catalog).kind).toBe("unknown");
-    expect(resolveAssigneeDisplay("sato", null).kind).toBe("unknown");
-    expect(assigneeSidebarLabel(resolveAssigneeDisplay("missing", null))).toBe(
-      "メンバー不明（missing）",
+  it("marks ids missing from the catalog as allUnknown", () => {
+    expect(
+      resolveAssigneeRowDisplay(["missing"], catalog, duplicateNames).kind,
+    ).toBe("allUnknown");
+    expect(resolveAssigneeRowDisplay(["sato"], null, duplicateNames).kind).toBe(
+      "allUnknown",
     );
+    expect(
+      assigneeSidebarLabel(
+        resolveAssigneeRowDisplay(["missing"], null, duplicateNames),
+      ),
+    ).toBe("メンバー不明（missing）");
+  });
+
+  it("joins multiple assignees with読点", () => {
+    const label = formatAssigneeListLabel(
+      ["sato", "tanaka"],
+      catalog,
+      duplicateNames,
+    );
+    expect(label).toBe("佐藤、田中（tanaka）");
+  });
+
+  it("uses allUnknown badge only when every id is unknown", () => {
+    expect(
+      resolveAssigneeRowDisplay(["missing"], catalog, duplicateNames).kind,
+    ).toBe("allUnknown");
+    expect(
+      resolveAssigneeRowDisplay(["missing", "sato"], catalog, duplicateNames)
+        .kind,
+    ).toBe("text");
   });
 });
 
 describe("matchesUnassignedFilter", () => {
   const catalog = memberMapFromList(members);
 
-  it("keeps null and unknown ids, and drops resolved members", () => {
-    expect(matchesUnassignedFilter(null, catalog)).toBe(true);
-    expect(matchesUnassignedFilter("missing", catalog)).toBe(true);
-    expect(matchesUnassignedFilter("sato", catalog)).toBe(false);
+  it("keeps empty and unknown-only, and drops resolved members", () => {
+    expect(matchesUnassignedFilter([], catalog)).toBe(true);
+    expect(matchesUnassignedFilter(["missing"], catalog)).toBe(true);
+    expect(matchesUnassignedFilter(["missing", "ghost"], catalog)).toBe(true);
+    expect(matchesUnassignedFilter(["sato"], catalog)).toBe(false);
+    expect(matchesUnassignedFilter(["sato", "missing"], catalog)).toBe(false);
+  });
+});
+
+describe("taskHasUnknownAssignee", () => {
+  const catalog = memberMapFromList(members);
+
+  it("is true when any id is missing from the catalog", () => {
+    expect(taskHasUnknownAssignee(["sato"], catalog)).toBe(false);
+    expect(taskHasUnknownAssignee(["missing"], catalog)).toBe(true);
+    expect(taskHasUnknownAssignee(["sato", "ghost"], catalog)).toBe(true);
+    expect(formatUnknownAssigneeOption("ghost")).toBe("メンバー不明（ghost）");
+  });
+});
+
+describe("matchesMemberAssigneeFilter", () => {
+  it("matches when id is in the list", () => {
+    expect(matchesMemberAssigneeFilter(["a", "b"], "b")).toBe(true);
+    expect(matchesMemberAssigneeFilter(["a"], "b")).toBe(false);
+  });
+});
+
+describe("assigneeExcelCellLabel", () => {
+  const catalog = memberMapFromList(members);
+  const duplicateNames = new Set(["田中"]);
+
+  it("matches bar-right label for empty assignees", () => {
+    expect(assigneeExcelCellLabel([], catalog)).toBe("未割当");
+    expect(assigneeExcelCellLabel([], null)).toBe("未割当");
+    expect(
+      assigneeExcelCellLabel([], catalog),
+    ).toBe(
+      assigneeSidebarLabel(
+        resolveAssigneeRowDisplay([], catalog, duplicateNames),
+      ),
+    );
+  });
+
+  it("joins all assignees in order with読点", () => {
+    expect(assigneeExcelCellLabel(["sato", "tanaka"], catalog)).toBe(
+      "佐藤、田中（tanaka）",
+    );
+    expect(assigneeExcelCellLabel(["tanaka", "sato"], catalog)).toBe(
+      "田中（tanaka）、佐藤",
+    );
+    expect(
+      assigneeExcelCellLabel(["sato", "tanaka"], catalog),
+    ).toBe(
+      assigneeSidebarLabel(
+        resolveAssigneeRowDisplay(["sato", "tanaka"], catalog, duplicateNames),
+      ),
+    );
+  });
+
+  it("appends id only for duplicate display names and marks unknown ids", () => {
+    expect(assigneeExcelCellLabel(["sato"], catalog)).toBe("佐藤");
+    expect(assigneeExcelCellLabel(["tanaka-2"], catalog)).toBe("田中（tanaka-2）");
+    expect(assigneeExcelCellLabel(["missing"], catalog)).toBe(
+      "メンバー不明（missing）",
+    );
+    expect(assigneeExcelCellLabel(["sato", "missing"], catalog)).toBe(
+      "佐藤、メンバー不明（missing）",
+    );
+  });
+
+  it("does not truncate long labels", () => {
+    const longName = "あ".repeat(12);
+    const longMembers: Member[] = [{ id: "long", name: longName }];
+    const longCatalog = memberMapFromList(longMembers);
+    expect(assigneeExcelCellLabel(["long"], longCatalog)).toBe(longName);
   });
 });
 
@@ -61,5 +165,28 @@ describe("memberOptionLabel", () => {
   it("appends the id only when the display name is duplicated", () => {
     expect(memberOptionLabel(members[0], new Set(["田中"]))).toBe("田中（tanaka）");
     expect(memberOptionLabel(members[2], new Set(["田中"]))).toBe("佐藤");
+  });
+});
+
+describe("TC-EDIT-04u workspace member catalog", () => {
+  const workspaceMembers: Member[] = [{ id: "ws-only", name: "設定ファイルの山田" }];
+  const workspaceCatalog = memberMapFromList(workspaceMembers);
+  const appCatalog = memberMapFromList([{ id: "tanaka", name: "田中" }]);
+  const duplicateNames = duplicateMemberNamesFromCatalog(workspaceCatalog);
+  const assigneeIds = ["ws-only"] as const;
+
+  it("TC-EDIT-04u: resolves workspace-only ids for sidebar, detail, bulk, and duplicate labels", () => {
+    const row = resolveAssigneeRowDisplay(assigneeIds, workspaceCatalog, duplicateNames);
+    expect(row.kind).toBe("text");
+    expect(assigneeSidebarLabel(row)).toBe("設定ファイルの山田");
+    expect(formatAssigneeListLabel(assigneeIds, workspaceCatalog, duplicateNames)).toBe(
+      "設定ファイルの山田",
+    );
+    expect(assigneeExcelCellLabel(assigneeIds, workspaceCatalog)).toBe("設定ファイルの山田");
+    expect(memberOptionLabel(workspaceMembers[0], duplicateNames)).toBe("設定ファイルの山田");
+    expect(resolveAssigneeRowDisplay(assigneeIds, appCatalog, new Set()).kind).toBe("allUnknown");
+    expect(assigneeSidebarLabel(resolveAssigneeRowDisplay(assigneeIds, appCatalog, new Set()))).toBe(
+      "メンバー不明（ws-only）",
+    );
   });
 });

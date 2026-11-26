@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 8,
+  "title": "追加項目サンプル",
+  "milestoneGroups": [],
+  "milestones": [],
+  "categories": [
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "name": "サンプル",
+      "groups": [
+        {
+          "id": "a1000001-0000-4000-8000-000000000002",
+          "name": "タスク",
+          "tasks": [
+            {
+              "id": "a1000001-0000-4000-8000-000000000003",
+              "name": "値あり",
+              "start": "2026-04-01",
+              "end": "2026-04-05",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "fieldValues": {
+                "sample_memo": "レビュー前",
+                "sample_score": 80,
+                "sample_ratio": 40,
+                "sample_due": "2026-05-01",
+                "sample_lane": "内製"
+              }
+            },
+            {
+              "id": "a1000001-0000-4000-8000-000000000004",
+              "name": "値なし",
+              "start": "2026-04-06",
+              "end": "2026-04-10",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

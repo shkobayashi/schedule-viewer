@@ -6,35 +6,78 @@ import {
   useRef,
   useState,
   type FocusEvent,
+  type ReactNode,
   type Ref,
 } from "react";
 import type { TaskRef } from "../model/dependencies";
-import {
-  duplicateMemberNames,
-  formatUnknownAssigneeOption,
-  isUnknownAssignee,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
+import { AssigneeListField } from "./AssigneeListField";
 import { daysBetween, parseDate } from "../model/dates";
 import type { Member } from "../model/memberTypes";
+import { StatusOptions } from "./StatusOptions";
+import {
+  COLOR_NONE_VALUE,
+  colorSelectOptionsForTask,
+} from "./ColorOptions";
+import { ColorSelectField } from "./ColorSelectField";
+import type { ResolvedColorScheme } from "../model/palette";
+import type { StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
 import type { MemberId } from "../model/memberTypes";
+import {
+  captureMcpInProgressGeneration,
+  isMcpInProgressCommitStale,
+} from "../model/mcpInProgressInvalidation";
 import type { TaskEditPatch } from "../model/tasks";
 import { validateTaskEdit } from "../model/tasks";
 import {
-  UNASSIGNED_LABEL,
+  hasTaskTodos,
+  taskTodoCountLabel,
+} from "../model/taskTodos";
+import {
+  fieldValueDisplayString,
+  normalizeStoredFieldValue,
+} from "../model/taskFields";
+import {
   type Milestone,
+  type ScheduleFieldDef,
   type ScheduleId,
   type Task,
   type TaskConfidence,
+  type TaskConnection,
   type TaskStatus,
+  type TaskTodoItem,
 } from "../model/types";
+import { DateInput } from "./DateInput";
+import { isDatePopoverTarget } from "./datePopover";
 import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
+import { TaskConnectionSection } from "./TaskConnectionSection";
 
 export type TaskDetailPanelHandle = {
   focusName: () => void;
   focusPanelHeading: () => void;
 };
+
+function taskFieldValueIsEmpty(task: Task, field: ScheduleFieldDef): boolean {
+  const raw = task.fieldValues?.[field.key];
+  if (raw === undefined) return true;
+  return normalizeStoredFieldValue(field, raw) === undefined;
+}
+
+function fieldLabelContent(
+  field: ScheduleFieldDef,
+  task: Task,
+): ReactNode {
+  if (field.required === true && taskFieldValueIsEmpty(task, field)) {
+    return (
+      <>
+        {field.name}
+        <span className="detail-field-empty-mark"> 空欄</span>
+      </>
+    );
+  }
+  return field.name;
+}
 
 type TaskDetailPanelProps = {
   task: Task;
@@ -47,9 +90,26 @@ type TaskDetailPanelProps = {
   documentTags: string[];
   onAddTag: (tag: string) => string | null;
   onRemoveTag: (tag: string) => void;
+  onUpdateTodos: (items: TaskTodoItem[]) => string | null;
+  scheduleFields?: readonly ScheduleFieldDef[];
+  onSetTaskField: (fieldKey: string, raw: string) => string | null;
   onEditingChange: (editing: boolean) => void;
+  statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   panelRef?: Ref<TaskDetailPanelHandle>;
+  connections?: readonly TaskConnection[];
+  onAddConnection: (otherTaskId: ScheduleId, label: string) => string | null;
+  onUpdateConnectionLabel: (
+    otherTaskId: ScheduleId,
+    label: string,
+  ) => string | null;
+  onRemoveConnection: (otherTaskId: ScheduleId) => void;
+  connectionAddDialogOpen: boolean;
+  onConnectionAddDialogOpenChange: (open: boolean) => void;
 };
+
+const TASK_FIELD_NONE_VALUE = "__none__";
 
 export function TaskDetailPanel({
   task,
@@ -62,15 +122,27 @@ export function TaskDetailPanel({
   documentTags,
   onAddTag,
   onRemoveTag,
+  onUpdateTodos,
+  scheduleFields,
+  onSetTaskField,
   onEditingChange,
+  statuses,
+  colors = null,
+  colorScheme,
   panelRef,
+  connections,
+  onAddConnection,
+  onUpdateConnectionLabel,
+  onRemoveConnection,
+  connectionAddDialogOpen,
+  onConnectionAddDialogOpenChange,
 }: TaskDetailPanelProps) {
   const [name, setName] = useState(task.name);
   const [note, setNote] = useState(task.note ?? "");
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
-  const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
   const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [colorId, setColorId] = useState<string | null>(task.colorId ?? null);
   const [progress, setProgress] = useState(task.progress);
   const [confidence, setConfidence] = useState<TaskConfidence>(task.confidence);
   const [predecessors, setPredecessors] = useState<ScheduleId[]>(
@@ -83,10 +155,20 @@ export function TaskDetailPanel({
   const [formError, setFormError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [tagStatus, setTagStatus] = useState<string | null>(null);
+  const [todoItems, setTodoItems] = useState<TaskTodoItem[]>(
+    () => task.todos ?? [],
+  );
+  const [pendingTodoText, setPendingTodoText] = useState("");
+  const [showPendingTodo, setShowPendingTodo] = useState(false);
+  const [customFieldDrafts, setCustomFieldDrafts] = useState<Record<string, string>>(
+    {},
+  );
   const tagStatusRef = useRef<string | null>(null);
+  const skipPendingTodoBlurRef = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const panelHeadingRef = useRef<HTMLHeadingElement>(null);
   const rootRef = useRef<HTMLElement>(null);
+  const commitEpochRef = useRef(captureMcpInProgressGeneration());
 
   const announceTagStatus = useCallback((message: string) => {
     if (tagStatusRef.current === message) {
@@ -113,8 +195,8 @@ export function TaskDetailPanel({
     setNote(task.note ?? "");
     setStart(task.start);
     setEnd(task.end);
-    setAssigneeId(task.assigneeId ?? "");
     setStatus(task.status);
+    setColorId(task.colorId ?? null);
     setProgress(task.progress);
     setConfidence(task.confidence);
     setPredecessors(task.predecessors);
@@ -123,7 +205,69 @@ export function TaskDetailPanel({
     setFormError(null);
     setTagInput("");
     setTagStatus(null);
-  }, [successorIds, task]);
+    setTodoItems(task.todos ?? []);
+    setPendingTodoText("");
+    setShowPendingTodo(false);
+    if (scheduleFields != null) {
+      const drafts: Record<string, string> = {};
+      for (const field of scheduleFields) {
+        drafts[field.key] = fieldValueDisplayString(
+          field,
+          task.fieldValues?.[field.key],
+        );
+      }
+      setCustomFieldDrafts(drafts);
+    } else {
+      setCustomFieldDrafts({});
+    }
+  }, [scheduleFields, successorIds, task]);
+
+  const todosActive = hasTaskTodos(task);
+  const todoFraction = taskTodoCountLabel(task);
+
+  const commitTodos = useCallback(
+    (items: TaskTodoItem[]) => {
+      const saveError = onUpdateTodos(items);
+      if (saveError) {
+        setFormError(saveError);
+        return;
+      }
+      setFormError(null);
+      setTodoItems(items);
+    },
+    [onUpdateTodos],
+  );
+
+  const commitPendingTodo = useCallback(() => {
+    const trimmed = pendingTodoText.trim();
+    if (trimmed.length === 0) {
+      setShowPendingTodo(false);
+      setPendingTodoText("");
+      return;
+    }
+    if (/[\r\n]/.test(pendingTodoText)) {
+      setFormError("TODOの文に改行は使えません");
+      return;
+    }
+    const next = [...todoItems, { text: trimmed, done: false }];
+    commitTodos(next);
+    setPendingTodoText("");
+    setShowPendingTodo(false);
+  }, [commitTodos, pendingTodoText, todoItems]);
+
+  const cancelPendingTodo = useCallback(() => {
+    skipPendingTodoBlurRef.current = true;
+    setShowPendingTodo(false);
+    setPendingTodoText("");
+    queueMicrotask(() => {
+      skipPendingTodoBlurRef.current = false;
+    });
+  }, []);
+
+  const handlePendingTodoBlur = useCallback(() => {
+    if (skipPendingTodoBlurRef.current) return;
+    commitPendingTodo();
+  }, [commitPendingTodo]);
 
   useImperativeHandle(panelRef, () => ({
     focusName: () => {
@@ -137,11 +281,6 @@ export function TaskDetailPanel({
     },
   }));
 
-  const duplicateNames = useMemo(
-    () => duplicateMemberNames(members),
-    [members],
-  );
-  const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
   const candidates = useMemo(
     () => tasks.filter((item) => item.id !== task.id),
     [task.id, tasks],
@@ -159,7 +298,7 @@ export function TaskDetailPanel({
       name: task.name,
       start: task.start,
       end: task.end,
-      assigneeId: task.assigneeId ?? null,
+      assigneeIds: [...task.assigneeIds],
       status: task.status,
       progress: task.progress,
       confidence: task.confidence,
@@ -167,8 +306,9 @@ export function TaskDetailPanel({
       successors: successorIds,
       milestoneId: task.milestoneId,
       note: task.note ?? "",
+      ...(colors != null ? { colorId } : {}),
     };
-  }, [successorIds, task]);
+  }, [colorId, colors, successorIds, task]);
 
   const commitWith = useCallback(
     (overrides: Partial<TaskEditPatch>) => {
@@ -200,12 +340,13 @@ export function TaskDetailPanel({
     const noteValue = note.trim();
     const taskNote = (task.note ?? "").trim();
     if (noteValue !== taskNote) patch.note = note;
-    const nextAssignee = assigneeId === "" ? null : assigneeId;
-    if (nextAssignee !== (task.assigneeId ?? null)) {
-      patch.assigneeId = nextAssignee;
-    }
     if (status !== task.status) patch.status = status;
-    if (Math.round(progress) !== task.progress) patch.progress = progress;
+    if (
+      !hasTaskTodos(task) &&
+      Math.round(progress) !== task.progress
+    ) {
+      patch.progress = progress;
+    }
     if (confidence !== task.confidence) patch.confidence = confidence;
     if (milestoneId !== task.milestoneId) patch.milestoneId = milestoneId;
     const predKey = [...predecessors].sort().join("\0");
@@ -216,7 +357,6 @@ export function TaskDetailPanel({
     if (succKey !== taskSuccKey) patch.successors = successors;
     return Object.keys(patch).length > 0 ? patch : null;
   }, [
-    assigneeId,
     confidence,
     milestoneId,
     name,
@@ -245,12 +385,17 @@ export function TaskDetailPanel({
     if (rounded !== task.progress) commitWith({ progress });
   }, [commitWith, progress, task.progress]);
 
-  const onFocusIn = () => onEditingChange(true);
+  const onFocusIn = () => {
+    commitEpochRef.current = captureMcpInProgressGeneration();
+    onEditingChange(true);
+  };
   const onFocusOut = (event: FocusEvent) => {
     const root = rootRef.current;
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
+    if (isDatePopoverTarget(next)) return;
     onEditingChange(false);
+    if (isMcpInProgressCommitStale(commitEpochRef.current)) return;
     const overrides = dirtyPatch();
     if (overrides) commitWith(overrides);
   };
@@ -277,6 +422,7 @@ export function TaskDetailPanel({
             ref={nameRef}
             id="detailName"
             type="text"
+            className="ui-field"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => commitNameIfDirty()}
@@ -286,7 +432,7 @@ export function TaskDetailPanel({
           <label htmlFor="detailNote">ノート</label>
           <textarea
             id="detailNote"
-            className="note-textarea"
+            className="note-textarea ui-field"
             rows={4}
             value={note}
             placeholder="補足説明（任意）"
@@ -315,6 +461,7 @@ export function TaskDetailPanel({
           <input
             id="detailTagInput"
             type="text"
+            className="ui-field"
             list={tagSuggestions.length > 0 ? "detailTagSuggestions" : undefined}
             value={tagInput}
             placeholder="タグを入力して Enter"
@@ -352,12 +499,11 @@ export function TaskDetailPanel({
         <div className="detail-date-row">
           <div className="field">
             <label htmlFor="detailStart">開始</label>
-            <input
+            <DateInput
               id="detailStart"
-              type="date"
               value={start}
-              onChange={(e) => {
-                const next = e.target.value;
+              inputClassName="ui-field"
+              onChange={(next) => {
                 setStart(next);
                 commitWith({ start: next });
               }}
@@ -365,12 +511,11 @@ export function TaskDetailPanel({
           </div>
           <div className="field">
             <label htmlFor="detailEnd">終了</label>
-            <input
+            <DateInput
               id="detailEnd"
-              type="date"
               value={end}
-              onChange={(e) => {
-                const next = e.target.value;
+              inputClassName="ui-field"
+              onChange={(next) => {
                 setEnd(next);
                 commitWith({ end: next });
               }}
@@ -382,33 +527,22 @@ export function TaskDetailPanel({
       <section className="detail-section">
         <h2 className="detail-section-title">担当・状態</h2>
         <div className="field">
-          <label htmlFor="detailAssignee">担当者</label>
-          <select
-            id="detailAssignee"
-            value={assigneeId}
-            onChange={(e) => {
-              const next = e.target.value;
-              setAssigneeId(next);
-              commitWith({ assigneeId: next === "" ? null : next });
-            }}
-          >
-            <option value="">{UNASSIGNED_LABEL}</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {memberOptionLabel(member, duplicateNames)}
-              </option>
-            ))}
-            {showUnknownOption && task.assigneeId ? (
-              <option value={task.assigneeId}>
-                {formatUnknownAssigneeOption(task.assigneeId)}
-              </option>
-            ) : null}
-          </select>
+          <span className="field-label" id="detailAssigneeLabel">
+            担当者
+          </span>
+          <AssigneeListField
+            idPrefix="detail"
+            assigneeIds={task.assigneeIds}
+            members={members}
+            memberCatalog={memberCatalog}
+            onChange={(next) => commitWith({ assigneeIds: next })}
+          />
         </div>
         <div className="field">
           <label htmlFor="detailStatus">ステータス</label>
           <select
             id="detailStatus"
+            className="ui-field"
             value={status}
             onChange={(e) => {
               const next = e.target.value as TaskStatus;
@@ -416,43 +550,223 @@ export function TaskDetailPanel({
               commitWith({ status: next });
             }}
           >
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
-        <div className="field">
-          <label htmlFor="detailProgress">進捗率</label>
-          <div className="detail-progress">
-            <input
-              id="detailProgress"
-              type="range"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              onMouseUp={() => commitProgressIfDirty()}
-              onPointerUp={() => commitProgressIfDirty()}
-              onBlur={() => commitProgressIfDirty()}
-            />
-            <input
-              type="number"
-              min={0}
-              max={100}
-              className="detail-progress-num"
-              value={progress}
-              onChange={(e) => {
-                setProgress(Number(e.target.value) || 0);
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="detailColor">色</label>
+            <ColorSelectField
+              id="detailColor"
+              value={colorId ?? COLOR_NONE_VALUE}
+              options={colorSelectOptionsForTask(colors, colorId, colorScheme)}
+              onChange={(next) => {
+                const id =
+                  next === COLOR_NONE_VALUE ? null : next;
+                setColorId(id);
+                commitWith({ colorId: id });
               }}
-              onBlur={() => commitProgressIfDirty()}
             />
-            <span>%</span>
           </div>
+        ) : null}
+        <div className="field">
+          <label htmlFor={todosActive ? undefined : "detailProgress"}>
+            進捗率
+          </label>
+          {todosActive ? (
+            <div className="detail-progress detail-progress-linked">
+              <span
+                id="detailProgress"
+                className="detail-progress-readonly"
+                aria-live="polite"
+              >
+                {task.progress}%
+              </span>
+              {todoFraction ? (
+                <span className="detail-todo-fraction">{todoFraction}</span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="detail-progress">
+              <input
+                id="detailProgress"
+                type="range"
+                min={0}
+                max={100}
+                value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))}
+                onMouseUp={() => commitProgressIfDirty()}
+                onPointerUp={() => commitProgressIfDirty()}
+                onBlur={() => commitProgressIfDirty()}
+              />
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="detail-progress-num ui-field"
+                value={progress}
+                onChange={(e) => {
+                  setProgress(Number(e.target.value) || 0);
+                }}
+                onBlur={() => commitProgressIfDirty()}
+              />
+              <span>%</span>
+            </div>
+          )}
+        </div>
+        <div className="field detail-todo-field">
+          {todosActive ? (
+            <span className="detail-todo-label" id="detailTodoListLabel">
+              TODO
+            </span>
+          ) : null}
+          {todosActive ? (
+            <ul
+              className="detail-todo-list"
+              aria-labelledby="detailTodoListLabel"
+            >
+              {todoItems.map((item, index) => (
+                <li key={`todo-${index}`} className="detail-todo-row">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    aria-label={`${item.text}を済みにする`}
+                    onChange={() => {
+                      const next = todoItems.map((row, rowIndex) =>
+                        rowIndex === index
+                          ? { ...row, done: !row.done }
+                          : row,
+                      );
+                      commitTodos(next);
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="detail-todo-text ui-field"
+                    value={item.text}
+                    onChange={(e) => {
+                      const next = [...todoItems];
+                      next[index] = { ...next[index], text: e.target.value };
+                      setTodoItems(next);
+                    }}
+                    onBlur={() => {
+                      const trimmed = todoItems[index].text.trim();
+                      if (trimmed.length === 0) {
+                        const next = todoItems.filter(
+                          (_, rowIndex) => rowIndex !== index,
+                        );
+                        commitTodos(next);
+                        return;
+                      }
+                      if (/[\r\n]/.test(todoItems[index].text)) {
+                        setFormError("TODOの文に改行は使えません");
+                        setTodoItems(task.todos ?? []);
+                        return;
+                      }
+                      if (trimmed !== todoItems[index].text) {
+                        const next = [...todoItems];
+                        next[index] = { ...next[index], text: trimmed };
+                        commitTodos(next);
+                        return;
+                      }
+                      if (
+                        trimmed !== (task.todos ?? [])[index]?.text ||
+                        item.done !== (task.todos ?? [])[index]?.done
+                      ) {
+                        commitTodos(todoItems);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                      e.preventDefault();
+                      (e.target as HTMLInputElement).blur();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn detail-todo-remove"
+                    aria-label={`${item.text}を削除`}
+                    onClick={() => {
+                      const next = todoItems.filter(
+                        (_, rowIndex) => rowIndex !== index,
+                      );
+                      commitTodos(next);
+                    }}
+                  >
+                    削除
+                  </button>
+                </li>
+              ))}
+              {showPendingTodo ? (
+                <li className="detail-todo-row detail-todo-row-pending">
+                  <span className="detail-todo-pending-spacer" aria-hidden="true" />
+                  <input
+                    type="text"
+                    className="detail-todo-text ui-field"
+                    value={pendingTodoText}
+                    autoFocus
+                    placeholder="TODOの文"
+                    aria-label="新しいTODOの文"
+                    onChange={(e) => setPendingTodoText(e.target.value)}
+                    onBlur={handlePendingTodoBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        e.preventDefault();
+                        commitPendingTodo();
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelPendingTodo();
+                      }
+                    }}
+                  />
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
+          {showPendingTodo && !todosActive ? (
+            <div className="detail-todo-row detail-todo-row-pending">
+              <span className="detail-todo-pending-spacer" aria-hidden="true" />
+              <input
+                type="text"
+                className="detail-todo-text ui-field"
+                value={pendingTodoText}
+                autoFocus
+                placeholder="TODOの文"
+                aria-label="新しいTODOの文"
+                onChange={(e) => setPendingTodoText(e.target.value)}
+                onBlur={handlePendingTodoBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    e.preventDefault();
+                    commitPendingTodo();
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelPendingTodo();
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="btn detail-todo-add"
+            onClick={() => setShowPendingTodo(true)}
+          >
+            TODOを追加
+          </button>
         </div>
         <div className="field">
           <label htmlFor="detailConfidence">確度</label>
           <select
             id="detailConfidence"
+            className="ui-field"
             value={confidence}
             onChange={(e) => {
               const next = e.target.value as TaskConfidence;
@@ -528,6 +842,159 @@ export function TaskDetailPanel({
           }}
         />
       </section>
+      <TaskConnectionSection
+        taskId={task.id}
+        taskName={task.name}
+        connections={connections}
+        tasks={tasks}
+        candidates={candidates}
+        onAdd={onAddConnection}
+        onUpdateLabel={onUpdateConnectionLabel}
+        onRemove={onRemoveConnection}
+        addDialogOpen={connectionAddDialogOpen}
+        onAddDialogOpenChange={onConnectionAddDialogOpenChange}
+      />
+      {scheduleFields != null && scheduleFields.length > 0 ? (
+        <section className="detail-section">
+          <h2 className="detail-section-title">追加項目</h2>
+          {scheduleFields.map((field) => {
+            const inputId = `detailField-${field.key}`;
+            const draft = customFieldDrafts[field.key] ?? "";
+            const commitField = (raw: string) => {
+              const saveError = onSetTaskField(field.key, raw);
+              if (saveError) {
+                setFormError(saveError);
+                return;
+              }
+              setFormError(null);
+            };
+            if (field.type === "choice") {
+              const current = task.fieldValues?.[field.key];
+              const selectValue =
+                current === undefined ? TASK_FIELD_NONE_VALUE : String(current);
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
+                  <select
+                    id={inputId}
+                    className="ui-field"
+                    value={selectValue}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const raw =
+                        next === TASK_FIELD_NONE_VALUE ? "" : next;
+                      commitField(raw);
+                    }}
+                  >
+                    <option value={TASK_FIELD_NONE_VALUE}>値なし</option>
+                    {(field.choices ?? []).map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            }
+            if (field.type === "date") {
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
+                  <DateInput
+                    id={inputId}
+                    value={draft}
+                    inputClassName="ui-field"
+                    onChange={(next) => {
+                      setCustomFieldDrafts((prev) => ({
+                        ...prev,
+                        [field.key]: next,
+                      }));
+                      commitField(next);
+                    }}
+                  />
+                </div>
+              );
+            }
+            if (field.type === "number") {
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
+                  <div className="detail-number-line">
+                    <input
+                      id={inputId}
+                      type="number"
+                      className="ui-field"
+                      value={draft}
+                      onChange={(e) => {
+                        setCustomFieldDrafts((prev) => ({
+                          ...prev,
+                          [field.key]: e.target.value,
+                        }));
+                      }}
+                      onBlur={() => commitField(draft)}
+                    />
+                    {field.percent === true ? (
+                      <span className="detail-number-suffix">%</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="field" key={field.key}>
+                <label htmlFor={inputId}>
+                  {fieldLabelContent(field, task)}
+                </label>
+                <input
+                  id={inputId}
+                  type="text"
+                  className="ui-field"
+                  value={draft}
+                  onChange={(e) => {
+                    setCustomFieldDrafts((prev) => ({
+                      ...prev,
+                      [field.key]: e.target.value,
+                    }));
+                  }}
+                  onBlur={() => commitField(draft)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    e.preventDefault();
+                    commitField(draft);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+      {(() => {
+        const editableKeys = new Set(
+          (scheduleFields ?? []).map((field) => field.key),
+        );
+        const orphans = Object.entries(task.fieldValues ?? {}).filter(
+          ([key]) => !editableKeys.has(key),
+        );
+        if (orphans.length === 0) return null;
+        return (
+          <section className="detail-section">
+            <h2 className="detail-section-title">未登録の追加項目</h2>
+            {orphans.map(([key, value]) => (
+              <div className="field" key={key}>
+                <span className="field-label">{key}</span>
+                <p className="field-readonly-value">{String(value)}</p>
+              </div>
+            ))}
+          </section>
+        );
+      })()}
       {formError ? (
         <p className="form-error" role="alert">{formError}</p>
       ) : null}

@@ -6,6 +6,7 @@ import {
   REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
   REPLACE_SCHEDULE_TOO_LARGE,
   REPLACE_SCHEDULE_UI_BUSY,
+  assessMcpReplaceUiBlocking,
   assessReplaceScheduleGate,
   capReplaceScheduleDiffText,
   canonicalJsonEqual,
@@ -16,7 +17,7 @@ import {
 import { MAX_SCHEDULE_BYTES, serializeScheduleDocument } from "./scheduleFile";
 
 const validScheduleJson = JSON.stringify({
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "テスト",
   milestoneGroups: [{ id: "e1000001-0000-4000-8000-000000000011", name: "M" }],
   milestones: [
@@ -42,7 +43,7 @@ const validScheduleJson = JSON.stringify({
               name: "T",
               start: "2026-01-01",
               end: "2026-01-02",
-              assigneeId: null,
+              assigneeIds: [],
               status: "not-started",
               progress: 0,
               confidence: "committed",
@@ -54,6 +55,47 @@ const validScheduleJson = JSON.stringify({
       ],
     },
   ],
+});
+
+describe("assessMcpReplaceUiBlocking", () => {
+  const idle = {
+    fileBusy: false,
+    titleEditing: false,
+    detailPanelEditing: false,
+    scheduleInlineEditing: false,
+    reorderDragging: false,
+    sidebarReorderDragging: false,
+    chartBarDragging: false,
+    modalDialogOpen: false,
+    externalReloadConflictDialogOpen: false,
+  };
+
+  it("blocks when a modal dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({ ...idle, modalDialogOpen: true }),
+    ).toBe(true);
+  });
+
+  it("does not block for modal when only external reload conflict dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({
+        ...idle,
+        modalDialogOpen: true,
+        externalReloadConflictDialogOpen: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("still blocks other editing while external reload conflict dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({
+        ...idle,
+        modalDialogOpen: true,
+        externalReloadConflictDialogOpen: true,
+        detailPanelEditing: true,
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("assessReplaceScheduleGate", () => {

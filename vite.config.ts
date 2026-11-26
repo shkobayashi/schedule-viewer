@@ -19,6 +19,11 @@ const port = isTauriDev ? 1420 : 5173;
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    "import.meta.env.VITE_SCHEDULE_VIEWER_FRESH_START": JSON.stringify(
+      process.env.SCHEDULE_VIEWER_FRESH_START ?? "",
+    ),
+  },
   plugins: [react()],
   resolve:
     mode === "manual-screenshot"

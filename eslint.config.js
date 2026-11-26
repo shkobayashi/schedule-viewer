@@ -28,4 +28,62 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["src/model/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "../hooks",
+                "../hooks/**",
+                "../components",
+                "../components/**",
+                "../operations",
+                "../operations/**",
+              ],
+              message:
+                "model は hooks / components / operations を import しない（internal-spec「段 8 の自動検査」）",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/hooks/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../components", "../components/**"],
+              message:
+                "hooks は components を import しない（internal-spec「段 8 の自動検査」）",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/operations/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../hooks", "../hooks/**", "../components", "../components/**"],
+              message:
+                "operations は hooks / components を import しない（internal-spec「コードの境界」）",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

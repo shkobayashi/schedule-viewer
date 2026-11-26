@@ -55,7 +55,33 @@ describe("workspaceJson", () => {
     expect(resolved).toEqual({
       schedulePath: "/data/ws/plan.json",
       membersPath: "/data/ws/team.json",
+      colorsPath: null,
       calendarPath: null,
+      statusesPath: null,
+      fieldExtensionPaths: [],
+      editableFieldExtensionPath: null,
     });
+  });
+
+  it("rejects editable path duplicated in fieldExtensions", () => {
+    const result = parseWorkspaceText(
+      JSON.stringify({
+        schemaVersion: 1,
+        schedule: "plan.json",
+        fieldExtensions: ["a.fields.json"],
+        editableFieldExtension: "a.fields.json",
+      }),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("resolves optional statuses path", () => {
+    const doc = {
+      schemaVersion: 1 as const,
+      schedule: "plan.json",
+      statuses: "team.statuses.json",
+    };
+    const resolved = resolveWorkspacePaths("/data/ws/workspace.json", doc);
+    expect(resolved?.statusesPath).toBe("/data/ws/team.statuses.json");
   });
 });

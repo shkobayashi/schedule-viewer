@@ -15,7 +15,7 @@ description: >-
 
 ## 着手前
 
-1. [AGENTS.md](../../../AGENTS.md) の表で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
+1. [docs/agents-agent-index.md](../../../docs/agents-agent-index.md) で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
 2. 版番号の純粋関数は [src/model/releaseVersion.ts](../../../src/model/releaseVersion.ts) が正本である。スクリプトはここを import する
 3. 挙動の正本は [.github/workflows/release.yml](../../../.github/workflows/release.yml) と上の TypeScript である
 
@@ -40,7 +40,7 @@ description: >-
 
 ## 文書
 
-[AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
+[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
 
 配布の経路を変えたあとは、`NSIS の上書き`、`msix-store`、`workflow_dispatch` で MSIX、安定版の GitHub NSIS など、古い経路の語が [docs/development.md](../../../docs/development.md)、[docs/external-spec.md](../../../docs/external-spec.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[CHANGELOG.md](../../../CHANGELOG.md) に残っていないかを検索して直す
 
@@ -53,7 +53,7 @@ description: >-
 `next` を切る作業、次メジャーのリリース、2.0 を出したあとに 1.x の安定版を出せるようワークフローを広げる作業は、この節を読む。手順は development.md の上から順に行い、次を省かない。
 
 1. `next` を `develop` へマージするのは、次メジャーの安定版を `main` に載せたあとだけである
-2. `next` では版番号を上げない
+2. 1.x 安定版を `next` に取り込んだマージでは、版番号をその安定版の `X.Y.Z` に揃える（[development.md](../../../docs/development.md) の「変更の入れ先」手順 5）。次メジャーの Pre-release（アルファ）に上げるのは `release/2.0.0` を切ったあとである
 3. `release/X.Y.Z` は、その版の Pre-release（アルファ・ベータ）を出してから消すまでだけ使う
 4. 公開する契約を壊す変更は `next` に置く。1.x のまま出せる変更は `develop` に置く
 5. `main` へ次メジャーを載せると、Store の同じ製品の利用者にはその版が届く
@@ -62,11 +62,11 @@ description: >-
 ## 確認
 
 1. [src/model/releaseVersion.test.ts](../../../src/model/releaseVersion.test.ts) に判定と bump を足す
-2. `npm run build`、`npm run lint`、`npm test` を通す
+2. リリース前は [docs/development.md](../../../docs/development.md) の「リリース前に回す検査」に従い、そこに書いてある自動は通す。緊急のときは手動の回帰だけ飛ばしてよい
 3. GitHub 上の Pre-release と、安定版の Store 提出は、最初の該当 Release を出したときに手で見る
 
 ## 完了条件
 
 - 計画した安定版と Pre-release（アルファ・ベータ）の分岐がワークフローと版番号スクリプトに入っている
 - 対応する文書が同じ変更に含まれている
-- `npm run build`、`npm run lint`、`npm test` が通っている
+- [docs/development.md](../../../docs/development.md) の「リリース前に回す検査」に書いてある自動が通っている（緊急のリリースでは手動の回帰だけ飛ばしてよい）

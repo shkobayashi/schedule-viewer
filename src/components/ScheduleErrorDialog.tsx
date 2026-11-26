@@ -14,11 +14,6 @@ export function ScheduleErrorDialog({
   return (
     <ModalDialog title={title} onClose={onClose}>
       <pre className="error-text">{message}</pre>
-      <div className="modal-actions">
-        <button type="button" className="btn" onClick={onClose}>
-          閉じる
-        </button>
-      </div>
     </ModalDialog>
   );
 }

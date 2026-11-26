@@ -1,3 +1,8 @@
+import type { DocumentSnapshot } from "./history";
+import {
+  REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
+  REPLACE_SCHEDULE_UI_BUSY,
+} from "./mcpOperationGate";
 import { MCP_SCREEN_CONTEXT_MAX_BYTES } from "./screenContext";
 import {
   MAX_SCHEDULE_BYTES,
@@ -5,11 +10,19 @@ import {
 } from "./scheduleFile";
 import type { ScheduleDocument } from "./types";
 
-export const REPLACE_SCHEDULE_STARTUP_NOT_SETTLED =
-  "起動の復旧が終わっていないので、置き換えられません。";
+export const REPLACE_SCHEDULE_APPLIED_TOAST =
+  "画面に反映しました。内容を確認して、問題なければ保存してください。";
 
-export const REPLACE_SCHEDULE_UI_BUSY =
-  "画面の操作が途中なので、置き換えられません。";
+export const REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST =
+  "画面に反映しました。";
+
+export type McpReplaceUiBlockingInput = import("./mcpOperationGate").McpUiBlockingInput;
+
+export {
+  assessMcpReplaceUiBlocking,
+  REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
+  REPLACE_SCHEDULE_UI_BUSY,
+} from "./mcpOperationGate";
 
 export const REPLACE_SCHEDULE_TOO_LARGE =
   "スケジュールが大きすぎるため、置き換えられません。";
@@ -44,7 +57,12 @@ export function assessReplaceScheduleGate(
 }
 
 export type ReplaceScheduleDocumentResult =
-  | { outcome: "applied"; screenJson: string }
+  | {
+      outcome: "applied";
+      screenJson: string;
+      before: DocumentSnapshot;
+      after: DocumentSnapshot;
+    }
   | { outcome: "unchanged"; screenJson: string }
   | { outcome: "rejected" };
 

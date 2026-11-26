@@ -13,6 +13,30 @@ use crate::{
 };
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
+pub const PENDING_STARTUP_STAGES_FILE: &str = "pending-startup-stages.jsonl";
+/// 設定ファイルを読み込めませんでした。中のスケジュールは開いていません。
+pub const PENDING_STARTUP_STAGE_WORKSPACE_FAILED: &str = "pending-workspace-failed";
+
+pub fn append_pending_startup_stage(
+    app_data: &Path,
+    label: &str,
+    stage: &str,
+) -> Result<(), String> {
+    fs::create_dir_all(app_data).map_err(|e| format!("アプリデータを準備できません: {}", e))?;
+    let path = app_data.join(PENDING_STARTUP_STAGES_FILE);
+    let line = serde_json::json!({ "label": label, "stage": stage });
+    let mut text = serde_json::to_string(&line).map_err(|e| e.to_string())?;
+    text.push('\n');
+    use std::io::Write;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| format!("起動記録を書けません: {}", e))?;
+    file.write_all(text.as_bytes())
+        .map_err(|e| format!("起動記録を書けません: {}", e))?;
+    Ok(())
+}
 const RECOVERY_DIR: &str = "schedule-recovery";
 const FILTER_DIR: &str = "schedule-filters";
 const LEGACY_LAST: &str = "last-schedule.json";
@@ -50,6 +74,7 @@ pub struct OpenWindowsFile {
 pub struct PendingWindowOpen {
     pub path: String,
     pub contents: String,
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -78,6 +103,34 @@ pub struct WindowSessionState {
     pub external_drop_queue: ExternalDropQueue,
     /// 起動復旧の確認ダイアログを閉じ、外部ドロップを受け付けられるウィンドウ。
     pub external_drop_ready_labels: Vec<String>,
+    /// 起動復旧で窓を作ったあと、全窓の起動が落ち着くまで記録の前面を守る。
+    pub startup_focus_hold: Option<StartupFocusHold>,
+}
+
+/// 起動復旧で作った窓が、表示や WebView の初期化のときに OS のフォーカスを取っても、
+/// 記録の前面（`focusedLabel`）を書き換えないための保留。
+#[derive(Clone, Debug)]
+pub struct StartupFocusHold {
+    pub target: String,
+    pub started: std::time::Instant,
+}
+
+/// 保留が残ったままにならないための上限。過ぎたら OS のフォーカスをそのまま記録する。
+pub const STARTUP_FOCUS_HOLD_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// OS のフォーカスで `label` を記録の前面に書くのを、起動時の保留が止めるとき true。
+pub fn startup_focus_hold_blocks(
+    hold: Option<&StartupFocusHold>,
+    label: &str,
+    now: std::time::Instant,
+) -> bool {
+    let Some(hold) = hold else {
+        return false;
+    };
+    if now.saturating_duration_since(hold.started) >= STARTUP_FOCUS_HOLD_LIMIT {
+        return false;
+    }
+    hold.target != label
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -147,7 +200,8 @@ pub fn all_webview_windows_listed(app: &AppHandle, labels: &[String]) -> bool {
     if open.is_empty() {
         return false;
     }
-    open.iter().all(|label| labels.iter().any(|item| item == label))
+    open.iter()
+        .all(|label| labels.iter().any(|item| item == label))
 }
 
 pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
@@ -380,6 +434,25 @@ pub fn entry_for_label<'a>(file: &'a OpenWindowsFile, label: &str) -> Option<&'a
     file.windows.iter().find(|entry| entry.label == label)
 }
 
+/// スケジュールのパスを記録し直すときの設定ファイルのパス。
+/// 直接開いたときは常に外す。同じスケジュールパスなら既存の束縛を残す。
+pub fn workspace_path_for_schedule_record(
+    existing: Option<&OpenWindowEntry>,
+    new_schedule_path: &str,
+    preserve_workspace_binding: bool,
+) -> Option<String> {
+    if !preserve_workspace_binding {
+        return None;
+    }
+    let entry = existing?;
+    let workspace = entry.workspace_path.as_ref()?;
+    if entry.path.as_deref() == Some(new_schedule_path) {
+        Some(workspace.clone())
+    } else {
+        None
+    }
+}
+
 pub fn upsert_window_path(
     app_data: &Path,
     label: &str,
@@ -425,10 +498,21 @@ pub fn remove_window_label(app_data: &Path, label: &str) -> Result<(), String> {
     write_open_windows(app_data, &file)
 }
 
-pub fn set_focused_label(app_data: &Path, label: &str) -> Result<(), String> {
+fn log_focused_label_write(label: &str, trigger: &str) {
+    let ts_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    eprintln!(
+        "[mcp-harness] h5_focused_label_write: label={label} trigger={trigger} ts_ms={ts_ms}"
+    );
+}
+
+pub fn set_focused_label(app_data: &Path, label: &str, trigger: &str) -> Result<(), String> {
     let mut file = read_open_windows(app_data)?;
     if file.windows.iter().any(|entry| entry.label == label) {
         file.focused_label = label.to_string();
+        log_focused_label_write(label, trigger);
         write_open_windows(app_data, &file)
     } else {
         Ok(())
@@ -515,18 +599,59 @@ pub fn delete_filter_for_path(app_data: &Path, schedule_path: &str) -> Result<()
     Ok(())
 }
 
-pub fn next_schedule_window_label(app: &AppHandle) -> Result<String, String> {
+fn next_schedule_window_label_with_live(
+    session: &WindowSessionState,
+    is_label_live: impl Fn(&str) -> bool,
+) -> Result<String, String> {
     let mut index = 2;
     loop {
         let label = format!("schedule-{index}");
-        if app.get_webview_window(&label).is_none() {
-            return Ok(label);
+        if is_label_live(&label) || session.pending_opens.contains_key(&label) {
+            index += 1;
+            if index > 10_000 {
+                return Err("ウィンドウをこれ以上開けません。".to_string());
+            }
+            continue;
         }
-        index += 1;
-        if index > 10_000 {
-            return Err("ウィンドウをこれ以上開けません。".to_string());
-        }
+        return Ok(label);
     }
+}
+
+/// ラベル選定と pending 予約を同一 `WindowSessionState` 操作の中で行う。`create_schedule_window` は live 判定を渡して呼ぶ。
+pub fn reserve_next_schedule_window_open_with_live(
+    session: &mut WindowSessionState,
+    is_label_live: impl Fn(&str) -> bool,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<String, String> {
+    let label = next_schedule_window_label_with_live(session, is_label_live)?;
+    store_pending_open(
+        session,
+        label.clone(),
+        path,
+        contents,
+        workspace_path,
+    );
+    note_window_focus(session, &label);
+    Ok(label)
+}
+
+/// `create_schedule_window` が使う。呼び出し側がセッション Mutex を保持していること。
+pub fn reserve_next_schedule_window_open(
+    app: &AppHandle,
+    session: &mut WindowSessionState,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<String, String> {
+    reserve_next_schedule_window_open_with_live(
+        session,
+        |label| app.get_webview_window(label).is_some(),
+        path,
+        contents,
+        workspace_path,
+    )
 }
 
 static MAIN_THREAD_ID: OnceLock<thread::ThreadId> = OnceLock::new();
@@ -556,17 +681,18 @@ pub fn create_schedule_webview_on_main_thread(
         let app = app.clone();
         app.clone()
             .run_on_main_thread(move || {
-                let result = create_schedule_webview(&app, &label, &title);
+                let result = create_schedule_webview(&app, &label, &title, true);
                 let _ = tx.send(result);
             })
             .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
-        rx.recv()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        rx.recv().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     };
     if on_main_thread() {
-        thread::spawn(build_on_main_thread)
-            .join()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        thread::spawn(build_on_main_thread).join().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     } else {
         build_on_main_thread()
     }
@@ -717,13 +843,20 @@ pub enum McpWindowOverrideError {
     NotOpen,
 }
 
-pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Result<(), String> {
+/// `focused` が false のとき、窓と WebView は作成時に OS のフォーカスを取らない（起動復旧用）。
+pub fn create_schedule_webview(
+    app: &AppHandle,
+    label: &str,
+    title: &str,
+    focused: bool,
+) -> Result<(), String> {
     if app.get_webview_window(label).is_some() {
         return Err("同じウィンドウが既に開いています。".to_string());
     }
     WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(title)
         .inner_size(1100.0, 780.0)
+        .focused(focused)
         .build()
         .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
     Ok(())
@@ -733,23 +866,50 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
     let file = dedupe_open_windows(read_open_windows(app_data)?);
     write_open_windows(app_data, &file)?;
     let close_default_main = should_close_default_main_window(&file);
-    for entry in &file.windows {
-        if entry.label == "main" {
-            continue;
+    let window_labels: Vec<String> = file.windows.iter().map(|e| e.label.clone()).collect();
+    let live_before: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let focused_label = file.focused_label.clone();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=before_spawn window_labels={window_labels:?} focused_label={focused_label} close_default_main={close_default_main} live_labels={live_before:?}"
+    );
+    let to_spawn: Vec<&OpenWindowEntry> = file
+        .windows
+        .iter()
+        .filter(|entry| entry.label != "main" && app.get_webview_window(&entry.label).is_none())
+        .collect();
+    // 作った窓は、イベントループが回り始めてから表示や WebView の初期化で OS のフォーカスを取る。
+    // ここで set_focus して記録しても後から上書きされるので、全窓の起動が落ち着くまで保留する。
+    if !to_spawn.is_empty() {
+        if let Some(session) = app.try_state::<std::sync::Mutex<WindowSessionState>>() {
+            session.lock().expect("window session").startup_focus_hold = Some(StartupFocusHold {
+                target: focused_label.clone(),
+                started: std::time::Instant::now(),
+            });
         }
-        if app.get_webview_window(&entry.label).is_some() {
-            continue;
-        }
-        create_schedule_webview(app, &entry.label, "schedule-viewer")?;
+    }
+    let mut spawned = Vec::new();
+    for entry in to_spawn {
+        let take_focus = entry.label == focused_label;
+        create_schedule_webview(app, &entry.label, "schedule-viewer", take_focus)?;
+        spawned.push(entry.label.clone());
     }
     if close_default_main {
         if let Some(main) = app.get_webview_window("main") {
             let _ = main.close();
         }
     }
-    if let Some(window) = app.get_webview_window(&file.focused_label) {
-        let _ = window.set_focus();
+    let focus_applied = if let Some(window) = app.get_webview_window(&file.focused_label) {
+        window.set_focus().is_ok()
+    } else {
+        false
+    };
+    if focus_applied {
+        let _ = set_focused_label(app_data, &file.focused_label, "startup_focus");
     }
+    let live_after: Vec<String> = app.webview_windows().keys().cloned().collect();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=after_spawn spawned={spawned:?} focus_target={focused_label} focus_applied={focus_applied} live_labels={live_after:?}"
+    );
     Ok(())
 }
 
@@ -828,6 +988,14 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     }
 }
 
+pub fn peek_pending_open(state: &WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
+    state.pending_opens.get(label).cloned()
+}
+
+pub fn ack_pending_open(state: &mut WindowSessionState, label: &str) {
+    state.pending_opens.remove(label);
+}
+
 pub fn take_pending_open(state: &mut WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
     state.pending_opens.remove(label)
 }
@@ -837,15 +1005,96 @@ pub fn store_pending_open(
     label: String,
     path: String,
     contents: String,
+    workspace_path: Option<String>,
 ) {
-    state
-        .pending_opens
-        .insert(label, PendingWindowOpen { path, contents });
+    state.pending_opens.insert(
+        label,
+        PendingWindowOpen {
+            path,
+            contents,
+            workspace_path,
+        },
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn hold_for(target: &str, started: std::time::Instant) -> StartupFocusHold {
+        StartupFocusHold {
+            target: target.to_string(),
+            started,
+        }
+    }
+
+    #[test]
+    fn startup_focus_hold_blocks_only_other_labels_within_limit() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("main", started);
+        let soon = started + std::time::Duration::from_secs(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "schedule-2", soon));
+        assert!(!startup_focus_hold_blocks(Some(&hold), "main", soon));
+    }
+
+    #[test]
+    fn startup_focus_hold_follows_target_not_main() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("schedule-2", started);
+        let soon = started + std::time::Duration::from_secs(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "main", soon));
+        assert!(!startup_focus_hold_blocks(Some(&hold), "schedule-2", soon));
+    }
+
+    #[test]
+    fn startup_focus_hold_expires_at_limit() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("main", started);
+        let just_before = started + STARTUP_FOCUS_HOLD_LIMIT - std::time::Duration::from_millis(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "schedule-2", just_before));
+        let at_limit = started + STARTUP_FOCUS_HOLD_LIMIT;
+        assert!(!startup_focus_hold_blocks(Some(&hold), "schedule-2", at_limit));
+    }
+
+    #[test]
+    fn no_startup_focus_hold_never_blocks() {
+        assert!(!startup_focus_hold_blocks(
+            None,
+            "schedule-2",
+            std::time::Instant::now()
+        ));
+    }
+
+    #[test]
+    fn recovery_roundtrip_reads_the_draft_bytes() {
+        let app_data = tempfile::tempdir().expect("temp dir");
+        let schedule = "/tmp/plan.json";
+        let draft = r#"{"schemaVersion":8,"tasks":[]}"#;
+        write_recovery_for_path(app_data.path(), schedule, draft).expect("write");
+        let read = read_recovery_for_path(app_data.path(), schedule)
+            .expect("read")
+            .expect("some");
+        assert_eq!(read, draft);
+    }
+
+    #[test]
+    fn delete_recovery_for_path_removes_only_that_draft() {
+        let app_data = tempfile::tempdir().expect("temp dir");
+        let first = "/tmp/one.json";
+        let second = "/tmp/two.json";
+        write_recovery_for_path(app_data.path(), first, "one").expect("write one");
+        write_recovery_for_path(app_data.path(), second, "two").expect("write two");
+        delete_recovery_for_path(app_data.path(), first).expect("delete");
+        assert!(read_recovery_for_path(app_data.path(), first)
+            .expect("read")
+            .is_none());
+        assert_eq!(
+            read_recovery_for_path(app_data.path(), second)
+                .expect("read")
+                .as_deref(),
+            Some("two")
+        );
+    }
 
     #[test]
     fn path_recovery_key_is_stable() {
@@ -868,6 +1117,154 @@ mod tests {
             filter_path_for(&app_data, schedule).file_name(),
             recovery_path_for(&app_data, schedule).file_name(),
         );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_preserves_on_same_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert_eq!(
+            workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", true).as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_direct_open() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", false).is_none());
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_different_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/other.json", true).is_none());
+    }
+
+    #[test]
+    fn upsert_schedule_record_preserves_workspace_path_in_file() {
+        let app_data = std::env::temp_dir().join("schedule-viewer-workspace-record-test");
+        let _ = fs::remove_dir_all(&app_data);
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: Some("/tmp/plan.json".to_string()),
+                workspace_path: Some("/tmp/workspace.json".to_string()),
+                sample: false,
+            }],
+        };
+        write_open_windows(&app_data, &file).expect("write");
+        let read = read_open_windows(&app_data).expect("read");
+        let existing = entry_for_label(&read, "main");
+        let workspace = workspace_path_for_schedule_record(existing, "/tmp/plan.json", true);
+        upsert_window_path(
+            &app_data,
+            "main",
+            Some("/tmp/plan.json"),
+            workspace.as_deref(),
+            false,
+        )
+        .expect("upsert");
+        let read = read_open_windows(&app_data).expect("read again");
+        let entry = entry_for_label(&read, "main").expect("entry");
+        assert_eq!(
+            entry.workspace_path.as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+        let _ = fs::remove_dir_all(&app_data);
+    }
+
+    #[test]
+    fn take_pending_open_clears_reservation_for_label() {
+        let mut state = WindowSessionState::default();
+        store_pending_open(
+            &mut state,
+            "schedule-3".to_string(),
+            "/tmp/a.schedule.json".to_string(),
+            "{}".to_string(),
+            None,
+        );
+        assert!(state.pending_opens.contains_key("schedule-3"));
+        let taken = take_pending_open(&mut state, "schedule-3").expect("pending");
+        assert_eq!(taken.path, "/tmp/a.schedule.json");
+        assert!(take_pending_open(&mut state, "schedule-3").is_none());
+    }
+
+    #[test]
+    fn concurrent_reserve_next_schedule_window_open_yields_distinct_labels() {
+        use std::collections::HashSet;
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        let state = Arc::new(Mutex::new(WindowSessionState::default()));
+        let live_labels: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
+        let barrier = Arc::new(Barrier::new(2));
+        let mut handles = Vec::new();
+        for index in 0..2 {
+            let state = Arc::clone(&state);
+            let live_labels = Arc::clone(&live_labels);
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                let mut guard = state.lock().expect("session lock");
+                let label = reserve_next_schedule_window_open_with_live(
+                    &mut guard,
+                    |candidate| {
+                        live_labels
+                            .lock()
+                            .expect("live labels")
+                            .contains(candidate)
+                    },
+                    format!("/tmp/open-{index}.schedule.json"),
+                    "{}".to_string(),
+                    None,
+                )
+                .expect("reserve");
+                live_labels.lock().expect("live labels").insert(label.clone());
+                label
+            }));
+        }
+        let mut labels = Vec::new();
+        for handle in handles {
+            labels.push(handle.join().expect("thread"));
+        }
+        assert_ne!(labels[0], labels[1]);
+        let guard = state.lock().expect("session lock");
+        assert_eq!(guard.pending_opens.len(), 2);
+        assert!(guard.pending_opens.contains_key(&labels[0]));
+        assert!(guard.pending_opens.contains_key(&labels[1]));
+    }
+
+    #[test]
+    fn pending_open_roundtrips_workspace_path() {
+        let mut state = WindowSessionState::default();
+        store_pending_open(
+            &mut state,
+            "schedule-2".to_string(),
+            "/tmp/plan.json".to_string(),
+            "{}".to_string(),
+            Some("/tmp/workspace.json".to_string()),
+        );
+        let taken = take_pending_open(&mut state, "schedule-2").expect("pending");
+        assert_eq!(taken.path, "/tmp/plan.json");
+        assert_eq!(taken.contents, "{}");
+        assert_eq!(taken.workspace_path.as_deref(), Some("/tmp/workspace.json"),);
+        assert!(take_pending_open(&mut state, "schedule-2").is_none());
     }
 
     #[test]

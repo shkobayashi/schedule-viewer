@@ -1,0 +1,72 @@
+{
+  "kind": "execution-record",
+  "provenance": "provided",
+  "recordedHeadSha": {
+    "value": "f8b0ae07d8a23039ffb7ba6997fdf7a87d0dbec8",
+    "wellFormed": true
+  },
+  "currentHeadSha": {
+    "value": "f8b0ae07d8a23039ffb7ba6997fdf7a87d0dbec8",
+    "wellFormed": true
+  },
+  "shaIdentity": {
+    "status": "valid",
+    "usableForGuideline": true
+  },
+  "durationMs": {
+    "value": "unknown",
+    "provenance": "unknown"
+  },
+  "commands": [
+    {
+      "cmd": "npm run lint",
+      "exit": 0,
+      "status": "passed"
+    },
+    {
+      "cmd": "npm run check:madge-circular-baseline",
+      "exit": 0,
+      "status": "passed"
+    },
+    {
+      "cmd": "npm run test:ci",
+      "exit": 0,
+      "status": "passed"
+    },
+    {
+      "cmd": "npm run check:architecture-warn",
+      "exit": 0,
+      "status": "passed"
+    }
+  ],
+  "aggregateCommandStatus": "passed",
+  "metrics": {
+    "coverageLinesPercent": 69.04,
+    "lintWarnings": 48,
+    "madgeCycleCount": 0,
+    "jscpdDuplicatedLinesPercent": 5.19
+  },
+  "limits": [
+    "shaIdentity status valid means recordedHeadSha matches currentHeadSha only; it is not proof these commands ran on that tree.",
+    "usableForGuideline is true only when shaIdentity is valid and every listed command has exit 0.",
+    "Metrics are parsed from provided stdout/stderr only; missing or unparseable fields stay unknown (not 0).",
+    "jscpd command exit 0 is warn-only in CI; it is not proof duplicated lines are under the configured threshold."
+  ],
+  "source": {
+    "issue": 553,
+    "feature_branch": "feature-436",
+    "ci_run_url": "https://github.com/shkobayashi/schedule-viewer/actions/runs/44027574313",
+    "ci_run_conclusion": "success",
+    "ci_head_sha": "d7a124ef7f09714f1162a946a7a28f988e3b5f90",
+    "ci_tree_sha": "f2e9b78e9b91247f4e0604e06eb1d1ffe794385a",
+    "pr": 608,
+    "note": "CI ran on PR #608 head before merge; recorded HEAD f8b0ae07 shares the same tree.",
+    "coverage_summary": {
+      "statements_percent": 64.77,
+      "branches_percent": 58.98,
+      "functions_percent": 67.02,
+      "lines_percent": 69.04
+    },
+    "provenance": "GitHub Actions frontend job 133851543964 logs (gh run view --log)"
+  }
+}

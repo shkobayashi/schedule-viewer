@@ -72,6 +72,15 @@ export function useMemberCatalog() {
     [refresh],
   );
 
+  const saveCatalog = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await importMemberCatalog(catalogId, contents, overwrite);
+      await refresh();
+      bumpSharedSettingsRevision();
+    },
+    [refresh],
+  );
+
   const memberMap = useMemo(() => memberMapFromList(members), [members]);
 
   const selectedCatalogLabel = useMemo(() => {
@@ -93,5 +102,6 @@ export function useMemberCatalog() {
     selectCatalog,
     importCatalog,
     removeCatalog,
+    saveCatalog,
   };
 }

@@ -1,0 +1,2 @@
+# SYNTHETIC FIXTURE — check:architecture-warn with no jscpd reporter output
+Architecture warn checks finished (jscpd only; circular imports use npm run check:madge-circular-baseline).

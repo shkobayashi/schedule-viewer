@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-05",
+  "issue": "#490 hooks",
+  "madgeRoot": "src",
+  "extensions": [
+    "ts",
+    "tsx"
+  ],
+  "cycleCount": 0,
+  "cycles": [],
+  "resolutionPlan": {
+    "M1": {
+      "summary": "M1 完了（2026-11-05 PR）。解消済み 9 環は resolvedCycles に残す",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "model/baselineDiffs.ts > model/baselineDiffsConnections.ts",
+        "model/baselineDiffs.ts > model/baselineDiffsOutline.ts",
+        "model/explainOverlay.ts > model/explainOverlayLayout.ts",
+        "model/explainOverlay.ts > model/explainOverlayLayout.ts > model/explainOverlayPatterns.ts",
+        "model/explainOverlayPatterns.ts > model/mcpVisible.ts",
+        "model/exportExcel.ts > model/excelSummaryBar.ts",
+        "model/history.ts > model/serialize.ts",
+        "model/history.ts > model/serialize.ts > model/hierarchyLevelEdit.ts",
+        "model/taskTodos.ts > model/outlineTasks.ts"
+      ],
+      "cycles": []
+    },
+    "M2": {
+      "summary": "M2 完了（2026-11-05 PR）。fieldFiltersTypes、resolvedColorScheme",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "model/fieldFilters.ts > model/types.ts",
+        "model/palette.ts > design/uiTokens.ts"
+      ],
+      "cycles": []
+    },
+    "M3a": {
+      "summary": "M3a（2026-11-05 PR #520）。taskRef、taskTraversal",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
+        "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
+        "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts > model/timeline.ts",
+        "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskFields.ts",
+        "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts",
+        "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts > model/outlineTaskMap.ts",
+        "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
+        "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
+        "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
+        "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/validationMessages.ts",
+        "model/taskTags.ts > model/tasks.ts",
+        "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
+        "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts"
+      ],
+      "cycles": []
+    },
+    "M3b": {
+      "summary": "M3b（2026-11-05 PR #521）。taskTodos は taskTraversal、tasks は validationMessages へ import",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "model/taskTodos.ts > model/tasks.ts",
+        "model/validateSchedule.ts > model/taskTodos.ts > model/tasks.ts"
+      ],
+      "cycles": []
+    },
+    "UI": {
+      "summary": "UI 完了（2026-11-05 PR #522）。AssigneeFilterOption を assigneeFilterOption.ts へ",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "components/Toolbar.tsx > components/FilterPanel.tsx"
+      ],
+      "cycles": []
+    },
+    "hooks": {
+      "summary": "hooks 完了（2026-11-05 PR）。ApplyOpenedFileOptions を applyOpenedFileOptions.ts へ",
+      "cycleCount": 0,
+      "resolvedCycles": [
+        "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts"
+      ],
+      "cycles": []
+    }
+  }
+}

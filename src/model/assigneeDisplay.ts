@@ -3,10 +3,10 @@ import { UNASSIGNED_LABEL } from "./types";
 
 export const UNKNOWN_MEMBER_LABEL = "メンバー不明";
 
-export type AssigneeDisplay =
+export type AssigneeRowDisplay =
   | { kind: "unassigned"; label: typeof UNASSIGNED_LABEL }
-  | { kind: "resolved"; id: MemberId; label: string }
-  | { kind: "unknown"; id: MemberId; label: typeof UNKNOWN_MEMBER_LABEL };
+  | { kind: "allUnknown"; label: string }
+  | { kind: "text"; label: string };
 
 export function memberMapFromList(members: Member[] | null | undefined): Map<MemberId, Member> {
   const map = new Map<MemberId, Member>();
@@ -17,43 +17,85 @@ export function memberMapFromList(members: Member[] | null | undefined): Map<Mem
   return map;
 }
 
-export function resolveAssigneeDisplay(
-  assigneeId: MemberId | null,
+export function segmentLabelForAssigneeId(
+  id: MemberId,
   catalog: Map<MemberId, Member> | null,
-): AssigneeDisplay {
-  if (assigneeId == null) {
+  duplicateNames: ReadonlySet<string>,
+): string {
+  const member = catalog?.get(id);
+  if (member) {
+    return memberOptionLabel(member, duplicateNames);
+  }
+  return `${UNKNOWN_MEMBER_LABEL}（${id}）`;
+}
+
+export function formatAssigneeListLabel(
+  assigneeIds: readonly MemberId[],
+  catalog: Map<MemberId, Member> | null,
+  duplicateNames: ReadonlySet<string>,
+): string {
+  return assigneeIds
+    .map((id) => segmentLabelForAssigneeId(id, catalog, duplicateNames))
+    .join("、");
+}
+
+export function resolveAssigneeRowDisplay(
+  assigneeIds: readonly MemberId[],
+  catalog: Map<MemberId, Member> | null,
+  duplicateNames: ReadonlySet<string>,
+): AssigneeRowDisplay {
+  if (assigneeIds.length === 0) {
     return { kind: "unassigned", label: UNASSIGNED_LABEL };
   }
-  const member = catalog?.get(assigneeId);
-  if (member) {
-    return { kind: "resolved", id: assigneeId, label: member.name };
+  let hasResolved = false;
+  for (const id of assigneeIds) {
+    if (catalog?.has(id)) {
+      hasResolved = true;
+      break;
+    }
   }
-  return { kind: "unknown", id: assigneeId, label: UNKNOWN_MEMBER_LABEL };
+  const label = formatAssigneeListLabel(assigneeIds, catalog, duplicateNames);
+  if (!hasResolved) {
+    return { kind: "allUnknown", label };
+  }
+  return { kind: "text", label };
 }
 
 export function isResolvedAssignee(
-  assigneeId: MemberId | null,
+  assigneeIds: readonly MemberId[],
   catalog: Map<MemberId, Member> | null,
 ): boolean {
-  if (assigneeId == null) return false;
-  return catalog?.has(assigneeId) ?? false;
+  return assigneeIds.some((id) => catalog?.has(id) ?? false);
 }
 
-export function isUnknownAssignee(
-  assigneeId: MemberId | null,
+export function isUnknownAssigneeId(
+  id: MemberId,
   catalog: Map<MemberId, Member> | null,
 ): boolean {
-  if (assigneeId == null) return false;
-  return !catalog?.has(assigneeId);
+  return !catalog?.has(id);
 }
 
-/** フィルタ「割り当てなし」: null とメンバー不明の両方。 */
+export function taskHasUnknownAssignee(
+  assigneeIds: readonly MemberId[],
+  catalog: Map<MemberId, Member> | null,
+): boolean {
+  return assigneeIds.some((id) => isUnknownAssigneeId(id, catalog));
+}
+
+/** フィルタ「割り当てなし」: 空、またはカタログに解決できる担当が一人もいない。 */
 export function matchesUnassignedFilter(
-  assigneeId: MemberId | null,
+  assigneeIds: readonly MemberId[],
   catalog: Map<MemberId, Member> | null,
 ): boolean {
-  if (assigneeId == null) return true;
-  return isUnknownAssignee(assigneeId, catalog);
+  if (assigneeIds.length === 0) return true;
+  return !isResolvedAssignee(assigneeIds, catalog);
+}
+
+export function matchesMemberAssigneeFilter(
+  assigneeIds: readonly MemberId[],
+  memberId: MemberId,
+): boolean {
+  return assigneeIds.includes(memberId);
 }
 
 export function memberOptionLabel(member: Member, duplicateNames: ReadonlySet<string>): string {
@@ -73,6 +115,14 @@ export function duplicateMemberNames(members: Member[]): Set<string> {
   return dupes;
 }
 
+/** 使用中カタログから、表示名が重複している名前の集合を求める。 */
+export function duplicateMemberNamesFromCatalog(
+  catalog: Map<MemberId, Member> | null | undefined,
+): Set<string> {
+  if (!catalog || catalog.size === 0) return new Set();
+  return duplicateMemberNames([...catalog.values()]);
+}
+
 const SIDEBAR_ASSIGNEE_CHARS_MIN = 3;
 const SIDEBAR_ASSIGNEE_CHARS_MAX = 8;
 
@@ -85,11 +135,25 @@ export function assigneeColumnChars(labels: readonly string[]): number {
   return Math.min(chars, SIDEBAR_ASSIGNEE_CHARS_MAX);
 }
 
-export function assigneeSidebarLabel(display: AssigneeDisplay): string {
-  if (display.kind === "unknown") {
-    return `${UNKNOWN_MEMBER_LABEL}（${display.id}）`;
+export function assigneeSidebarLabel(display: AssigneeRowDisplay): string {
+  if (display.kind === "unassigned") {
+    return "未割当";
   }
   return display.label;
+}
+
+/** Excel 担当列。チャートのバー右と同じ文字列（切らない）。 */
+export function assigneeExcelCellLabel(
+  assigneeIds: readonly MemberId[],
+  catalog: Map<MemberId, Member> | null,
+): string {
+  const duplicateNames = duplicateMemberNamesFromCatalog(catalog);
+  const display = resolveAssigneeRowDisplay(
+    assigneeIds,
+    catalog,
+    duplicateNames,
+  );
+  return assigneeSidebarLabel(display);
 }
 
 export function formatUnknownAssigneeOption(id: MemberId): string {

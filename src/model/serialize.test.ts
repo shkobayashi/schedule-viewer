@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { scheduleToJson } from "./serialize";
-import type { Category } from "./types";
+import { documentToJsonString, scheduleToJson } from "./serialize";
+import { sampleScheduleDocument } from "../sample/schedule";
+import type { Category, ScheduleFieldDef } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
+
+const fieldDefs: ScheduleFieldDef[] = [
+  { key: "memo", name: "メモ", type: "text" },
+  { key: "score", name: "点数", type: "number" },
+];
 
 describe("scheduleToJson note", () => {
   it("omits empty note", () => {
@@ -19,7 +25,7 @@ describe("scheduleToJson note", () => {
                 name: "T",
                 start: "2026-01-01",
                 end: "2026-01-01",
-                assigneeId: null,
+                assigneeIds: [],
                 status: "not-started",
                 progress: 0,
                 confidence: "committed",
@@ -53,7 +59,7 @@ describe("scheduleToJson note", () => {
                 name: "T",
                 start: "2026-01-01",
                 end: "2026-01-01",
-                assigneeId: null,
+                assigneeIds: [],
                 status: "not-started",
                 progress: 0,
                 confidence: "committed",
@@ -68,6 +74,61 @@ describe("scheduleToJson note", () => {
     ];
     const doc = scheduleToJson("P", categories, [], []);
     expect(doc.categories[0].groups[0].tasks[0].note).toBe("hello");
+  });
+
+  it("writes colorId after status and omits colorId when absent", () => {
+    const categories: Category[] = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "C",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeIds: [],
+                status: "not-started",
+                progress: 0,
+                confidence: "committed",
+                predecessors: [],
+                milestoneId: null,
+                colorId: "focus",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const json = documentToJsonString(
+      scheduleToJson("P", categories, [], []),
+    );
+    const task = (
+      JSON.parse(json) as {
+        categories: { groups: { tasks: Record<string, unknown>[] }[] }[];
+      }
+    ).categories[0]!.groups[0]!.tasks[0]!;
+    const keys = Object.keys(task);
+    expect(keys.indexOf("colorId")).toBe(keys.indexOf("status") + 1);
+    expect(task.colorId).toBe("focus");
+
+    const bare = scheduleToJson("P", categories, [], []).categories[0]!.groups[0]!
+      .tasks[0];
+    const without = { ...bare };
+    delete (without as { colorId?: string }).colorId;
+    const bareJson = documentToJsonString(
+      scheduleToJson("P", [{ ...categories[0]!, groups: [{ ...categories[0]!.groups[0]!, tasks: [without] }] }], [], []),
+    );
+    const bareTask = (
+      JSON.parse(bareJson) as {
+        categories: { groups: { tasks: Record<string, unknown>[] }[] }[];
+      }
+    ).categories[0]!.groups[0]!.tasks[0]!;
+    expect(bareTask).not.toHaveProperty("colorId");
   });
 
   it("writes confidence after progress", () => {
@@ -85,7 +146,7 @@ describe("scheduleToJson note", () => {
                 name: "T",
                 start: "2026-01-01",
                 end: "2026-01-01",
-                assigneeId: null,
+                assigneeIds: [],
                 status: "not-started",
                 progress: 0,
                 confidence: "tentative",
@@ -104,6 +165,43 @@ describe("scheduleToJson note", () => {
     expect(task.confidence).toBe("tentative");
   });
 
+  it("writes todos after milestoneId and before tags", () => {
+    const categories: Category[] = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "C",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeIds: [],
+                status: "not-started",
+                progress: 50,
+                confidence: "committed",
+                predecessors: [],
+                milestoneId: null,
+                todos: [{ text: "a", done: false }],
+                tags: ["b"],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const task = scheduleToJson("P", categories, [], []).categories[0].groups[0]
+      .tasks[0];
+    const keys = Object.keys(task);
+    expect(keys.indexOf("todos")).toBe(keys.indexOf("milestoneId") + 1);
+    expect(keys.indexOf("tags")).toBe(keys.indexOf("todos") + 1);
+    expect(task.progress).toBe(0);
+  });
+
   it("writes tags after milestoneId and before note", () => {
     const categories: Category[] = [
       {
@@ -119,7 +217,7 @@ describe("scheduleToJson note", () => {
                 name: "T",
                 start: "2026-01-01",
                 end: "2026-01-01",
-                assigneeId: null,
+                assigneeIds: [],
                 status: "not-started",
                 progress: 0,
                 confidence: "committed",
@@ -172,5 +270,105 @@ describe("scheduleToJson note", () => {
     const keys = Object.keys(milestone);
     expect(keys).toEqual(["id", "name", "date", "confidence", "groupId"]);
     expect(milestone.confidence).toBe("tentative");
+  });
+});
+
+describe("scheduleToJson fields", () => {
+  const categories: Category[] = [
+    {
+      id: "c1000001-0000-4000-8000-000000000001",
+      name: "C",
+      groups: [
+        {
+          id: "d1000001-0000-4000-8000-000000000001",
+          name: "G",
+          tasks: [
+            {
+              id: "00000000-0000-4000-8000-000000000001",
+              name: "T",
+              start: "2026-01-01",
+              end: "2026-01-01",
+              assigneeIds: [],
+              status: "not-started",
+              progress: 0,
+              confidence: "committed",
+              predecessors: [],
+              milestoneId: null,
+              tags: ["x"],
+              fieldValues: { score: 1, memo: "a" },
+              note: "n",
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("does not write fields on the schedule document", () => {
+    const json = documentToJsonString(
+      scheduleToJson("P", categories, [], [], null, null, fieldDefs),
+    );
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty("fields");
+    const keys = Object.keys(parsed);
+    expect(keys.indexOf("categories")).toBe(keys.indexOf("milestones") + 1);
+  });
+
+  it("orders task fieldValues after tags and before note in fields key order", () => {
+    const json = documentToJsonString(
+      scheduleToJson("P", categories, [], [], null, null, fieldDefs),
+    );
+    const task = (
+      JSON.parse(json) as {
+        categories: { groups: { tasks: Record<string, unknown>[] }[] }[];
+      }
+    ).categories[0].groups[0].tasks[0];
+    const keys = Object.keys(task);
+    expect(keys.indexOf("fieldValues")).toBe(keys.indexOf("tags") + 1);
+    expect(keys.indexOf("note")).toBe(keys.indexOf("fieldValues") + 1);
+    expect(Object.keys(task.fieldValues as object)).toEqual(["memo", "score"]);
+  });
+
+  it("keeps field values that do not match definitions", () => {
+    const mismatchCategories: Category[] = [
+      {
+        ...categories[0],
+        groups: [
+          {
+            ...categories[0].groups[0],
+            tasks: [
+              {
+                ...categories[0].groups[0].tasks[0],
+                fieldValues: { lane: "外部", orphan_key: "x" },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const laneDefs = [
+      { key: "lane", name: "区分", type: "choice" as const, choices: ["内製", "外注"] },
+    ];
+    const json = documentToJsonString(
+      scheduleToJson("P", mismatchCategories, [], [], null, null, laneDefs),
+    );
+    const task = (
+      JSON.parse(json) as {
+        categories: { groups: { tasks: { fieldValues?: Record<string, unknown> }[] }[] }[];
+      }
+    ).categories[0].groups[0].tasks[0];
+    expect(task.fieldValues).toEqual({ lane: "外部", orphan_key: "x" });
+  });
+
+  it("omits fields when definitions are absent", () => {
+    const sample = sampleScheduleDocument();
+    const json = documentToJsonString(sample);
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty("fields");
+    const task = (
+      (parsed.categories as { groups: { tasks: Record<string, unknown>[] }[] }[])[0]
+        .groups[0].tasks[0]
+    );
+    expect(task).not.toHaveProperty("fieldValues");
   });
 });

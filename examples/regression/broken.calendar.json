@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "weekends": [
+    "not-a-day"
+  ],
+  "nonWorkingDays": [],
+  "workingDays": []
+}

@@ -48,6 +48,7 @@ describe("excelBar", () => {
       start: "2026-01-07",
       end: "2026-01-08",
       assigneeId: null,
+      assigneeIds: [],
       status: "in-progress" as const,
       progress: 0,
       confidence: "committed" as const,
@@ -69,6 +70,7 @@ describe("excelBar", () => {
       start: "2026-01-07",
       end: "2026-01-08",
       assigneeId: null,
+      assigneeIds: [],
       status: "in-progress" as const,
       progress: 0,
       confidence: "tentative" as const,
@@ -86,6 +88,7 @@ describe("excelBar", () => {
       id: "t1",
       name: "A",
       assigneeId: null,
+      assigneeIds: [],
       progress: 0,
       predecessors: [],
       milestoneId: null,
@@ -110,7 +113,7 @@ describe("excelBar", () => {
     expect(notStarted.fillRgb).toBe("E2E6ED");
     expect(inProgress.fillRgb).toBe("DEE3FB");
     expect(done.fillRgb).toBe("247A55");
-    expect(overdue.fillRgb).toBe("F8D0C8");
+    expect(overdue.fillRgb).toBe("E2E6ED");
   });
 
   it("does not change fill when only dates change", () => {
@@ -118,6 +121,7 @@ describe("excelBar", () => {
       id: "t1",
       name: "A",
       assigneeId: null,
+      assigneeIds: [],
       status: "in-progress" as const,
       progress: 0,
       confidence: "committed" as const,

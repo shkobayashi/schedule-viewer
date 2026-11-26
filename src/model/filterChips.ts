@@ -1,10 +1,17 @@
 import { milestoneMarkFilterLabel } from "./milestoneMarkFilter";
 import {
+  activeFieldFilterCount,
+  fieldFilterChipLabel,
+  isFieldFilterActive,
+} from "./fieldFilters";
+import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
+import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
   type Milestone,
   type MilestoneGroup,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
 } from "./types";
@@ -21,7 +28,8 @@ export type FilterChipKind =
   | "noteSearch"
   | "lineage"
   | "milestoneGroup"
-  | "milestoneMark";
+  | "milestoneMark"
+  | "fieldFilter";
 
 export type FilterChip = {
   kind: FilterChipKind;
@@ -29,14 +37,12 @@ export type FilterChip = {
   milestoneGroupId?: ScheduleId;
   milestoneId?: ScheduleId;
   tagName?: string;
+  fieldKey?: string;
 };
 
-const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = {
-  "not-done": "完了以外",
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
-};
+function statusFilterLabel(statuses: readonly StatusItem[], value: string): string {
+  return value === "not-done" ? "完了以外" : statusLabel(statuses, value);
+}
 
 const CONFIDENCE_LABEL: Record<
   Exclude<ScheduleFilters["confidence"], "all">,
@@ -56,6 +62,7 @@ export const DEFAULT_FILTERS: ScheduleFilters = {
   tags: [],
   search: "",
   noteSearch: "",
+  fieldFilters: {},
 };
 
 export function filterChipClearPatch(
@@ -94,8 +101,11 @@ export function activeFilterChips(
   lineageName: string | null,
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
-  scheduleTags: readonly string[] = [],
   hiddenMilestoneIds: readonly ScheduleId[] = [],
+  scheduleTags: readonly string[] = [],
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  scheduleFields: readonly ScheduleFieldDef[] | undefined = undefined,
+  lineageIncludesConnections = false,
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -109,7 +119,7 @@ export function activeFilterChips(
   if (filters.status !== "all") {
     chips.push({
       kind: "status",
-      label: `ステータス: ${STATUS_LABEL[filters.status]}`,
+      label: `ステータス: ${statusFilterLabel(statuses, filters.status)}`,
     });
   }
   if (filters.confidence !== "all") {
@@ -147,7 +157,12 @@ export function activeFilterChips(
     chips.push({ kind: "noteSearch", label: `ノート: 「${noteSearch}」` });
   }
   if (lineageName) {
-    chips.push({ kind: "lineage", label: `系統: ${lineageName}` });
+    chips.push({
+      kind: "lineage",
+      label: lineageIncludesConnections
+        ? `系統: ${lineageName}（繋がりも）`
+        : `系統: ${lineageName}`,
+    });
   }
   const hidden = new Set(hiddenMilestoneGroupIds);
   for (const group of milestoneGroups) {
@@ -166,6 +181,19 @@ export function activeFilterChips(
       label: `帯の印: ${milestoneMarkFilterLabel(milestone)}を非表示`,
       milestoneId: milestone.id,
     });
+  }
+  if (scheduleFields != null) {
+    for (const def of scheduleFields) {
+      const condition = filters.fieldFilters?.[def.key];
+      if (!condition || !isFieldFilterActive(def, condition)) continue;
+      const label = fieldFilterChipLabel(def, condition);
+      if (!label) continue;
+      chips.push({
+        kind: "fieldFilter",
+        label,
+        fieldKey: def.key,
+      });
+    }
   }
   return chips;
 }
@@ -213,13 +241,18 @@ export function hasOtherVisibleMilestoneBandGroup(
   return false;
 }
 
-/** 「このマイルストンだけ表示」で隠すマイルストンの ID（残す1件以外）。 */
+/** 「このマイルストンだけ表示」で隠すマイルストンの ID。帯の線がオンのグループだけ対象。 */
 export function hiddenMilestoneIdsForShowOnly(
   keepMilestoneId: ScheduleId,
   milestones: readonly Milestone[],
+  visibleGroupIds: ReadonlySet<ScheduleId>,
 ): ScheduleId[] {
   return milestones
-    .filter((milestone) => milestone.id !== keepMilestoneId)
+    .filter(
+      (milestone) =>
+        milestone.id !== keepMilestoneId &&
+        visibleGroupIds.has(milestone.groupId),
+    )
     .map((milestone) => milestone.id);
 }
 
@@ -244,6 +277,7 @@ export function activeFilterCount(
   lineageActive: boolean,
   hiddenMilestoneGroupCount = 0,
   hiddenMilestoneMarkCount = 0,
+  scheduleFields: readonly ScheduleFieldDef[] | undefined = undefined,
 ): number {
   let count = 0;
   if (filters.assignee !== "all") count += 1;
@@ -258,5 +292,6 @@ export function activeFilterCount(
   if (lineageActive) count += 1;
   if (hiddenMilestoneGroupCount > 0) count += 1;
   if (hiddenMilestoneMarkCount > 0) count += 1;
+  count += activeFieldFilterCount(scheduleFields, filters.fieldFilters ?? {});
   return count;
 }

@@ -4,27 +4,19 @@ description: >-
   Replaces the open schedule as unsaved while the schedule-viewer desktop app is
   running, when MCP cannot be called. JSON shape follows write-schedule output;
   does not write files. Use schedule_diff / baseline_diffs / selected_task /
-  selected_tasks / filtered_tasks / open_windows / replace_schedule via MCP when
-  available, else bundled --screen commands. Not for new schedule files or when
-  the app is not running (use write-schedule). Distinct from write-members and
-  write-calendar.
+  selected_tasks / filtered_tasks / current_schedule / open_windows /
+  replace_schedule via MCP when
+  available, else bundled --screen commands. Judgment (window choice, screen
+  updates, pointing by appearance) lives in the schedule-talk skill. Not for new
+  schedule files or when the app is not running (use write-schedule). Distinct
+  from write-members and write-calendar.
 ---
 
 # read-screen
 
+判断の手順は schedule-talk スキルにある。ウィンドウの当て方、未保存の置き換え、見た目で指す手順、`edit_plan` と `replace_schedule` のあとに変えた場所を説明する手順は、schedule-talk の reference を読む。
+
 schedule-viewer のデスクトップ版ウィンドウと連携するスキルです。起動しているとき、開いているスケジュールの更新を未保存として置き換えます。JSON の形は `write-schedule` の出力形に従い、ファイルには書きません。新しいスケジュールファイルの作成、デスクトップ版が起動していないときのファイル作成、`write-members`、`write-calendar` は別です。
-
-## どのウィンドウを読むか
-
-- 利用者の依頼が、特定のファイル名・親フォルダ・「後ろ」「背面」などでウィンドウを指していないときは、**前面ウィンドウ**だけを読みます。`open_windows` は呼びません。読み取りに `window` も付けません。
-- ウィンドウやファイルを指しているときは、先に一覧を取り、言い方を一覧へ当ててから読みます。
-  - MCP では `open_windows` を呼びます。
-  - MCP が使えないときは `--screen open_windows` を実行します。
-- 一覧の各要素は `label`（内部ラベル）、`file`（パス末尾。パスが無いときは「サンプルデータ」）、`folder`（親フォルダ名。無いとき null）、`front`（引数なしの読み取りが向くウィンドウだけ true）です。絶対パスは含みません。
-- 利用者の省略した言い方（ファイル名の一部、親フォルダ名など）を、`file` と `folder` へ自分で当てます。一意に当たったときだけ、その `label` で読みます。当たらない、または 2 件以上に当たるときは、前面の内容で代用せず、`file`・`folder`・どれが前面かだけを伝えて尋ねます。絶対パスは書きません。
-- 「後ろ」「背面」だけでファイル名が無いときは、`front` が false の行が 1 件ならそれを使います。複数なら尋ねます。
-- 読み取りで `window` に渡すのは `label` だけです。ファイル名やフォルダ名をそのまま渡しません。
-- 読んでも、そのウィンドウは前面にしません。
 
 ## 渡すもの（MCP と同じ）
 
@@ -38,38 +30,45 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 | 選択が1件のときのタスク（「このタスク」） | `selected_task` | `--screen selected_task` |
 | 編集の選択（「これらのタスク」） | `selected_tasks` | `--screen selected_tasks` |
 | オンな絞り込みと残るタスク | `filtered_tasks` | `--screen filtered_tasks` |
+| 画面のスケジュール JSON 全体 | `current_schedule` | `--screen current_schedule` |
 
-背面のウィンドウを読むときは、MCP では読み取り 5 つに `window` 引数（`open_windows` の `label`）を付けます。MCP が使えないときは `--screen <読み取り> --window <label>` です。`open_windows` と `replace_schedule` に `--window` は付けません。
+### 前面ウィンドウ向けの操作
+
+操作の JSON は標準入力で渡します。`discardInProgress: true` があるときだけ、詳細や一括の入力途中、並べ替えや日付バーのドラッグ、開いているダイアログを確定せず閉じてから実行します。起動復旧中とファイル書き込み中は、この印があっても拒みます。
+
+| 目的 | MCP ツール名 | コマンド |
+| --- | --- | --- |
+| 見方（絞り込み、折りたたみ、表示、ズーム、スクロール、Fit、系統、帯の印の非表示 など） | `set_view` | `--screen set_view`（stdin に JSON。系統は `lineage`、帯の印の非表示は `hiddenMilestoneIds`） |
+| 説明のための絞り込みと折りたたみ | `explain_view` | `--screen explain_view`（stdin に JSON） |
+| 説明の半透明 | `explain_overlay` | `--screen explain_overlay`（stdin に JSON） |
+| 試しの計画を計画へ入れる | `apply_explanation_pattern` | `--screen apply_explanation_pattern`（stdin に `patternId`） |
+| 計画の部分更新（日付、担当、並べ替え、先行） | `edit_plan` | `--screen edit_plan` |
+| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action`（書き出しが Excel（`xlsx`）のとき `excelColumns` / `excelFieldColumns` を書き出しダイアログと同じ真偽マップで任意指定。省略時は保存済みの列設定を使い、渡した項目だけその 1 回の書き出しに効かせ、保存済み設定は変えない。`html` と `svg` では列指定を受け付けず、渡したときは書き出し前に拒む） |
+| 一覧（メンバー、色、ステータス、追加項目） | `catalog_action` | `--screen catalog_action` |
+| JSON 作成スキルと起動時の更新確認 | `set_preferences` | `--screen set_preferences` |
+| 取り消しとやり直し（1 段） | `history` | `--screen history` |
+| ウィンドウを前面に | `focus_window` | `--screen focus_window` または `--screen focus_window --window <label>` |
+| 新しいウィンドウで開く | `open_new_window` | `--screen open_new_window` |
+| ウィンドウを閉じる | `close_window` | `--screen close_window` または `--screen close_window --window <label>` |
+| 最小化 | `minimize_window` | `--screen minimize_window` または `--screen minimize_window --window <label>` |
+
+`focus_window`、`close_window`、`minimize_window` だけ `--window` を付けられます。`open_windows`、`replace_schedule`、上表の前面向け操作に `--window` を付けたときは、CLI は拒否文を標準エラーへ出して終了コード 1 にします。
+
+背面のウィンドウを読むときは、MCP では読み取り 6 つに `window` 引数（`open_windows` の `label`）を付けます。MCP が使えないときは `--screen <読み取り> --window <label>` です。`open_windows` と `replace_schedule` に `--window` は付けません。
 
 `selected_tasks` は、選択が1件でも配列で返します。選択が無いときは空の配列です。選択数が不明なときは `selected_tasks` を使います。`selected_task` は、選択がちょうど1件のときだけそのタスクを返し、0件と2件以上は null です。
 
 絞り込みをスキル側でやり直さないでください。画面が使っている条件のまま返します。
 
-## 開いている画面の更新手順
-
-デスクトップ版で schedule-viewer のウィンドウが開いているときは、スケジュール JSON をファイルに上書きせず、次の手順に従います。衝突（`baseline_diffs` の分類が「異なる」「削除と変更」「追加と削除」のいずれか）があるときは、その対応に従い、人の返事の前にスケジュール全体を作らず、`replace_schedule` もファイルへの書き込みもしません。
-
-1. 必要な範囲で `schedule_diff`、`selected_task`、`filtered_tasks` を読み、あわせて `baseline_diffs` を読みます。衝突があるときは、どちらの変更かを `schedule_diff` から判断しません。依頼が特定のウィンドウを指しているときは、上の「どのウィンドウを読むか」に従い、前面以外も読めます。
-2. `write-schedule` の出力形と入力条件に従い、スケジュール全体を作ります。既存の id は維持します。`write-schedule` のファイルを書く手順は実行しません。
-3. 置き換える直前に `baseline_diffs` をもう一度読み、分類が先に示したものと違っていたら、置かずに尋ね直します。
-4. `replace_schedule` で**前面ウィンドウ**の未保存だけを置き換えます。背面のウィンドウは置き換えません。依頼が前面と違うウィンドウの更新だけを指しているときは、置き換えずその旨を伝えます。ファイルには書きません。
-5. 戻った差分テキストを読みます。「差分が大きすぎるため、差分テキストは返せません。」のときは `schedule_diff` を読みます。
-6. この更新でよいかを、会話で尋ねます。アプリは確認しません。よい、と言っても保存しません。
-7. 保存しません。開いているファイルも、この手順では上書きしません。
-
-置き換えた直後の取り消し（⌘/Ctrl+Z）は、その更新の却下です。人がそのあと画面を直したときは、次に読む差分は、開いているファイルとの差です。エージェントの更新と人の手直しは、同じ未保存として扱います。手直しのあとに更新の前へ戻すには、手直しの分も続けて取り消します。
-
-このスキルではファイルを書きません。新しいスケジュールファイルや、デスクトップ版が起動していないときのファイル作成は `write-schedule` を使います。
-
-パスの無いサンプルをデスクトップ版の前面で開いているときは、`replace_schedule` で置き換え、ファイルは作りません。
+`selected_task`、`selected_tasks`、`filtered_tasks` の応答には、`levels` と `statuses`（各項目に `color.light.bg`、`color.light.border`、`color.dark.bg`、`color.dark.border`。ステータスの色はバーの見た目である。id を選ぶ材料にしない。選ぶ材料は description である。）のあとに `colors`（使用中の色の一覧。一覧が無いときは空の配列）、続けて `members`（メンバー一覧。一覧が無いときは空の配列。空でない `description` がある人だけ `description` も入る）、続けて `fields`（使用中の追加項目の定義。定義が無いときは空の配列）、続けて `view`（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー。`view.collapsed` は今畳んでいる行（kind、id、name）。`view.explanation` は説明のための見え方が掛かっているときだけ載り、`taskIds`、任意の milestoneGroupIds と milestoneIds、baseCollapsed を含みます。`view.explanation.baseCollapsed` は人が選んだ折りたたみです。`view.visible.dates` はチャートに掛っている日付の start と end です。`view.visible.rows` は縦に見えている行と上に残している見出しです。試しの新しいタスク行だけ kind が task の要素に `trial: true` を載せます。各タスクの `visibility` は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。`filtered_tasks` の tasks には畳んだ行のタスクも残る。explanationOverlay は半透明が出ているときだけ載り、計画のタスクやバーの色ではない。PNG には半透明、抜き、吹き出し、`summary`、試しのバーを写さない。`translucent`、`summary`、各印（`taskId`、`date`、または `milestoneId` / `milestoneGroupId`、`kind`、`label`、任意の `number`、任意の `color`、`visible`）を含みます。任意の `patterns`（各パターンの `id`、`name`、`color`、試しの `tasks`（`trial: true`）、`changes`、任意の `milestoneChanges`）も載せます。explanationOverlay.patterns は試しの計画で、`filtered_tasks` の tasks には混ぜない。`current_schedule` には混ぜない。`current_schedule` には `explanationOverlay` を含めない。open_windows、schedule_diff、baseline_diffs、current_schedule には explanationOverlay を含めません。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の effective は今のウィンドウで効いている倍率である。自動のときは効いている倍率も effective に載せる。colorScheme の effective は今効いている light か dark である。システムに合わせているときは効いている方を載せる）が一度だけ出ます。説明のための絞り込みと折りたたみは、次回起動の記録には残さない。各タスクには、`colorId` があるときだけ `colorId` を載せます。値があるときだけ `fieldValues`（合成キーと値）が出ます。`current_schedule` はスケジュール JSON 全体であり、定義は足しません。繋がりがあるときはルートの `connections` が保存形と同じ位置で入ります。1件以上あるときだけキーがあります。`selected_task`、`selected_tasks`、`filtered_tasks` には載りません。値は各タスクの `fieldValues` と `colorId` にあります。
 
 ## MCP が使えるとき
 
-クライアントが MCP を使えるときは、読み取り 6 ツール（`open_windows` を含む）と `replace_schedule` を呼びます。`baseline_diffs` も省きません。ウィンドウの当て方は、このスキルの「どのウィンドウを読むか」と同じです。このスキルのコマンドは使いません。
+クライアントが MCP を使えるときは、読み取り 7 ツール（`open_windows` を含む）と `replace_schedule` を呼びます。`baseline_diffs` も省きません。このスキルのコマンドは使いません。
 
 ## MCP が使えないとき
 
-読み取りは、次の実行ファイルを引数 `--screen` とツール名だけで起動します（背面を読むときは `--window` と `label` を足します）。標準出力は、`schedule_diff` と `baseline_diffs` ではプレーンテキスト、`open_windows`・`selected_task`・`selected_tasks`・`filtered_tasks` では JSON です。`replace_schedule` は引数に `--screen replace_schedule` だけを渡し、スケジュール JSON 全体を標準入力から読みます。成功時は差分テキストを標準出力へ出します。終了コードが 0 以外のときは標準エラーに理由が出ます。
+読み取りは、次の実行ファイルを引数 `--screen` とツール名だけで起動します（背面を読むときは `--window` と `label` を足します）。標準出力は、`schedule_diff` と `baseline_diffs` ではプレーンテキスト、`current_schedule` はスケジュール JSON 全体、`open_windows`・`selected_task`・`selected_tasks`・`filtered_tasks` では JSON です。`selected_task`、`selected_tasks`、`filtered_tasks` で PNG が付くときは、JSON の次の行に一時 PNG のパスが出ます。そのファイルを読んで絵を見ます。`replace_schedule` は引数に `--screen replace_schedule` だけを渡し、スケジュール JSON 全体を標準入力から読みます。成功時は差分テキストを標準出力へ出します。終了コードが 0 以外のときは標準エラーに理由が出ます。
 
 {{SCHEDULE_VIEWER_INVOCATION}}
 

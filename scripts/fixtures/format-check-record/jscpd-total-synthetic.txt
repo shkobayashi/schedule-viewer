@@ -1,0 +1,2 @@
+# SYNTHETIC FIXTURE — jscpd table footer shape (ANSI stripped in parser)
+│ Total:     │ 627 │ 139042 │ 828367 │ 440 │ 7328 (5.27%) │ 38413 (4.64%) │

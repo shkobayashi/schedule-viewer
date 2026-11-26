@@ -31,6 +31,7 @@ lerna-debug.log*
 
 # --- エディタ / IDE ---
 .cursor/hooks/state/
+.cursor/hooks/logs/
 .cursor/rules/*.local.mdc
 .vscode/*
 !.vscode/extensions.json
@@ -47,3 +48,5 @@ Thumbs.db
 target/menu-paint-probe-sample.jsonl
 target/menu-paint-probe.jsonl
 target/grip-cursor-probe.jsonl
+.playwright-mcp/
+test-results/

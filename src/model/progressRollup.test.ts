@@ -12,7 +12,7 @@ const baseTask: Task = {
   name: "T",
   start: "2026-01-01",
   end: "2026-01-02",
-  assigneeId: null,
+  assigneeIds: [],
   status: "not-started",
   progress: 0,
   confidence: "committed",

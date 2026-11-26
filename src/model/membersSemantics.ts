@@ -22,6 +22,10 @@ export function validateMembersSemantics(doc: MembersDocument): ValidationIssue[
     if (idIssue) issues.push(idIssue);
     const nameIssue = nonEmptyName(member.name, "メンバー名", `${base}/name`);
     if (nameIssue) issues.push(nameIssue);
+    if (member.description !== undefined) {
+      const descIssue = nonEmptyName(member.description, "説明", `${base}/description`);
+      if (descIssue) issues.push(descIssue);
+    }
     if (ids.has(member.id)) {
       issues.push({
         path: `${base}/id`,

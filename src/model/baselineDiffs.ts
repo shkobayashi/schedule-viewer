@@ -1,5 +1,22 @@
+import { assigneeIdsEqual, taskAssigneeIds } from "./assigneeIds";
+import {
+  appendConnectionBaselineClassification,
+  mergeBaselineConnections,
+} from "./baselineDiffsConnections";
+import {
+  anyUsesOutlineBaseline,
+  appendOutlineHierarchyClassification,
+  buildOutlineNonConflictingMergedDocument,
+  outlineTaskPlaceMap,
+} from "./baselineDiffsOutline";
+import { documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
+import {
+  fieldValuesEqualForDiff,
+  upgradeTaskDiffClassification,
+} from "./fieldValuesDiff";
 import { taskTagsEqualForDiff } from "./taskTags";
+import { taskTodosEqualForDiff } from "./taskTodos";
 import {
   SCHEDULE_DIFF_NO_CHANGES,
   formatScheduleDocumentDiffBody,
@@ -10,34 +27,19 @@ import type {
   MilestoneGroup,
   ScheduleDocument,
   ScheduleId,
+  ScheduleFieldDef,
   Task,
   TaskGroup,
 } from "./types";
 
-export type BaselineDiffClassification =
-  | "画面のみ"
-  | "ファイルのみ"
-  | "同じ"
-  | "異なる"
-  | "削除と変更"
-  | "追加と削除";
-
-export type BaselineClassificationLine = {
-  label: BaselineDiffClassification;
-  headline: string;
-};
-
+export type {
+  BaselineClassificationLine,
+  BaselineDiffClassification,
+} from "./baselineDiffsClassification";
+export { isBaselineConflictLabel } from "./baselineDiffsClassification";
+import type { BaselineClassificationLine, BaselineDiffClassification } from "./baselineDiffsClassification";
+import { isBaselineConflictLabel } from "./baselineDiffsClassification";
 type ClassificationLine = BaselineClassificationLine;
-
-export function isBaselineConflictLabel(
-  label: BaselineDiffClassification,
-): boolean {
-  return (
-    label === "異なる" ||
-    label === "削除と変更" ||
-    label === "追加と削除"
-  );
-}
 
 export function collectBaselineClassificationLines(
   baseline: ScheduleDocument,
@@ -58,9 +60,10 @@ export function formatBaselineDiffsText(
   screen: ScheduleDocument,
   file: ScheduleDocument,
   filename: string,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
-  const screenBody = formatScheduleDocumentDiffBody(screen, baseline);
-  const fileBody = formatScheduleDocumentDiffBody(file, baseline);
+  const screenBody = formatScheduleDocumentDiffBody(screen, baseline, fields);
+  const fileBody = formatScheduleDocumentDiffBody(file, baseline, fields);
   const classificationLines = buildClassificationLines(baseline, screen, file);
 
   const parts = [
@@ -103,6 +106,10 @@ function buildClassificationLines(
     });
   }
 
+  const outlinePath = anyUsesOutlineBaseline(baseline, screen, file);
+  if (outlinePath) {
+    appendOutlineHierarchyClassification(lines, baseline, screen, file);
+  } else {
   pushOrderLine(
     lines,
     "並び カテゴリ",
@@ -212,6 +219,7 @@ function buildClassificationLines(
       fGroup?.group.tasks.map((t) => t.id) ?? [],
     );
   }
+  }
 
   const baselineTasks = taskMap(baseline);
   const screenTasks = taskMap(screen);
@@ -226,7 +234,7 @@ function buildClassificationLines(
     const inB = baselineTasks.has(taskId);
     const inS = screenTasks.has(taskId);
     const inF = fileTasks.has(taskId);
-    const label = classifyPresence(
+    let label = classifyPresence(
       inB,
       inS,
       inF,
@@ -239,6 +247,11 @@ function buildClassificationLines(
       inS && inF
         ? taskPlaceEquals(screenTasks.get(taskId)!, fileTasks.get(taskId)!)
         : true,
+    );
+    label = upgradeTaskDiffClassification(
+      label,
+      inS ? screenTasks.get(taskId)?.task : undefined,
+      inF ? fileTasks.get(taskId)?.task : undefined,
     );
     if (!label) continue;
     const headline = taskHeadline(
@@ -360,6 +373,8 @@ function buildClassificationLines(
     );
     if (headline) lines.push({ label, headline });
   }
+
+  appendConnectionBaselineClassification(lines, baseline, screen, file);
 
   return lines;
 }
@@ -701,14 +716,17 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.name === b.name &&
     a.start === b.start &&
     a.end === b.end &&
-    a.assigneeId === b.assigneeId &&
+    assigneeIdsEqual(taskAssigneeIds(a), taskAssigneeIds(b)) &&
     a.status === b.status &&
+    a.colorId === b.colorId &&
     a.progress === b.progress &&
     a.confidence === b.confidence &&
     predecessorSetEqual(a.predecessors, b.predecessors) &&
     a.milestoneId === b.milestoneId &&
+    taskTodosEqualForDiff(a, b) &&
     taskTagsEqualForDiff(a, b) &&
-    normalizeTaskNote(a.note) === normalizeTaskNote(b.note)
+    normalizeTaskNote(a.note) === normalizeTaskNote(b.note) &&
+    fieldValuesEqualForDiff(a, b)
   );
 }
 
@@ -763,6 +781,9 @@ function groupMap(
 }
 
 function taskMap(doc: ScheduleDocument): Map<ScheduleId, TaskPlace> {
+  if (documentUsesOutlineStorage(doc)) {
+    return outlineTaskPlaceMap(doc);
+  }
   const map = new Map<ScheduleId, TaskPlace>();
   for (const category of doc.categories) {
     for (const group of category.groups) {
@@ -791,6 +812,7 @@ function cloneTask(task: Task): Task {
     ...task,
     predecessors: [...task.predecessors],
     tags: task.tags ? [...task.tags] : undefined,
+    fieldValues: task.fieldValues ? { ...task.fieldValues } : undefined,
   };
 }
 
@@ -1150,6 +1172,16 @@ export function buildNonConflictingMergedDocument(
     if (merged) milestones.push(merged);
   }
 
+  if (anyUsesOutlineBaseline(baseline, screen, file)) {
+    return buildOutlineNonConflictingMergedDocument(
+      baseline,
+      screen,
+      file,
+      milestoneGroups,
+      milestones,
+    );
+  }
+
   const categoryOrderLabel = classifyOrder(
     baseline.categories.map((c) => c.id),
     screen.categories.map((c) => c.id),
@@ -1180,5 +1212,6 @@ export function buildNonConflictingMergedDocument(
     milestoneGroups,
     milestones,
     categories,
+    connections: mergeBaselineConnections(baseline, screen, file),
   };
 }

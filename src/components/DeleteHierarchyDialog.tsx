@@ -1,19 +1,18 @@
 import { ModalDialog } from "./ModalDialog";
 
 type DeleteHierarchyDialogProps = {
-  kind: "category" | "group";
+  label: string;
   name: string;
   onClose: () => void;
   onConfirm: () => void;
 };
 
 export function DeleteHierarchyDialog({
-  kind,
+  label,
   name,
   onClose,
   onConfirm,
 }: DeleteHierarchyDialogProps) {
-  const label = kind === "category" ? "カテゴリ" : "グループ";
   return (
     <ModalDialog title={`${label}削除`} onClose={onClose}>
       <p className="form-note">「{name}」を削除しますか？</p>

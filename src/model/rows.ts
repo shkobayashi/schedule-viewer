@@ -1,6 +1,21 @@
-import { brokenLinkTaskIds } from "./dependencies";
+import { brokenLinkTaskIds, brokenLinkTaskIdsFromTasks } from "./dependencies";
+import {
+  hierarchyRowKind,
+  isOutlineBranch,
+  isTaskNode,
+  scheduleStoresTasksInOutline,
+  taskHierarchyLabels,
+  tasksUnderOutlineBranch,
+} from "./hierarchy";
+import { averageTaskProgress } from "./progressRollup";
 import { normalizeTaskNote } from "./taskNote";
+import {
+  activeFieldFilterCount,
+  relaxFieldFiltersForNewTask,
+  taskMatchesFieldFilters,
+} from "./fieldFilters";
 import { taskHasAnySelectedTag } from "./taskTags";
+import { BUILTIN_STATUS_ITEMS, isDoneStatus, type StatusItem } from "./statusCatalog";
 import { isOverdue } from "./timeline";
 import {
   categoryRollupPercent,
@@ -8,6 +23,7 @@ import {
 } from "./progressRollup";
 import { summarizeSpans } from "./summary";
 import {
+  matchesMemberAssigneeFilter,
   matchesUnassignedFilter,
 } from "./assigneeDisplay";
 import type { Member, MemberId } from "./memberTypes";
@@ -15,8 +31,12 @@ import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
+  type OutlineRoot,
+  type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
+  type ScheduleLevelDef,
   type Task,
   type VisibleRow,
 } from "./types";
@@ -31,7 +51,14 @@ export function groupCollapseKey(id: ScheduleId): string {
   return `group:${id}`;
 }
 
-export function filtersAreDefault(filters: ScheduleFilters): boolean {
+export function hierarchyCollapseKey(id: ScheduleId): string {
+  return `hierarchy:${id}`;
+}
+
+export function filtersAreDefault(
+  filters: ScheduleFilters,
+  fields?: readonly ScheduleFieldDef[],
+): boolean {
   return (
     filters.assignee === "all" &&
     filters.status === "all" &&
@@ -41,7 +68,8 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
     filters.milestone === "all" &&
     filters.tags.length === 0 &&
     filters.search.trim() === "" &&
-    filters.noteSearch.trim() === ""
+    filters.noteSearch.trim() === "" &&
+    activeFieldFilterCount(fields, filters.fieldFilters ?? {}) === 0
   );
 }
 
@@ -49,8 +77,9 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
 export function showEmptyHierarchyRows(
   filters: ScheduleFilters,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  fields?: readonly ScheduleFieldDef[],
 ): boolean {
-  return filtersAreDefault(filters) && lineageIds == null;
+  return filtersAreDefault(filters, fields) && lineageIds == null;
 }
 
 export function brokenIdsForFilter(
@@ -75,6 +104,8 @@ export function listTasksMatchingFilter(
   today: string,
   memberCatalog: Map<MemberId, Member> | null,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): FilteredTaskRef[] {
   const brokenIds = brokenIdsForFilter(categories, filters);
   const matched: FilteredTaskRef[] = [];
@@ -89,6 +120,8 @@ export function listTasksMatchingFilter(
             memberCatalog,
             brokenIds,
             lineageIds,
+            statuses,
+            fields,
           )
         ) {
           matched.push({
@@ -103,6 +136,95 @@ export function listTasksMatchingFilter(
   return matched;
 }
 
+export function listTasksMatchingFilterInDocument(
+  doc: Pick<
+    ScheduleDocument,
+    | "schemaVersion"
+    | "title"
+    | "categories"
+    | "outline"
+    | "levels"
+    | "milestoneGroups"
+    | "milestones"
+  >,
+  filters: ScheduleFilters,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fieldDefs?: readonly ScheduleFieldDef[],
+): FilteredTaskRef[] {
+  const fields = fieldDefs;
+  const categories = doc.categories ?? [];
+  if (
+    !scheduleStoresTasksInOutline({
+      categories,
+      levels: doc.levels,
+      outline: doc.outline,
+    })
+  ) {
+    return listTasksMatchingFilter(
+      categories,
+      filters,
+      today,
+      memberCatalog,
+      lineageIds,
+      statuses,
+      fields,
+    );
+  }
+  const outline = doc.outline ?? [];
+  const brokenIds =
+    filters.relation === "broken"
+      ? brokenLinkTaskIdsFromTasks(collectOutlineTasks(outline))
+      : undefined;
+  const matched: FilteredTaskRef[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) {
+        if (
+          taskMatchesFilter(
+            node,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds,
+            lineageIds,
+            statuses,
+            fields,
+          )
+        ) {
+          const labels = taskHierarchyLabels(
+            doc as ScheduleDocument,
+            node.id,
+          );
+          matched.push({
+            task: node,
+            category: labels.category,
+            group: labels.group,
+          });
+        }
+        continue;
+      }
+      if (isOutlineBranch(node)) walk(node.children);
+    }
+  };
+  walk(outline);
+  return matched;
+}
+
+function collectOutlineTasks(outline: OutlineRoot): Task[] {
+  const tasks: Task[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) tasks.push(node);
+      else if (isOutlineBranch(node)) walk(node.children);
+    }
+  };
+  walk(outline);
+  return tasks;
+}
+
 export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
@@ -110,17 +232,23 @@ export function taskMatchesFilter(
   memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): boolean {
+  if (explainTaskIds != null) {
+    return explainTaskIds.has(task.id);
+  }
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
-    if (!matchesUnassignedFilter(task.assigneeId, memberCatalog)) return false;
+    if (!matchesUnassignedFilter(task.assigneeIds, memberCatalog)) return false;
   } else if (
     filters.assignee !== "all" &&
-    task.assigneeId !== filters.assignee
+    !matchesMemberAssigneeFilter(task.assigneeIds, filters.assignee)
   ) {
     return false;
   }
-  if (filters.status === "not-done" && task.status === "done") {
+  if (filters.status === "not-done" && isDoneStatus(statuses, task.status)) {
     return false;
   }
   if (
@@ -136,7 +264,7 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.overdue === "overdue" && !isOverdue(task, today)) {
+  if (filters.overdue === "overdue" && !isOverdue(task, today, statuses)) {
     return false;
   }
   if (filters.relation === "broken" && !brokenIds?.has(task.id)) {
@@ -164,6 +292,9 @@ export function taskMatchesFilter(
       return false;
     }
   }
+  if (!taskMatchesFieldFilters(task, fields, filters.fieldFilters ?? {})) {
+    return false;
+  }
   return true;
 }
 
@@ -174,6 +305,8 @@ export function relaxFiltersForNewTask(
   today: string,
   memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): ScheduleFilters {
   const open: ScheduleFilters = {
     assignee: "all",
@@ -185,18 +318,27 @@ export function relaxFiltersForNewTask(
     tags: [],
     search: "",
     noteSearch: "",
+    fieldFilters: {},
   };
   const hides = (partial: Partial<ScheduleFilters>) =>
     !taskMatchesFilter(
       task,
-      { ...open, ...partial },
+      { ...open, ...partial, fieldFilters: partial.fieldFilters ?? {} },
       today,
       memberCatalog,
       brokenIds,
       null,
+      statuses,
+      fields,
     );
+  const relaxedFieldFilters = relaxFieldFiltersForNewTask(
+    filters.fieldFilters ?? {},
+    fields,
+    task,
+  );
   return {
     ...filters,
+    fieldFilters: relaxedFieldFilters,
     assignee:
       filters.assignee !== "all" && hides({ assignee: filters.assignee })
         ? "all"
@@ -236,6 +378,148 @@ export function relaxFiltersForNewTask(
   };
 }
 
+function computeFlatTaskVisibleRows(
+  outline: OutlineRoot,
+  filters: ScheduleFilters,
+  _collapsed: ReadonlySet<string>,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  rowHeight: number,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
+): VisibleRow[] {
+  const brokenIds = brokenIdsForOutline(outline, filters);
+  const rows: VisibleRow[] = [];
+  let y = 0;
+  for (const node of outline) {
+    if (!isTaskNode(node)) continue;
+    if (
+      !taskMatchesFilter(
+        node,
+        filters,
+        today,
+        memberCatalog,
+        brokenIds ?? undefined,
+        lineageIds,
+        statuses,
+        fields,
+        explainTaskIds,
+      )
+    ) {
+      continue;
+    }
+    rows.push({ type: "task", task: node, y });
+    y += rowHeight;
+  }
+  return rows;
+}
+
+function brokenIdsForOutline(
+  outline: OutlineRoot,
+  filters: ScheduleFilters,
+): Set<ScheduleId> | null {
+  if (filters.relation !== "broken") return null;
+  const tasks: Task[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) tasks.push(node);
+      else walk(node.children);
+    }
+  };
+  walk(outline);
+  return brokenLinkTaskIdsFromTasks(tasks);
+}
+
+function computeOutlineVisibleRows(
+  outline: OutlineRoot,
+  levelCount: number,
+  filters: ScheduleFilters,
+  collapsed: ReadonlySet<string>,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  rowHeight: number,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
+): VisibleRow[] {
+  const brokenIds = brokenIdsForOutline(outline, filters);
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds, fields);
+  const rows: VisibleRow[] = [];
+  let y = 0;
+
+  const walk = (
+    nodes: OutlineRoot,
+    levelIndex: number,
+    depth: number,
+    ancestorIds: ScheduleId[],
+  ) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) {
+        if (
+          taskMatchesFilter(
+            node,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds ?? undefined,
+            lineageIds,
+            statuses,
+            fields,
+            explainTaskIds,
+          )
+        ) {
+          rows.push({ type: "task", task: node, y });
+          y += rowHeight;
+        }
+        continue;
+      }
+      if (!isOutlineBranch(node)) continue;
+      const allTasks = tasksUnderOutlineBranch(node);
+      const matched = allTasks.filter((task) =>
+        taskMatchesFilter(
+          task,
+          filters,
+          today,
+          memberCatalog,
+          brokenIds ?? undefined,
+          lineageIds,
+          statuses,
+          fields,
+          explainTaskIds,
+        ),
+      );
+      if (matched.length === 0 && !(showEmpty && allTasks.length === 0)) continue;
+      const summary = matched.length > 0 ? summarizeSpans(matched) : null;
+      if (!summary && !showEmpty) continue;
+      const nodeCollapsed = collapsed.has(hierarchyCollapseKey(node.id));
+      const rowKind = hierarchyRowKind(levelIndex, levelCount);
+      rows.push({
+        type: "hierarchy",
+        id: node.id,
+        label: node.name,
+        y,
+        collapsed: nodeCollapsed,
+        summary,
+        rollupPercent: averageTaskProgress(allTasks),
+        levelIndex,
+        depth,
+        rowKind,
+        ancestorIds: [...ancestorIds],
+        alsoTaskParent: levelCount === 2 && levelIndex === 0,
+      });
+      y += rowHeight;
+      if (nodeCollapsed) continue;
+      walk(node.children, levelIndex + 1, depth + 1, [...ancestorIds, node.id]);
+    }
+  };
+
+  walk(outline, 0, 0, []);
+  return rows;
+}
+
 export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
@@ -244,9 +528,58 @@ export function computeVisibleRows(
   memberCatalog: Map<MemberId, Member> | null,
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  hierarchy?: {
+    levels: ScheduleLevelDef[] | null;
+    outline: OutlineRoot | null | undefined;
+    useLegacyCategoryRows: boolean;
+    levelCount: number;
+  },
+  fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
+  if (
+    hierarchy?.levels != null &&
+    hierarchy.levels.length === 1 &&
+    hierarchy.outline != null &&
+    hierarchy.outline.length > 0
+  ) {
+    return computeFlatTaskVisibleRows(
+      hierarchy.outline,
+      filters,
+      collapsed,
+      today,
+      memberCatalog,
+      rowHeight,
+      lineageIds,
+      statuses,
+      fields,
+      explainTaskIds,
+    );
+  }
+  if (
+    hierarchy?.levels != null &&
+    hierarchy.levels.length > 0 &&
+    !hierarchy.useLegacyCategoryRows &&
+    hierarchy.outline != null &&
+    hierarchy.outline.length > 0
+  ) {
+    return computeOutlineVisibleRows(
+      hierarchy.outline,
+      hierarchy.levelCount,
+      filters,
+      collapsed,
+      today,
+      memberCatalog,
+      rowHeight,
+      lineageIds,
+      statuses,
+      fields,
+      explainTaskIds,
+    );
+  }
   const brokenIds = brokenIdsForFilter(categories, filters);
-  const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds, fields);
   const rows: VisibleRow[] = [];
   let y = 0;
   for (const cat of categories) {
@@ -261,6 +594,9 @@ export function computeVisibleRows(
             memberCatalog,
             brokenIds,
             lineageIds,
+            statuses,
+            fields,
+            explainTaskIds,
           ),
         ),
       }))
@@ -318,6 +654,14 @@ export type ReorderDragKind = "category" | "group" | "task";
 export function visibleRowIdentityKey(row: VisibleRow): string {
   if (row.type === "task") return `task:${row.task.id}`;
   return `${row.type}:${row.id}`;
+}
+
+export function isHierarchyHeaderRow(row: VisibleRow): boolean {
+  return (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  );
 }
 
 /** 並べ替えドラッグの半透明塊に含める、いま見えている行（上から順）。 */

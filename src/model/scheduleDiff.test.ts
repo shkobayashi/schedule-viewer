@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { formatScheduleDiff } from "./scheduleDiff";
 import type {
   Category,
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
+  ScheduleFieldDef,
   Task,
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
@@ -24,7 +26,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-04-01",
     end: "2026-04-10",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -96,12 +98,48 @@ describe("formatScheduleDiff", () => {
     );
   });
 
+  it("shows ordered assigneeId for multiple ids and order-only changes", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-1", "member-2"],
+        }),
+      ]),
+    );
+    const reordered = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-2", "member-1"],
+        }),
+      ]),
+    );
+    expect(formatScheduleDiff(reordered, file, "plan.json")).toContain(
+      "  assigneeId: member-1, member-2 → member-2, member-1",
+    );
+    const addedSecond = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-1"],
+        }),
+      ]),
+    );
+    const text = formatScheduleDiff(file, addedSecond, "plan.json");
+    expect(text).toContain("  assigneeId: member-1 → member-1, member-2");
+    expect(text).not.toMatch(/assigneeId:.*\+/);
+  });
+
   it("lists every field of an added task and skips sibling order", () => {
     const existing = task({ id: TASK_A, name: "要件整理" });
     const added = task({
       id: TASK_B,
       name: "基本設計",
-      assigneeId: "member-1",
+      assigneeIds: ["member-1"],
       status: "in-progress",
       progress: 20,
       predecessors: [TASK_A],
@@ -634,5 +672,216 @@ describe("formatScheduleDiff", () => {
     const file = doc(design([task({ id: TASK_A, name: "基本設計", note: "メモ" })]));
     const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]));
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain("  note: メモ → （なし）");
+  });
+
+  it("shows todo list changes with markers", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: false }],
+        }),
+      ]),
+    );
+    const screen = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: true }],
+        }),
+      ]),
+    );
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [ ] a → [x] a",
+    );
+  });
+
+  it("writes missing todos as （なし）", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: false }],
+        }),
+      ]),
+    );
+    const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]));
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [ ] a → （なし）",
+    );
+  });
+
+  it("omits todos when unchanged", () => {
+    const withTodos = task({
+      id: TASK_A,
+      name: "基本設計",
+      todos: [{ text: "a", done: false }],
+    });
+    const document = doc(design([withTodos]));
+    expect(formatScheduleDiff(document, document, "plan.json")).not.toContain("  todos:");
+  });
+});
+
+const OUTLINE_TASK_A = "e2000001-0000-4000-8000-000000000001";
+
+function outlineDoc(mutateTask?: (task: Task) => Task): ScheduleDocument {
+  const cloned = JSON.parse(JSON.stringify(levels2)) as ScheduleDocument;
+  cloned.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+  cloned.categories = [];
+  if (mutateTask && cloned.outline) {
+    const walk = (nodes: ScheduleDocument["outline"]) => {
+      if (!nodes) return;
+      for (const node of nodes) {
+        if ("start" in node && "end" in node && node.id === OUTLINE_TASK_A) {
+          Object.assign(node, mutateTask(node as Task));
+        } else if ("children" in node) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(cloned.outline);
+  }
+  return cloned;
+}
+
+describe("formatScheduleDiff outline storage", () => {
+  it("shows todo list changes for outline tasks", () => {
+    const file = outlineDoc();
+    const screen = outlineDoc((task) => ({
+      ...task,
+      todos: [{ text: "ヒアリング項目", done: false }],
+      progress: 0,
+    }));
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: （なし） → [ ] ヒアリング項目",
+    );
+  });
+
+  it("omits todos when outline task todos match", () => {
+    const withTodos = outlineDoc((task) => ({
+      ...task,
+      todos: [{ text: "a", done: false }],
+      progress: 0,
+    }));
+    expect(formatScheduleDiff(withTodos, withTodos, "plan.json")).not.toContain("  todos:");
+  });
+
+  it("shows full todos on added outline task", () => {
+    const file = outlineDoc();
+    const screen = JSON.parse(JSON.stringify(file)) as ScheduleDocument;
+    const newTask = task({
+      id: TASK_D,
+      name: "追加タスク",
+      todos: [{ text: "new", done: true }],
+      progress: 100,
+    });
+    const branch = screen.outline?.[0];
+    if (branch && "children" in branch) {
+      branch.children.push(newTask);
+    }
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [x] new",
+    );
+  });
+
+  it("shows hierarchy definition changes", () => {
+    const file = outlineDoc();
+    const screen = JSON.parse(JSON.stringify(file)) as ScheduleDocument;
+    screen.levels = [
+      { name: "まとまり", meaning: "変更後の意味" },
+      { name: "タスク", meaning: "最下段の作業単位。" },
+    ];
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain("階層の定義");
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "meaning: 画面ではノード名を行に出す。定義名は帯の上だけ。 → 変更後の意味",
+    );
+  });
+});
+
+describe("formatScheduleDiff fieldValues", () => {
+  const fields: ScheduleFieldDef[] = [
+    { key: "z_memo", name: "メモ", type: "text" },
+    { key: "a_score", name: "点数", type: "number" },
+  ];
+
+  it("shows changed field values in definition order when lexicographic order differs", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(
+      design([{ ...base, fieldValues: { z_memo: "old", a_score: 1 } }]),
+    );
+    const screen = doc(
+      design([{ ...base, fieldValues: { z_memo: "new", a_score: 2 } }]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain('  z_memo: "old" → "new"');
+    expect(text).toContain("  a_score: 1 → 2");
+    expect(text.indexOf("z_memo")).toBeLessThan(text.indexOf("a_score"));
+  });
+
+  it("omits unchanged field value keys from the change block", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(
+      design([{ ...base, fieldValues: { z_memo: "same", a_score: 1 } }]),
+    );
+    const screen = doc(
+      design([{ ...base, fieldValues: { z_memo: "same", a_score: 9 } }]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain("  a_score: 1 → 9");
+    expect(text).not.toContain("z_memo");
+  });
+
+  it("shows unknown keys after defined keys on change", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(design([{ ...base, fieldValues: { orphan: 1 } }]));
+    const screen = doc(design([{ ...base, fieldValues: { orphan: 2, a_score: 3 } }]));
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    const scorePos = text.indexOf("a_score");
+    const orphanPos = text.indexOf("orphan");
+    expect(scorePos).toBeGreaterThan(-1);
+    expect(orphanPos).toBeGreaterThan(scorePos);
+  });
+
+  it("shows field values on added task only when values exist", () => {
+    const file = doc(design([task({ id: TASK_A, name: "基本設計" })]));
+    const screen = doc(
+      design([
+        task({ id: TASK_A, name: "基本設計" }),
+        task({
+          id: TASK_B,
+          name: "詳細設計",
+          fieldValues: { a_score: 5 },
+        }),
+      ]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain("追加 詳細設計");
+    expect(text).toContain("  a_score: 5");
+  });
+
+  it("says no difference when only field values match", () => {
+    const base = task({
+      id: TASK_A,
+      name: "基本設計",
+      fieldValues: { a_score: 3 },
+    });
+    const document = doc(design([base]));
+    expect(formatScheduleDiff(document, document, "plan.json", fields)).toContain(
+      "差はありません",
+    );
+  });
+
+  it("shows field value changes for outline tasks", () => {
+    const file = outlineDoc();
+    const screen = outlineDoc((row) => ({
+      ...row,
+      fieldValues: { a_score: 10 },
+    }));
+    expect(formatScheduleDiff(screen, file, "plan.json", fields)).toContain(
+      "  a_score: （なし） → 10",
+    );
   });
 });

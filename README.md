@@ -16,13 +16,15 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 - バーの移動と期間変更（本体ドラッグ、端ドラッグ、ドラッグ中は開始日と終了日）、一覧のクリック選択と矢印キー、右の詳細パネル、カテゴリとグループの名前変更、タスクとマイルストンの追加と削除、マイルストンの編集と追加で帯のグループを選ぶ（グループが2件以上のとき）、タスクの複製、タスクの並べ替えと別グループへの移動（左の行の左端の握りをドラッグ）、グループの並べ替えと別カテゴリへの移動（左のグループ行の左端の握りをドラッグ）、カテゴリの並べ替え（左のカテゴリ行の左端の握りをドラッグ）、カテゴリとグループの右クリックからの追加と削除、取り消しとやり直し
 - 保存、開く、検索、編集、削除、線を引く（⌘/Ctrl+L）、ノート（⌘/Ctrl+N）、表示サイズ（⌘/Ctrl++ と ⌘/Ctrl+-）のキーボードショートカット、⌘/Ctrl+K のコマンドパレット、⌘/Ctrl+矢印でのチャートのスクロール、タスクとマイルストンの右クリックメニュー。日付ヘッダー、マイルストン帯の空き、チャートの空きの右クリックからマイルストンを追加。ツールバーの「案内」などから、いつでも操作の案内を開ける（起動時は出さない）
 - デスクトップ版では、同じスケジュールを別ウィンドウでも開ける（⌘/Ctrl+Shift+O）。メンバー、カレンダー、表示設定は開いているウィンドウで共通
-- チャート上で、選んだタスクからクリックで後続の線を足し、線の上で 1 本だけ外す
-- 期限超過、マイルストン超過、前後関係の破綻、未確定の斜線（タスクバーとマイルストン）、今日の進み方を示すイナズマ線、非稼働日の表示
+- チャート上で、選んだタスクからクリックで後続の線を足し、線の上で 1 本だけ外す。前後とは別の繋がりは、棒の上端同士を円弧で見せ、詳細パネルから相手と言葉を付け外しできる
+- 期限超過、マイルストン超過、前後関係の破綻、未確定の斜線（タスクバー）、未確定の中空のひし形（マイルストン）、マイルストンから下への点線、今日の進み方を示すイナズマ線、非稼働日の表示
+- 色の一覧 JSON を取り込むと、タスクの `colorId` で左一覧とチャートの行の地を塗れる。タスクバーとマイルストンの色は、ステータス一覧の色のままである
 - 見えている行の HTML、SVG、または Excel（デスクトップ版）への書き出し
 - 画面と開いている JSON の差分を表示・コピーし、変更だけを渡せる（状態バーの未保存、⌘/Ctrl+Shift+D、コマンドパレット）
-- 左のタスク一覧の幅を、チャートとの境界をドラッグして変えられる
-- 設定画面での、メンバー一覧と稼働日カレンダーの取り込み、表示サイズと配色（ライト・ダーク）の変更、今の版の表示、デスクトップ版での同じメジャーの安定版だけを入れ直す自動更新（既定オフ）と、同梱 CHANGELOG の変更履歴の表示
-- デスクトップ版で、開いているウィンドウの一覧・差分・起点との分類・選択・絞り込みの読み取りと、前面の未保存の置き換えを、同じバイナリの MCP 入口（`--mcp`）から行う（`open_windows` / `schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks` / `replace_schedule`。読み取りは引数省略時は前面。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
+- 左のタスク一覧の幅を、チャートとの境界をドラッグして変えられる。設定で、開始・終了・日数・進捗・ステータスの列を出したり隠したりできる
+- 使用中のステータス一覧やメンバー一覧に無い ID、使用中の色の一覧に無い `colorId`、追加項目の定義に無いキーがあるとき、チャート上端に短い帯を出す
+- 設定画面での、メンバー一覧と稼働日カレンダーと色の一覧の取り込み、表示サイズと配色（ライト・ダーク）の変更、今の版の表示、デスクトップ版での同じメジャーの安定版だけを入れ直す自動更新（既定オフ）と、同梱 CHANGELOG の変更履歴の表示
+- デスクトップ版で、開いているウィンドウの一覧・差分・起点との分類・選択・絞り込み・画面のスケジュール JSON 全体の読み取りと、前面の未保存の置き換え、見方（`set_view`）、説明のための見え方（`explain_view`）、説明の半透明（`explain_overlay`）、試しの計画の反映（`apply_explanation_pattern`）、計画（`edit_plan`）、ファイル（`file_action`）、一覧（`catalog_action`）、設定（`set_preferences`）、取り消し（`history`）、ウィンドウ（`focus_window`、`open_new_window`、`close_window`、`minimize_window`）を、同じバイナリの MCP 入口（`--mcp`）から行う（計 21 ツール。読み取りは引数省略時は前面。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
 - 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
 操作の手順は [操作マニュアル](docs/user-manual.md)（公開版は https://shkobayashi.github.io/schedule-viewer/ ）、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
@@ -52,24 +54,32 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 
 ## 使い始める
 
-起動直後は、ブラウザ版ではサンプルのスケジュールが表示される。デスクトップ版では前回の結果が決まるまで枠だけが見え、決まったあとにサンプルまたは前回の内容が一度だけ表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
+起動直後は、ブラウザ版ではサンプルのスケジュールが表示される。デスクトップ版では前回の結果が決まるまで枠だけが見え、決まったあとにサンプルまたは前回の内容が一度だけ表示される。サンプルの日付は、起動した日を基準に作られる。
+
+- [はじめに](docs/user-manual/getting-started.md) — 起動、手または LLM で一か所直して保存する
+- [やりたいことから探す](docs/user-manual/find-by-intent.md) — 目的から全機能へ飛ぶ
+- [チュートリアル](docs/user-manual/tutorial.md) — スキルで JSON を作り、MCP で取り込み直す
+- [全機能](docs/user-manual/features.md) — 操作を網羅して調べる
+
+文書の入口は [操作マニュアル](docs/user-manual.md) です。
 
 ## ドキュメント
 
-リポジトリを調べるエージェントは、ソースより先にこれらの文書を読み、変更したときは対応する文書も同じ変更で更新する。詳細は [AGENTS.md](AGENTS.md)。
+リポジトリを調べるエージェントは、[AGENTS.md](AGENTS.md) の 8 原則と [docs/agents-agent-index.md](docs/agents-agent-index.md) の文書表を先に読み、変更したときは [docs/agents-doc-update-map.md](docs/agents-doc-update-map.md) に従って文書も同じ変更で更新する。
 
 | 文書 | 内容 |
 | --- | --- |
-| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
+| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[やりたいことから探す](docs/user-manual/find-by-intent.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
-| [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダーの JSON とアプリデータ |
+| [機能チェックリスト](docs/feature-checklist.md) | 仕様を足すときに、影響と抜けを見る一覧 |
+| [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダー、色の一覧の JSON とアプリデータ |
 | [内部仕様](docs/internal-spec.md) | 構成、状態、Tauri コマンド、描画 |
 | [テスト仕様](docs/test-spec.md) | 自動テストと手動テスト |
 | [開発ガイド](docs/development.md) | 環境構築、起動、CI、リリース、配布用ビルド |
 | [計画メモ](docs/PLANNING.md) | 目的、決定事項、経緯、ロードマップ |
 | [変更履歴](CHANGELOG.md) | リリースごとの変更 |
 
-JSON スキーマの正本は [`docs/schedule.schema.json`](docs/schedule.schema.json)、[`docs/members.schema.json`](docs/members.schema.json)、[`docs/calendar.schema.json`](docs/calendar.schema.json) である。
+JSON スキーマの正本は [`docs/schedule.schema.json`](docs/schedule.schema.json)、[`docs/members.schema.json`](docs/members.schema.json)、[`docs/calendar.schema.json`](docs/calendar.schema.json)、[`docs/colors.schema.json`](docs/colors.schema.json) である。
 
 ## 開発を始める
 
@@ -95,7 +105,7 @@ npm run tauri dev
 ├── scripts/                            # 検証器の生成、スキーマ検査、バージョン同期
 ├── docs/                               # 仕様、計画、JSON スキーマ
 ├── examples/                           # 手動で開く例とカレンダー例
-├── .cursor/skills/                     # LLM 用スキル（implement-change は実装、review-project は全体レビュー、review-implementation は計画を実装したあとのレビュー。write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
+├── .cursor/skills/                     # LLM 用スキル（implement-change は実装、review-project は全体レビュー、review-implementation は計画を実装したあとのレビュー。write-schedule / write-members / write-calendar / write-workspace は他のリポジトリへコピーして使う）
 ├── .github/workflows/                  # develop 向け CI と、main および release/** 向け Release
 ├── .devcontainer/                      # DevContainer 定義
 └── mockup/

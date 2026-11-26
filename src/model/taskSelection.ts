@@ -1,5 +1,6 @@
 import type { Category, ScheduleId, VisibleRow } from "./types";
-import { findTaskById } from "./rows";
+import { findTaskInDocument } from "./hierarchy";
+import type { OutlineRoot } from "./types";
 
 export type TaskSelectionState = {
   ids: readonly ScheduleId[];
@@ -162,9 +163,12 @@ export function extendSelectionByArrow(
 
 export function pruneTaskSelection(
   categories: Category[],
+  outline: OutlineRoot | undefined,
   state: TaskSelectionState,
 ): TaskSelectionState {
-  const ids = state.ids.filter((id) => findTaskById(categories, id) != null);
+  const ids = state.ids.filter(
+    (id) => findTaskInDocument(categories, outline, id) != null,
+  );
   if (
     ids.length === state.ids.length &&
     (state.anchorId == null || ids.includes(state.anchorId)) &&

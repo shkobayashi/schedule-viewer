@@ -1,0 +1,34 @@
+[[permission]]
+identifier = "allow-get-field-extensions-settings"
+description = "Allows reading field extension catalog settings."
+commands.allow = ["get_field_extensions_settings"]
+
+[[permission]]
+identifier = "allow-read-field-extension-catalog"
+description = "Allows reading a field extension catalog from app data."
+commands.allow = ["read_field_extension_catalog"]
+
+[[permission]]
+identifier = "allow-import-field-extension-catalog"
+description = "Allows importing a field extension catalog into app data."
+commands.allow = ["import_field_extension_catalog"]
+
+[[permission]]
+identifier = "allow-delete-field-extension-catalog"
+description = "Allows deleting a field extension catalog from app data."
+commands.allow = ["delete_field_extension_catalog"]
+
+[[permission]]
+identifier = "allow-set-selected-field-extension-catalogs"
+description = "Allows selecting active field extension catalogs."
+commands.allow = ["set_selected_field_extension_catalogs"]
+
+[[permission]]
+identifier = "allow-save-field-extension-json"
+description = "Allows exporting a field extension JSON file."
+commands.allow = ["save_field_extension_json"]
+
+[[permission]]
+identifier = "allow-write-field-extension-at-path"
+description = "Allows writing a workspace field extension file."
+commands.allow = ["write_field_extension_at_path"]

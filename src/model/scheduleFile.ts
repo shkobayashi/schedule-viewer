@@ -4,13 +4,16 @@ import type {
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
+  ScheduleFieldDef,
+  TaskConnection,
 } from "./types";
 import {
   formatValidationErrors,
   validateSchedule,
 } from "./validateSchedule";
 import { scheduleJsonFilename as jsonFilenameFromTitle } from "./exportFilename";
-import { scheduleToJson } from "./serialize";
+import { documentToJsonString, scheduleToJson } from "./serialize";
+import type { OutlineRoot, ScheduleLevelDef } from "./types";
 
 export type ScheduleFilePick = {
   path: string | null;
@@ -42,11 +45,23 @@ export function serializeScheduleDocument(
   categories: Category[],
   milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
+  levels?: ScheduleLevelDef[] | null,
+  outline?: OutlineRoot | null,
+  fields?: ScheduleFieldDef[] | null,
+  connections?: TaskConnection[] | null,
 ): string {
-  return JSON.stringify(
-    scheduleToJson(title, categories, milestoneGroups, milestones),
-    null,
-  2);
+  return documentToJsonString(
+    scheduleToJson(
+      title,
+      categories,
+      milestoneGroups,
+      milestones,
+      levels,
+      outline,
+      fields,
+      connections,
+    ),
+  );
 }
 
 export function parseScheduleText(text: string): ParseScheduleResult {
@@ -66,12 +81,7 @@ export function parseScheduleText(text: string): ParseScheduleResult {
     };
   }
 
-  const canonicalJson = serializeScheduleDocument(
-    result.document.title,
-    result.document.categories,
-    result.document.milestoneGroups,
-    result.document.milestones,
-  );
+  const canonicalJson = documentToJsonString(result.document);
   return { ok: true, document: result.document, canonicalJson };
 }
 
@@ -97,8 +107,13 @@ export async function openScheduleViaTauri(
 export async function acceptOpenedScheduleViaTauri(
   path: string,
   contents: string,
+  options?: { preserveWorkspaceBinding?: boolean },
 ): Promise<void> {
-  await invoke("accept_opened_schedule", { path, contents });
+  await invoke("accept_opened_schedule", {
+    path,
+    contents,
+    preserveWorkspaceBinding: options?.preserveWorkspaceBinding ?? false,
+  });
 }
 
 export const DISK_HASH_MISMATCH = "DISK_HASH_MISMATCH";
@@ -131,6 +146,18 @@ export async function acknowledgeScheduleFileContentsViaTauri(
   contents: string,
 ): Promise<void> {
   await invoke("acknowledge_schedule_file_contents", { contents });
+}
+
+export async function saveScheduleAtPathViaTauri(
+  path: string,
+  contents: string,
+  skipDiskHashCheck: boolean,
+): Promise<string> {
+  return invoke<string>("save_schedule_at_path", {
+    path,
+    contents,
+    skipDiskHashCheck,
+  });
 }
 
 export async function saveScheduleViaTauri(
@@ -250,6 +277,20 @@ export type LastScheduleRead = {
 
 export async function readLastScheduleFileViaTauri(): Promise<LastScheduleRead | null> {
   return invoke<LastScheduleRead | null>("read_last_schedule_file");
+}
+
+/** MCP 用。React の path が未同期でも、Tauri 側の開いている path を返す。 */
+export async function resolveScheduleComparisonPath(
+  filePath: string | null,
+): Promise<string | null> {
+  if (filePath != null && filePath.length > 0) {
+    return filePath;
+  }
+  if (!isTauri()) {
+    return null;
+  }
+  const last = await readLastScheduleFileViaTauri();
+  return last?.path ?? null;
 }
 
 export async function clearLastSchedulePathViaTauri(): Promise<void> {

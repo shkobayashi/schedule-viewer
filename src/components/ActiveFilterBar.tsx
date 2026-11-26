@@ -1,3 +1,4 @@
+import type { StatusItem } from "../model/statusCatalog";
 import {
   activeFilterChips,
   DEFAULT_FILTERS,
@@ -8,6 +9,7 @@ import { removeSelectedTag } from "../model/taskTags";
 import type {
   Milestone,
   MilestoneGroup,
+  ScheduleFieldDef,
   ScheduleFilters,
   ScheduleId,
 } from "../model/types";
@@ -20,6 +22,7 @@ type ActiveFilterBarProps = {
   hiddenMilestoneIds: ScheduleId[];
   assigneeLabel: string | null;
   lineageName: string | null;
+  lineageIncludesConnections?: boolean;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
   onClearLineage: () => void;
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
@@ -27,6 +30,8 @@ type ActiveFilterBarProps = {
   onShowAllMilestoneGroups: () => void;
   onShowAllMilestoneMarks: () => void;
   scheduleTags: string[];
+  scheduleFields?: readonly ScheduleFieldDef[];
+  statuses: readonly StatusItem[];
 };
 
 export function ActiveFilterBar({
@@ -37,6 +42,7 @@ export function ActiveFilterBar({
   hiddenMilestoneIds,
   assigneeLabel,
   lineageName,
+  lineageIncludesConnections = false,
   onFiltersChange,
   onClearLineage,
   onMilestoneGroupVisible,
@@ -44,6 +50,8 @@ export function ActiveFilterBar({
   onShowAllMilestoneGroups,
   onShowAllMilestoneMarks,
   scheduleTags,
+  scheduleFields,
+  statuses,
 }: ActiveFilterBarProps) {
   const chips = activeFilterChips(
     filters,
@@ -52,8 +60,11 @@ export function ActiveFilterBar({
     lineageName,
     milestoneGroups,
     hiddenMilestoneGroupIds,
-    scheduleTags,
     hiddenMilestoneIds,
+    scheduleTags,
+    statuses,
+    scheduleFields,
+    lineageIncludesConnections,
   );
   if (chips.length === 0) return null;
 
@@ -61,6 +72,7 @@ export function ActiveFilterBar({
     kind: FilterChipKind,
     milestoneGroupId?: ScheduleId,
     tagName?: string,
+    fieldKey?: string,
     milestoneId?: ScheduleId,
   ) => {
     if (kind === "lineage") {
@@ -77,6 +89,12 @@ export function ActiveFilterBar({
     }
     if (kind === "tag" && tagName != null) {
       onFiltersChange({ tags: removeSelectedTag(filters.tags, tagName) });
+      return;
+    }
+    if (kind === "fieldFilter" && fieldKey != null) {
+      const next = { ...(filters.fieldFilters ?? {}) };
+      delete next[fieldKey];
+      onFiltersChange({ fieldFilters: next });
       return;
     }
     onFiltersChange(filterChipClearPatch(kind));
@@ -102,6 +120,7 @@ export function ActiveFilterBar({
               chip.kind,
               chip.milestoneGroupId,
               chip.tagName,
+              chip.fieldKey,
               chip.milestoneId,
             )
           }

@@ -40,7 +40,7 @@ function task(id: string, name: string): Task {
     name,
     start: "2026-04-01",
     end: "2026-04-05",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",

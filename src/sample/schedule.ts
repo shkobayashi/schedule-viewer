@@ -1,10 +1,12 @@
 import { scheduleToJson } from "../model/serialize";
+import { todayIso } from "../model/dates";
 import type {
   Category,
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
 } from "../model/types";
+import { anchorSampleSchedule } from "./anchorSample";
 import {
   SAMPLE_CATEGORY_IDS,
   SAMPLE_GROUP_IDS,
@@ -61,7 +63,7 @@ export const sampleCategories: Category[] = [
             name: "現状業務ヒアリング",
             start: "2026-09-14",
             end: "2026-09-19",
-            assigneeId: SAMPLE_MEMBER_IDS.tanaka,
+            assigneeIds: [SAMPLE_MEMBER_IDS.tanaka],
             status: "done",
             progress: 100,
             confidence: "committed",
@@ -81,7 +83,7 @@ export const sampleCategories: Category[] = [
             name: "要件定義書作成",
             start: "2026-09-18",
             end: "2026-09-21",
-            assigneeId: SAMPLE_MEMBER_IDS.sato,
+            assigneeIds: [SAMPLE_MEMBER_IDS.sato],
             status: "in-progress",
             progress: 60,
             confidence: "committed",
@@ -94,7 +96,7 @@ export const sampleCategories: Category[] = [
             name: "要件レビュー",
             start: "2026-09-22",
             end: "2026-09-26",
-            assigneeId: null,
+            assigneeIds: [],
             status: "not-started",
             progress: 0,
             confidence: "tentative",
@@ -118,7 +120,7 @@ export const sampleCategories: Category[] = [
             name: "アーキテクチャ設計",
             start: "2026-09-25",
             end: "2026-10-08",
-            assigneeId: SAMPLE_MEMBER_IDS.suzuki,
+            assigneeIds: [SAMPLE_MEMBER_IDS.suzuki],
             status: "in-progress",
             progress: 30,
             confidence: "tentative",
@@ -136,7 +138,7 @@ export const sampleCategories: Category[] = [
             name: "PoC環境構築",
             start: "2026-10-05",
             end: "2026-10-15",
-            assigneeId: null,
+            assigneeIds: [],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -148,7 +150,7 @@ export const sampleCategories: Category[] = [
             name: "プロトタイプ開発",
             start: "2026-10-13",
             end: "2026-11-05",
-            assigneeId: SAMPLE_MEMBER_IDS.suzuki,
+            assigneeIds: [SAMPLE_MEMBER_IDS.suzuki],
             status: "not-started",
             progress: 0,
             confidence: "tentative",
@@ -166,7 +168,7 @@ export const sampleCategories: Category[] = [
             name: "評価・振り返り",
             start: "2026-11-06",
             end: "2026-11-12",
-            assigneeId: SAMPLE_MEMBER_IDS.sato,
+            assigneeIds: [SAMPLE_MEMBER_IDS.sato],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -190,7 +192,7 @@ export const sampleCategories: Category[] = [
             name: "データ基盤設計",
             start: "2026-10-01",
             end: "2026-10-14",
-            assigneeId: SAMPLE_MEMBER_IDS.takahashi,
+            assigneeIds: [SAMPLE_MEMBER_IDS.takahashi],
             status: "in-progress",
             progress: 45,
             confidence: "committed",
@@ -208,7 +210,7 @@ export const sampleCategories: Category[] = [
             name: "基盤構築",
             start: "2026-10-15",
             end: "2026-11-11",
-            assigneeId: SAMPLE_MEMBER_IDS.takahashi,
+            assigneeIds: [SAMPLE_MEMBER_IDS.takahashi],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -220,7 +222,7 @@ export const sampleCategories: Category[] = [
             name: "セキュリティ設定",
             start: "2026-11-05",
             end: "2026-11-18",
-            assigneeId: SAMPLE_MEMBER_IDS.suzuki,
+            assigneeIds: [SAMPLE_MEMBER_IDS.suzuki],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -244,7 +246,7 @@ export const sampleCategories: Category[] = [
             name: "データ移行",
             start: "2026-11-12",
             end: "2026-11-25",
-            assigneeId: SAMPLE_MEMBER_IDS.tanaka,
+            assigneeIds: [SAMPLE_MEMBER_IDS.tanaka],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -262,7 +264,7 @@ export const sampleCategories: Category[] = [
             name: "結合テスト",
             start: "2026-11-19",
             end: "2026-12-02",
-            assigneeId: SAMPLE_MEMBER_IDS.sato,
+            assigneeIds: [SAMPLE_MEMBER_IDS.sato],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -274,7 +276,7 @@ export const sampleCategories: Category[] = [
             name: "受け入れテスト",
             start: "2026-12-03",
             end: "2026-12-13",
-            assigneeId: null,
+            assigneeIds: [],
             status: "not-started",
             progress: 0,
             confidence: "tentative",
@@ -298,7 +300,7 @@ export const sampleCategories: Category[] = [
             name: "リリース準備",
             start: "2026-12-10",
             end: "2026-12-17",
-            assigneeId: SAMPLE_MEMBER_IDS.takahashi,
+            assigneeIds: [SAMPLE_MEMBER_IDS.takahashi],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -310,7 +312,7 @@ export const sampleCategories: Category[] = [
             name: "本番リリース",
             start: "2026-12-18",
             end: "2026-12-20",
-            assigneeId: SAMPLE_MEMBER_IDS.suzuki,
+            assigneeIds: [SAMPLE_MEMBER_IDS.suzuki],
             status: "not-started",
             progress: 0,
             confidence: "committed",
@@ -328,7 +330,7 @@ export const sampleCategories: Category[] = [
             name: "運用引き継ぎ",
             start: "2026-12-21",
             end: "2027-01-07",
-            assigneeId: SAMPLE_MEMBER_IDS.sato,
+            assigneeIds: [SAMPLE_MEMBER_IDS.sato],
             status: "not-started",
             progress: 0,
             confidence: "tentative",
@@ -341,11 +343,39 @@ export const sampleCategories: Category[] = [
   },
 ];
 
-export function sampleScheduleDocument(): ScheduleDocument {
+export function sampleScheduleDocument(
+  openToday: string = todayIso(),
+): ScheduleDocument {
+  const { categories, milestones } = anchorSampleSchedule(
+    sampleCategories,
+    sampleMilestones,
+    openToday,
+  );
   return scheduleToJson(
     SAMPLE_PROJECT_TITLE,
-    sampleCategories,
+    categories,
     sampleMilestoneGroups,
-    sampleMilestones,
+    milestones,
+    null,
+    null,
+    null,
   );
+}
+
+/** 画面のサンプル表示用。開いた日を基準に日付と進み具合を揃える。 */
+export function sampleScheduleParts(openToday: string = todayIso()): {
+  categories: Category[];
+  milestoneGroups: MilestoneGroup[];
+  milestones: Milestone[];
+} {
+  const { categories, milestones } = anchorSampleSchedule(
+    sampleCategories,
+    sampleMilestones,
+    openToday,
+  );
+  return {
+    categories,
+    milestoneGroups: sampleMilestoneGroups,
+    milestones,
+  };
 }

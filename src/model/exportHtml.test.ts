@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
-import { layoutMilestoneBand } from "./milestones";
+import {
+  buildScheduleHtml,
+  buildScheduleSvg,
+  exportChartRowFill,
+  type ScheduleExportInput,
+} from "./exportHtml";
+import { paletteFor } from "./palette";
+import type { VisibleRow } from "./types";
+import { layoutMilestoneBand, milestoneMarkGuideGeometry } from "./milestones";
 import { hatchPatternId, hatchStripeColor } from "./hatch";
 import {
   MONTH_HEADER_LABEL_GAP_BASE_PX,
   monthHeaderLabelWidth,
 } from "./monthHeader";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
-import { daysBetween } from "./dates";
+import { daysBetween, parseDate } from "./dates";
 import type { Task } from "./types";
 
 const task: Task = {
@@ -15,7 +22,7 @@ const task: Task = {
   name: "見えるタスク",
   start: "2026-04-01",
   end: "2026-04-03",
-  assigneeId: null,
+  assigneeIds: [],
   status: "in-progress",
   progress: 40,
   confidence: "committed",
@@ -63,6 +70,7 @@ function input(): ScheduleExportInput {
     filterSummary: "ステータス: 進行中",
     colorScheme: "light",
     showLightningLine: true,
+    milestoneGuideLineIds: new Set(),
   };
 }
 
@@ -97,6 +105,17 @@ describe("schedule export documents", () => {
     expect(svg.startsWith("<svg ")).toBe(true);
     expect(html).not.toContain("<pattern ");
     expect(svg).not.toContain("<pattern ");
+  });
+
+  it("escapes font-family in SVG attributes but not in HTML CSS", () => {
+    const html = buildScheduleHtml(input());
+    const svg = buildScheduleSvg(input());
+    const escapedAttr =
+      'font-family="system-ui, -apple-system, &quot;Segoe UI&quot;, &quot;Hiragino Sans&quot;, &quot;Yu Gothic UI&quot;, Meiryo, &quot;Noto Sans CJK JP&quot;, sans-serif"';
+    expect(svg).toContain(escapedAttr);
+    expect(html).toContain(escapedAttr);
+    expect(html).toContain('font-family: system-ui, -apple-system, "Segoe UI"');
+    expect(svg).not.toMatch(/font-family="[^"]*"[^>]*Segoe UI/);
   });
 
   it("hatches tentative bars and labels them, and leaves committed bars solid", () => {
@@ -176,7 +195,7 @@ describe("schedule export documents", () => {
     expect(column).toBeGreaterThan(labelColumnWidth(solid));
   });
 
-  it("hatches a tentative milestone and leaves a committed one solid", () => {
+  it("renders a hollow tentative milestone and a solid committed one", () => {
     const committedId = "00000000-0000-4000-8000-000000000010";
     const tentativeId = "00000000-0000-4000-8000-000000000011";
     const groupId = "e1000001-0000-4000-8000-000000000001";
@@ -212,8 +231,81 @@ describe("schedule export documents", () => {
       ),
     });
     expect(svg).toContain('fill="#111827"');
-    expect(svg).toContain(`fill="url(#${hatchPatternId("#111827")})"`);
-    expect(svg).toContain("<pattern ");
+    expect(svg).toContain('fill="none"');
+    expect(svg).not.toContain(`fill="url(#${hatchPatternId("#111827")})"`);
+  });
+
+  it("draws guide lines only for milestones in milestoneGuideLineIds", () => {
+    const milestoneId = "00000000-0000-4000-8000-000000000010";
+    const offId = "00000000-0000-4000-8000-000000000011";
+    const groupId = "e1000001-0000-4000-8000-000000000001";
+    const milestones = [
+      {
+        id: milestoneId,
+        name: "オン",
+        date: "2026-04-01",
+        confidence: "committed" as const,
+        groupId,
+      },
+      {
+        id: offId,
+        name: "オフ",
+        date: "2026-04-03",
+        confidence: "committed" as const,
+        groupId,
+      },
+    ];
+    const bandLayout = layoutMilestoneBand(
+      [{ id: groupId, name: "G" }],
+      milestones,
+      new Set([groupId]),
+      22,
+      11,
+      11,
+      26,
+      "export",
+    );
+    const base = input();
+    const headerHeight = 40;
+    const bandHeight = 26;
+    const laneCenterY = 13;
+    const guide = milestoneMarkGuideGeometry(
+      11,
+      11,
+      "オン",
+      laneCenterY,
+      0,
+      bandHeight,
+    );
+    const timelineStart = base.timelineStart;
+    const onX =
+      daysBetween(timelineStart, parseDate("2026-04-01")) * base.pxPerDay;
+    const offX =
+      daysBetween(timelineStart, parseDate("2026-04-03")) * base.pxPerDay;
+    const centerY = headerHeight + laneCenterY;
+    const bandBottomY = centerY + guide.bandVerticalY2;
+    const bandVertical = `<line x1="${onX}" y1="${centerY}" x2="${onX}" y2="${bandBottomY}" stroke="#697586" stroke-width="1" stroke-dasharray="4 3"/>`;
+    const withGuide = buildScheduleSvg({
+      ...base,
+      milestoneBandHeight: bandHeight,
+      milestones,
+      milestoneBandLayout: bandLayout,
+      milestoneGuideLineIds: new Set([milestoneId]),
+    });
+    const withoutGuide = buildScheduleSvg({
+      ...base,
+      milestoneBandHeight: bandHeight,
+      milestones,
+      milestoneBandLayout: bandLayout,
+      milestoneGuideLineIds: new Set(),
+    });
+    expect(withGuide).toContain(bandVertical);
+    expect(withoutGuide).not.toContain(bandVertical);
+    expect(withGuide).not.toMatch(
+      new RegExp(
+        `<line x1="${offX}" y1="${centerY}" x2="${offX}" y2="${bandBottomY}"`,
+      ),
+    );
   });
 
   it("draws the overrun frame when that milestone is left off the band", () => {
@@ -296,12 +388,126 @@ describe("schedule export documents", () => {
   });
 
   it("uses dark palette when colorScheme is dark", () => {
+    const { css, chart } = paletteFor("dark");
     const dark = buildScheduleHtml({ ...input(), colorScheme: "dark" });
-    expect(dark).toContain("background: #1c1f26");
-    expect(dark).toContain('fill="#1c1f26"');
+    expect(dark).toContain(`background: ${css.bg}`);
+    expect(dark).toContain(`fill="${chart.exportBg}"`);
     expect(dark).toContain("inset 3px 0 0 #a888d8");
     const svg = buildScheduleSvg({ ...input(), colorScheme: "dark" });
-    expect(svg).toContain('fill="#1c1f26"');
-    expect(svg).toContain('fill="#a8b0bf"');
+    expect(svg).toContain(`fill="${chart.exportBg}"`);
+    expect(svg).toContain(`fill="${css.textSecondary}"`);
+  });
+
+  it("fills hierarchy chart rows like the sidebar", () => {
+    const { chart, css } = paletteFor("light");
+    const summary = {
+      start: "2026-04-01",
+      end: "2026-04-03",
+      covered: [{ start: "2026-04-01", end: "2026-04-03" }],
+    };
+    const top: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "工程",
+      y: 0,
+      collapsed: false,
+      summary,
+      rollupPercent: 10,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+    };
+    const middle: VisibleRow = {
+      type: "hierarchy",
+      id: "h1",
+      label: "機能",
+      y: 32,
+      collapsed: false,
+      summary: null,
+      rollupPercent: null,
+      levelIndex: 1,
+      depth: 1,
+      rowKind: "middle",
+      ancestorIds: ["h0"],
+    };
+    const parent: VisibleRow = {
+      type: "hierarchy",
+      id: "h2",
+      label: "作業",
+      y: 64,
+      collapsed: false,
+      summary,
+      rollupPercent: 20,
+      levelIndex: 2,
+      depth: 2,
+      rowKind: "taskParent",
+      ancestorIds: ["h0", "h1"],
+    };
+    expect(exportChartRowFill(top, chart, css.bg, null, "light")).toBe(chart.categoryRow);
+    expect(exportChartRowFill(middle, chart, css.bg, null, "light")).toBe(css.bg);
+    expect(exportChartRowFill(parent, chart, css.bg, null, "light")).toBe(chart.groupRow);
+
+    const svg = buildScheduleSvg({
+      ...input(),
+      visibleRows: [top, middle, parent, { type: "task", task, y: 96 }],
+    });
+    expect(svg).toContain(`fill="${chart.categoryRow}"`);
+    expect(svg).toContain(`fill="${chart.groupRow}"`);
+    expect(svg).toContain(`fill="${css.bg}"`);
+  });
+
+  it("paints task row background from colors catalog in SVG", () => {
+    const colored: Task = { ...task, colorId: "focus" };
+    const exp = {
+      ...input(),
+      visibleRows: [{ type: "task" as const, task: colored, y: 0 }],
+      colors: [
+        {
+          id: "focus",
+          name: "注力",
+          description: "x",
+          color: {
+            light: { bg: "#FEF3C7" },
+            dark: { bg: "#78350F" },
+          },
+        },
+      ],
+    };
+    const svg = buildScheduleSvg(exp);
+    expect(svg).toContain('fill="#FEF3C7"');
+  });
+
+  it("refuses export when visible rows exceed 10000", () => {
+    const huge: VisibleRow[] = Array.from({ length: 10_001 }, (_, index) => ({
+      type: "task",
+      y: index * 32,
+      task: {
+        ...task,
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        name: `行${index}`,
+      },
+    }));
+    expect(() => buildScheduleHtml({ ...input(), visibleRows: huge })).toThrow(
+      "書き出し対象の行数が上限（10000 行）を超えています。絞り込みや折りたたみで行数を減らしてください。",
+    );
+  });
+
+  it("omits fieldValues from HTML and SVG export", () => {
+    const marker = "追加項目の値は書き出さない";
+    const taskWithFields: Task = {
+      ...task,
+      fieldValues: { demo_score: 42, demo_memo: marker },
+    };
+    const exp = {
+      ...input(),
+      visibleRows: [{ type: "task" as const, task: taskWithFields, y: 0 }],
+    };
+    const html = buildScheduleHtml(exp);
+    const svg = buildScheduleSvg(exp);
+    expect(html).not.toContain(marker);
+    expect(html).not.toContain("demo_score");
+    expect(svg).not.toContain(marker);
+    expect(svg).not.toContain("demo_score");
   });
 });

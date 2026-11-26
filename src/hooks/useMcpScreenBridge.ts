@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Member, MemberId } from "../model/memberTypes";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
+import { assessReplaceScheduleLevelCount } from "../model/hierarchyLevelEdit";
 import {
   REPLACE_SCHEDULE_UI_BUSY,
   assessReplaceScheduleGate,
@@ -13,11 +13,35 @@ import {
   type ReplaceScheduleDocumentResult,
 } from "../model/replaceSchedule";
 import {
+  assessMcpOperationGate,
+  parseMcpActionEnvelope,
+} from "../model/mcpOperationGate";
+import {
+  MCP_TOOL_CATALOG_ACTION,
+  MCP_TOOL_CLOSE_WINDOW,
+  MCP_TOOL_EDIT_PLAN,
+  MCP_TOOL_FILE_ACTION,
+  MCP_TOOL_FOCUS_WINDOW,
+  MCP_TOOL_HISTORY,
+  MCP_TOOL_MINIMIZE_WINDOW,
+  MCP_TOOL_OPEN_NEW_WINDOW,
+  MCP_TOOL_SET_PREFERENCES,
+  MCP_TOOL_SET_VIEW,
+  MCP_TOOL_EXPLAIN_VIEW,
+  MCP_TOOL_EXPLAIN_OVERLAY,
+  MCP_TOOL_APPLY_EXPLANATION_PATTERN,
+} from "../model/mcpToolNames";
+import {
+  executeMcpActionTool,
+  type McpActionExecutorContext,
+} from "./mcpActionExecutor";
+import {
   buildFilteredTasksPayload,
   buildScheduleDiffPayload,
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
   MCP_TOOL_BASELINE_DIFFS,
+  MCP_TOOL_CURRENT_SCHEDULE,
   MCP_TOOL_FILTERED_TASKS,
   MCP_TOOL_REPLACE_SCHEDULE,
   MCP_TOOL_SCHEDULE_DIFF,
@@ -25,66 +49,219 @@ import {
   MCP_TOOL_SELECTED_TASKS,
   mcpPayloadToToolBody,
   mcpPlainTextToolBody,
+  mcpReadToolsPayloadToToolBody,
+  isMcpReadToolName,
   mcpToolErrorBody,
+  type McpToolResultBody,
 } from "../model/screenContext";
+import { captureMainElementForMcp } from "../model/captureMainForMcp";
 import { isTauri } from "../model/scheduleFile";
-import type {
-  Category,
-  Milestone,
-  MilestoneGroup,
-  ScheduleDocument,
-  ScheduleFilters,
-  ScheduleId,
-} from "../model/types";
+import { setMcpInProgressGeneration } from "../model/mcpInProgressInvalidation";
+import type { ScheduleDocument, ScheduleId } from "../model/types";
+import type { TaskBarAnchor } from "../model/connections";
+import {
+  mcpFilteredTasksPayloadInputFromSnap,
+  mcpSelectedTaskPayloadInputFromSnap,
+  mcpSelectedTasksPayloadInputFromSnap,
+  type McpScreenBridgeFilteredTasksSnap,
+  type McpScreenRequest,
+} from "../model/mcpScreenBridgeSnap";
+import { recordMcpOpenNewWindowDiagnostic } from "../model/mcpOpenNewWindowDiagnostic";
 
-type McpScreenRequest = {
-  id: string;
-  generation: number;
-  tool: string;
-  arguments: unknown;
-};
-
-type UseMcpScreenBridgeInput = {
-  categories: Category[];
-  milestones: Milestone[];
-  milestoneGroups: MilestoneGroup[];
-  filters: ScheduleFilters;
-  lineageTaskId: ScheduleId | null;
-  lineageIds: ReadonlySet<ScheduleId> | null;
-  hiddenMilestoneGroupIds: ScheduleId[];
-  hiddenMilestoneIds: ScheduleId[];
-  selectedTaskId: ScheduleId | null;
-  selectedTaskIds: readonly ScheduleId[];
-  today: string;
-  memberMap: Map<MemberId, Member> | null;
-  scheduleFilePath: string | null;
-  scheduleCurrentJson: string;
-  scheduleBaselineJson: string;
-  startupSettled: boolean;
-  startupRecoveryDialogOpen: boolean;
-  mcpReplaceUiBlocking: () => boolean;
-  replaceScheduleDocument: (
-    document: ScheduleDocument,
-  ) => ReplaceScheduleDocumentResult;
-  onReplaceScheduleApplied?: () => void;
-};
+export type UseMcpScreenBridgeInput = McpScreenBridgeFilteredTasksSnap & {
+    selectedTaskId: ScheduleId | null;
+    selectedTaskIds: readonly ScheduleId[];
+    getScheduleFilePath: () => string | null;
+    getCanonicalJson?: () => string;
+    scheduleCurrentJson: string;
+    scheduleBaselineJson: string;
+    startupSettled: boolean;
+    startupRecoveryDialogOpen: boolean;
+    fileBusy: boolean;
+    mcpReplaceUiBlocking: () => boolean;
+    mcpUiBlocking: () => boolean;
+    onDiscardInProgress: () => void;
+    mcpActionExecutor: McpActionExecutorContext;
+    replaceScheduleDocument: (
+      document: ScheduleDocument,
+    ) => ReplaceScheduleDocumentResult;
+    onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
+    prepareMcpPngCapture?: () => void;
+    finalizeMcpPngCapture?: () => void;
+    mainElement: HTMLElement | null;
+    colorsCatalogError?: string | null;
+    explainOverlayLiveAnchorsRef: RefObject<
+      ReadonlyMap<ScheduleId, TaskBarAnchor>
+    >;
+    /** App から渡されるが bridge 本体では未参照（型互換のため残す）。 */
+    headerHeight?: number;
+    milestoneBandHeight?: number;
+  };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
   const inputRef = useRef(input);
   inputRef.current = input;
+  const mcpActionRequestIdsInFlight = useRef(new Set<string>());
 
   useEffect(() => {
     if (!isTauri()) return;
 
+    function liveAnchorsFromSnap(snap: UseMcpScreenBridgeInput) {
+      return snap.explainOverlayLiveAnchorsRef.current;
+    }
+
+    function traceMcpHarnessGui(phase: string, detail: string) {
+      const label = getCurrentWindow().label;
+      void invoke("mcp_harness_gui_trace", { label, phase, detail }).catch(
+        () => {},
+      );
+    }
+
     async function reply(
       id: string,
       generation: number,
-      body: {
-        content: Array<{ type: string; text: string }>;
-        isError?: boolean;
-      },
+      body: McpToolResultBody,
+      invalidateInProgress = false,
     ) {
-      await invoke("mcp_reply", { id, generation, body });
+      const isError =
+        typeof body === "object" &&
+        body !== null &&
+        "isError" in body &&
+        (body as { isError?: boolean }).isError === true;
+      traceMcpHarnessGui(
+        "reply",
+        `id=${id} generation=${generation} invalidate=${invalidateInProgress} isError=${isError}`,
+      );
+      await invoke("mcp_reply", {
+        id,
+        generation,
+        body,
+        invalidateInProgress,
+      });
+    }
+
+    function invalidateAfterReject(discardInProgress: boolean): boolean {
+      return !discardInProgress;
+    }
+
+    async function replyError(
+      payload: McpScreenRequest,
+      message: string,
+      discardInProgress: boolean,
+    ) {
+      await reply(
+        payload.id,
+        payload.generation,
+        mcpToolErrorBody(message),
+        invalidateAfterReject(discardInProgress),
+      );
+    }
+
+    const MCP_ACTION_TOOLS = new Set([
+      MCP_TOOL_SET_VIEW,
+      MCP_TOOL_EXPLAIN_VIEW,
+      MCP_TOOL_EXPLAIN_OVERLAY,
+      MCP_TOOL_APPLY_EXPLANATION_PATTERN,
+      MCP_TOOL_EDIT_PLAN,
+      MCP_TOOL_FILE_ACTION,
+      MCP_TOOL_CATALOG_ACTION,
+      MCP_TOOL_SET_PREFERENCES,
+      MCP_TOOL_HISTORY,
+      MCP_TOOL_OPEN_NEW_WINDOW,
+      MCP_TOOL_CLOSE_WINDOW,
+      MCP_TOOL_FOCUS_WINDOW,
+      MCP_TOOL_MINIMIZE_WINDOW,
+    ]);
+
+  function logOpenNewWindowFrontend(
+    payload: McpScreenRequest,
+    phase:
+      | "frontend-receive"
+      | "frontend-duplicate-skip"
+      | "frontend-execute-start"
+      | "frontend-created",
+    windowLabel?: string,
+  ) {
+    if (payload.tool !== MCP_TOOL_OPEN_NEW_WINDOW) return;
+    recordMcpOpenNewWindowDiagnostic({
+      requestId: payload.id,
+      phase,
+      origin: "frontend",
+      windowLabel,
+    });
+  }
+
+    async function handleMcpActionTool(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-receive");
+      }
+      if (mcpActionRequestIdsInFlight.current.has(payload.id)) {
+        if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+          logOpenNewWindowFrontend(payload, "frontend-duplicate-skip");
+        }
+        return;
+      }
+      mcpActionRequestIdsInFlight.current.add(payload.id);
+      try {
+        await handleMcpActionToolBody(payload, snap);
+      } finally {
+        mcpActionRequestIdsInFlight.current.delete(payload.id);
+      }
+    }
+
+    async function handleMcpActionToolBody(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      const parsedEnvelope = parseMcpActionEnvelope(payload.arguments);
+      if (!parsedEnvelope.ok) {
+        await replyError(payload, parsedEnvelope.message, false);
+        return;
+      }
+      const discardInProgress =
+        parsedEnvelope.envelope.discardInProgress === true;
+      const gate = assessMcpOperationGate({
+        startupSettled: snap.startupSettled,
+        startupRecoveryDialogOpen: snap.startupRecoveryDialogOpen,
+        uiBlocking: snap.mcpUiBlocking(),
+        discardInProgress,
+        fileBusy: snap.fileBusy,
+      });
+      if (!gate.ok) {
+        await replyError(payload, gate.message, discardInProgress);
+        return;
+      }
+      if (gate.discardInProgress) {
+        snap.onDiscardInProgress();
+      }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-execute-start");
+      }
+      const result = await executeMcpActionTool(
+        payload.tool,
+        parsedEnvelope.envelope,
+        snap.mcpActionExecutor,
+      );
+      if (!result.ok) {
+        await replyError(payload, result.message, discardInProgress);
+        return;
+      }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW && result.ok) {
+        logOpenNewWindowFrontend(payload, "frontend-created", result.text);
+      }
+      const body = mcpPlainTextToolBody(result.text, false);
+      if ("tooLarge" in body) {
+        await replyError(
+          payload,
+          "応答が大きすぎるため、渡せません。",
+          discardInProgress,
+        );
+        return;
+      }
+      await reply(payload.id, payload.generation, body);
     }
 
     async function handleReplaceSchedule(
@@ -101,6 +278,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(gate.message),
+          true,
         );
         return;
       }
@@ -110,6 +288,20 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(parsed.message),
+          true,
+        );
+        return;
+      }
+      const levelGate = assessReplaceScheduleLevelCount(
+        { levels: snap.levels ?? undefined },
+        parsed.document,
+      );
+      if (!levelGate.ok) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(levelGate.message),
+          true,
         );
         return;
       }
@@ -119,15 +311,17 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(REPLACE_SCHEDULE_UI_BUSY),
+          true,
         );
         return;
       }
       if (replaceResult.outcome === "applied") {
-        snap.onReplaceScheduleApplied?.();
+        snap.onReplaceScheduleApplied?.(replaceResult);
       }
       const diff = await loadScheduleDiffText(
-        snap.scheduleFilePath,
+        snap.getScheduleFilePath(),
         replaceResult.screenJson,
+        snap.fields,
       );
       const diffText = diff.ok ? diff.text : diff.message;
       if (!diff.ok && diff.isError) {
@@ -153,16 +347,28 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
+      traceMcpHarnessGui(
+        "receive",
+        `id=${payload.id} generation=${payload.generation} tool=${payload.tool} startupSettled=${snap.startupSettled} startupRecoveryDialogOpen=${snap.startupRecoveryDialogOpen}`,
+      );
       if (payload.tool === MCP_TOOL_REPLACE_SCHEDULE) {
         await handleReplaceSchedule(payload, snap);
         return;
       }
+      if (MCP_ACTION_TOOLS.has(payload.tool)) {
+        await handleMcpActionTool(payload, snap);
+        return;
+      }
       let toolPayload: unknown;
+      const liveAnchors = liveAnchorsFromSnap(snap);
       switch (payload.tool) {
         case MCP_TOOL_SCHEDULE_DIFF: {
+          const screenJson =
+            snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
           const diff = await loadScheduleDiffText(
-            snap.scheduleFilePath,
-            snap.scheduleCurrentJson,
+            snap.getScheduleFilePath(),
+            screenJson,
+            snap.fields,
           );
           const scheduleDiffText = diff.ok ? diff.text : diff.message;
           const scheduleDiffIsError = !diff.ok && diff.isError;
@@ -174,11 +380,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_BASELINE_DIFFS: {
           const baselineJson = snap.scheduleBaselineJson;
-          const screenJson = snap.scheduleCurrentJson;
+          const screenJson =
+            snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
           const result = await loadBaselineDiffsText(
-            snap.scheduleFilePath,
+            snap.getScheduleFilePath(),
             baselineJson,
             screenJson,
+            snap.fields,
           );
           const body = mcpPlainTextToolBody(
             result.ok ? result.text : result.message,
@@ -196,36 +404,43 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           return;
         }
         case MCP_TOOL_SELECTED_TASK: {
-          toolPayload = buildSelectedTaskPayload({
-            categories: snap.categories,
-            filters: snap.filters,
-            today: snap.today,
-            memberCatalog: snap.memberMap,
-            lineageIds: snap.lineageIds,
-            selectedTaskId: snap.selectedTaskId,
-          });
+          toolPayload = buildSelectedTaskPayload(
+            mcpSelectedTaskPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
         case MCP_TOOL_SELECTED_TASKS: {
-          toolPayload = buildSelectedTasksPayload({
-            categories: snap.categories,
-            selectedTaskIds: snap.selectedTaskIds,
-          });
+          toolPayload = buildSelectedTasksPayload(
+            mcpSelectedTasksPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
+        case MCP_TOOL_CURRENT_SCHEDULE: {
+          const json = snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
+          const body = mcpPlainTextToolBody(json);
+          if ("tooLarge" in body) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+            );
+            return;
+          }
+          await reply(payload.id, payload.generation, body);
+          return;
+        }
         case MCP_TOOL_FILTERED_TASKS: {
-          toolPayload = buildFilteredTasksPayload({
-            categories: snap.categories,
-            filters: snap.filters,
-            lineageTaskId: snap.lineageTaskId,
-            hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
-            hiddenMilestoneIds: snap.hiddenMilestoneIds,
-            milestoneGroups: snap.milestoneGroups,
-            milestones: snap.milestones,
-            today: snap.today,
-            memberCatalog: snap.memberMap,
-            lineageIds: snap.lineageIds,
-          });
+          if (snap.colorsCatalogError) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody(snap.colorsCatalogError),
+            );
+            return;
+          }
+          toolPayload = buildFilteredTasksPayload(
+            mcpFilteredTasksPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
         default:
@@ -236,7 +451,22 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           );
           return;
       }
-      const body = mcpPayloadToToolBody(toolPayload);
+      let body;
+      if (isMcpReadToolName(payload.tool)) {
+        let screenshot;
+        try {
+          snap.prepareMcpPngCapture?.();
+          screenshot = await captureMainElementForMcp(snap.mainElement);
+        } finally {
+          snap.finalizeMcpPngCapture?.();
+        }
+        body = mcpReadToolsPayloadToToolBody(
+          toolPayload as Record<string, unknown>,
+          screenshot,
+        );
+      } else {
+        body = mcpPayloadToToolBody(toolPayload);
+      }
       if ("tooLarge" in body) {
         await reply(
           payload.id,
@@ -248,6 +478,17 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await reply(payload.id, payload.generation, body);
     }
 
+    // listen の解決前にクリーンアップが走っても（StrictMode の再マウントなど）受け口を残さない。
+    // 残ると 1 つの要求を 2 回処理する。
+    let disposed = false;
+    let unlistenInvalidated: (() => void) | undefined;
+    void listen<number>("mcp-in-progress-invalidated", (event) => {
+      setMcpInProgressGeneration(event.payload);
+    }).then((off) => {
+      if (disposed) off();
+      else unlistenInvalidated = off;
+    });
+
     let unlisten: (() => void) | undefined;
     void listen<McpScreenRequest>(
       "mcp-screen-request",
@@ -256,10 +497,18 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       },
       { target: getCurrentWindow().label },
     ).then((off) => {
+      if (disposed) {
+        off();
+        return;
+      }
       unlisten = off;
+      // 受け口ができたことを待ち受けへ知らせる。待ち受けはこれを待ってから要求を送る。
+      void invoke("mcp_screen_listener_ready").catch(() => {});
     });
     return () => {
+      disposed = true;
       unlisten?.();
+      unlistenInvalidated?.();
     };
   }, []);
 }

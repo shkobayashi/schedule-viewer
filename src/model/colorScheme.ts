@@ -65,7 +65,7 @@ export function applyResolvedColorScheme(resolved: ResolvedColorScheme): void {
   const root = document.documentElement;
   root.dataset.colorScheme = resolved;
   root.style.colorScheme = resolved;
-  applyCssPalette(paletteFor(resolved));
+  applyCssPalette(paletteFor(resolved), resolved);
 }
 
 export function readResolvedColorScheme(): ResolvedColorScheme {

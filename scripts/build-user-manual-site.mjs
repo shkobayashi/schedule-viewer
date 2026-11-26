@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import GithubSlugger from "github-slugger";
 import { Marked } from "marked";
 
@@ -15,7 +15,7 @@ const cssSrc = path.join(__dirname, "manual-site", "manual.css");
 const GITHUB_BLOB =
   "https://github.com/shkobayashi/schedule-viewer/blob/main/docs/";
 
-const PAGES = [
+export const PAGES = [
   {
     source: path.join(docsDir, "user-manual.md"),
     out: "index.html",
@@ -27,6 +27,12 @@ const PAGES = [
     out: "getting-started.html",
     nav: "getting-started",
     title: "はじめに",
+  },
+  {
+    source: path.join(manualDir, "find-by-intent.md"),
+    out: "find-by-intent.html",
+    nav: "find-by-intent",
+    title: "やりたいことから探す",
   },
   {
     source: path.join(manualDir, "tutorial.md"),
@@ -57,12 +63,17 @@ const EXTERNAL_DOC_SLUG_SOURCES = [
 const NAV_ITEMS = [
   { href: "index.html", nav: "index", label: "操作マニュアル" },
   { href: "getting-started.html", nav: "getting-started", label: "はじめに" },
+  {
+    href: "find-by-intent.html",
+    nav: "find-by-intent",
+    label: "やりたいことから探す",
+  },
   { href: "tutorial.html", nav: "tutorial", label: "チュートリアル" },
   { href: "features.html", nav: "features", label: "全機能" },
   { href: "privacy.html", nav: "privacy", label: "プライバシーポリシー" },
 ];
 
-function buildSlugSet(markdown) {
+export function buildSlugSet(markdown) {
   const slugger = new GithubSlugger();
   const ids = new Set();
   for (const line of markdown.split("\n")) {
@@ -158,6 +169,16 @@ function rewriteMarkdownLinks(markdown, sourceFile) {
   );
 }
 
+function pageOutForSource(sourceFile) {
+  const resolved = path.resolve(sourceFile);
+  for (const page of PAGES) {
+    if (path.resolve(page.source) === resolved) {
+      return page.out;
+    }
+  }
+  return "";
+}
+
 function validateFragment(sourceFile, href, rewritten) {
   const fragment = href.includes("#") ? href.split("#")[1] : "";
   if (!fragment) {
@@ -177,7 +198,7 @@ function validateFragment(sourceFile, href, rewritten) {
     return;
   }
 
-  const htmlFile = rewritten.split("#")[0];
+  const htmlFile = rewritten.split("#")[0] || pageOutForSource(sourceFile);
   const ids = pageSlugSets.get(htmlFile);
   if (!ids?.has(fragment)) {
     throw new Error(
@@ -186,7 +207,7 @@ function validateFragment(sourceFile, href, rewritten) {
   }
 }
 
-function validateLinks(markdown, sourceFile) {
+export function validateLinks(markdown, sourceFile) {
   const re = /(?<!!)\[[^\]]*\]\(([^)]+)\)/g;
   for (const match of markdown.matchAll(re)) {
     const href = match[1];
@@ -360,4 +381,6 @@ function main() {
   console.log(`Wrote ${siteDir}`);
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main();
+}

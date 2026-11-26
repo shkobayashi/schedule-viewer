@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-claim-status-catalog-edit"
+description = "Allows claiming exclusive edit of a status catalog in one window."
+commands.allow = ["claim_status_catalog_edit"]
+
+[[permission]]
+identifier = "allow-release-status-catalog-edit"
+description = "Allows releasing exclusive edit of a status catalog."
+commands.allow = ["release_status_catalog_edit"]

@@ -54,12 +54,15 @@ export function excelMilestoneExport(
     const marks = colIndices.map((colIndex) => ({ colIndex }));
     for (const colIndex of colIndices) {
       const names = (byCol.get(colIndex) ?? [])
-        .map((milestone) => milestone.name)
+        .map(
+          (milestone) =>
+            `${milestone.confidence === "tentative" ? "◇" : "◆"} ${milestone.name}`,
+        )
         .join("、");
       milestoneMarks.push({
         row: milestoneRowIndex,
         colIndex,
-        character: `◆ ${names}`,
+        character: names,
       });
     }
     milestoneRows.push({

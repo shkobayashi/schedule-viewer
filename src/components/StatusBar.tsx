@@ -5,10 +5,10 @@ type StatusBarProps = {
   saveStatus: string;
   saveStatusClickable: boolean;
   onSaveStatusClick: () => void;
-  hideFileStatus?: boolean;
   membersCatalogLabel: string | null;
   membersCatalogError: string | null;
   calendarError: string | null;
+  colorsCatalogError: string | null;
   tier: GridTier;
   visibleTaskCount: number;
   totalTaskCount: number;
@@ -17,6 +17,8 @@ type StatusBarProps = {
   onOpenSettingsMembers: () => void;
   onOpenSettingsCalendar: () => void;
   onOpenShortcuts: () => void;
+  /** 初回の保存前だけ出すヒント（ピル） */
+  saveHint?: string | null;
 };
 
 function tierLabel(tier: GridTier): string {
@@ -30,10 +32,10 @@ export function StatusBar({
   saveStatus,
   saveStatusClickable,
   onSaveStatusClick,
-  hideFileStatus = false,
   membersCatalogLabel,
   membersCatalogError,
   calendarError,
+  colorsCatalogError,
   tier,
   visibleTaskCount,
   totalTaskCount,
@@ -42,29 +44,31 @@ export function StatusBar({
   onOpenSettingsMembers,
   onOpenSettingsCalendar,
   onOpenShortcuts,
+  saveHint = null,
 }: StatusBarProps) {
   return (
     <footer className="status-bar" role="contentinfo">
+      {saveHint ? (
+        <span className="status-bar-first-run-hint" role="note">
+          {saveHint}
+        </span>
+      ) : null}
       <div className="status-bar-group">
-        {hideFileStatus ? null : (
-          <>
-            <span className="status-bar-item status-bar-file">{fileName}</span>
-            <span className="status-bar-sep" aria-hidden="true">
-              ·
-            </span>
-            {saveStatusClickable ? (
-              <button
-                type="button"
-                className="status-bar-link status-bar-unsaved"
-                onClick={onSaveStatusClick}
-                title="差分を表示"
-              >
-                {saveStatus}
-              </button>
-            ) : (
-              <span className="status-bar-item">{saveStatus}</span>
-            )}
-          </>
+        <span className="status-bar-item status-bar-file">{fileName}</span>
+        <span className="status-bar-sep" aria-hidden="true">
+          ·
+        </span>
+        {saveStatusClickable ? (
+          <button
+            type="button"
+            className="status-bar-link status-bar-unsaved"
+            onClick={onSaveStatusClick}
+            title="差分を表示"
+          >
+            {saveStatus}
+          </button>
+        ) : (
+          <span className="status-bar-item">{saveStatus}</span>
         )}
       </div>
       {showDeferredReload ? (
@@ -99,12 +103,19 @@ export function StatusBar({
           カレンダー設定エラー
         </button>
       ) : null}
-      <span className="status-bar-item">{tierLabel(tier)}</span>
-      {hideFileStatus ? null : (
-        <span className="status-bar-item status-bar-count">
-          {totalTaskCount}件中{visibleTaskCount}件を表示
+      {colorsCatalogError ? (
+        <span
+          className="status-bar-warning"
+          title={colorsCatalogError}
+          role="status"
+        >
+          色の一覧を読み込めませんでした。
         </span>
-      )}
+      ) : null}
+      <span className="status-bar-item">{tierLabel(tier)}</span>
+      <span className="status-bar-item status-bar-count">
+        {totalTaskCount}件中{visibleTaskCount}件を表示
+      </span>
       <button
         type="button"
         className="status-bar-link"

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-claim-field-extension-edit"
+description = "Allows claiming exclusive edit of a field extension in one window."
+commands.allow = ["claim_field_extension_edit"]
+
+[[permission]]
+identifier = "allow-release-field-extension-edit"
+description = "Allows releasing exclusive edit of a field extension."
+commands.allow = ["release_field_extension_edit"]

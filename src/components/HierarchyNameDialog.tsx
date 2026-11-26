@@ -25,6 +25,11 @@ export function HierarchyNameDialog({
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  const trySave = () => {
+    const message = onSave(name);
+    if (message) setFormError(message);
+  };
+
   return (
     <ModalDialog title={title} onClose={onClose}>
       <div className="field">
@@ -38,6 +43,15 @@ export function HierarchyNameDialog({
             setName(event.target.value);
             setFormError(null);
           }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              trySave();
+            }
+          }}
         />
       </div>
       {formError ? <p className="form-error" role="alert">{formError}</p> : null}
@@ -48,10 +62,7 @@ export function HierarchyNameDialog({
         <button
           type="button"
           className="btn primary"
-          onClick={() => {
-            const message = onSave(name);
-            if (message) setFormError(message);
-          }}
+          onClick={trySave}
         >
           {primaryLabel}
         </button>

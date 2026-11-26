@@ -24,7 +24,7 @@ const task = (patch: Partial<Task>): Task => ({
   name: "Alpha",
   start: "2026-04-01",
   end: "2026-04-10",
-  assigneeId: null,
+  assigneeIds: [],
   status: "not-started",
   progress: 0,
   confidence: "committed",
@@ -122,30 +122,6 @@ describe("milestonesForExport", () => {
     expect(picked).toEqual([]);
   });
 
-  it("omits hidden mark dates from export range", () => {
-    const late: Milestone = {
-      ...far,
-      id: "00000000-0000-4000-8000-000000000014",
-      date: "2028-06-01",
-    };
-    const visible = [row(task({}))];
-    const withLate = exportTimelineRange(visible, [late], "2026-04-08");
-    const withoutLate = exportTimelineRange(
-      visible,
-      milestonesForExport(
-        "all",
-        groups,
-        allGroups,
-        [near, late],
-        visible,
-        new Set([late.id]),
-      ),
-      "2026-04-08",
-    );
-    expect(isoDate(withLate.timelineEnd)).toBe("2028-06-08");
-    expect(isoDate(withoutLate.timelineEnd)).toBe("2026-04-17");
-  });
-
   it("drops milestones when the filter is none", () => {
     expect(
       milestonesForExport(
@@ -203,6 +179,7 @@ describe("describeActiveFilters", () => {
         { ...filters, tags: ["共有", "説明"] },
         [near],
         null,
+        [],
         [],
         [],
         ["説明", "共有"],

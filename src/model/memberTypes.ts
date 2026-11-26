@@ -5,6 +5,7 @@ export type MemberId = string;
 export type Member = {
   id: MemberId;
   name: string;
+  description?: string;
 };
 
 export type MembersDocument = {

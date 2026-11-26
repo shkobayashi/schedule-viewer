@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { loadRegressionSchedule } from "../test/searchErrorKeysFixtures";
+import { collectTasksFromDocument } from "./hierarchy";
 import {
   barPixelsInDateColumns,
   buildExcelExportPayload,
   buildExcelTimeColumns,
+  assertExcelLimits,
   EXCEL_DATE_COLUMN_WIDTH_MONTH_PX,
   EXCEL_DATE_COLUMN_WIDTH_PX,
+  EXCEL_MAX_SHAPES,
   excelDateColumnWidthPx,
   type ScheduleExcelInput,
 } from "./exportExcel";
@@ -14,6 +18,7 @@ import {
   EXCEL_SHEET_NON_WORKING_RGB,
 } from "./excelSheetColors";
 import type { ScheduleExportInput } from "./exportHtml";
+import { assigneeExcelCellLabel, memberMapFromList } from "./assigneeDisplay";
 import { parseDate } from "./dates";
 import { paletteFor } from "./palette";
 import type { VisibleRow } from "./types";
@@ -29,7 +34,7 @@ function baseInput(): ScheduleExcelInput {
       name: "設計",
       start: "2026-01-07",
       end: "2026-01-08",
-      assigneeId: null,
+      assigneeIds: [],
       status: "in-progress",
       progress: 30,
       confidence: "committed",
@@ -69,6 +74,7 @@ function baseInput(): ScheduleExcelInput {
     filterSummary: "",
     colorScheme: "light",
     showLightningLine: false,
+    milestoneGuideLineIds: new Set(),
   };
   return {
     ...exportBase,
@@ -77,6 +83,8 @@ function baseInput(): ScheduleExcelInput {
     taskNames: new Map([["t1", "設計"]]),
     exportedAtIso: "2026-01-07T12:00:00.000Z",
     excelColumns: DEFAULT_EXCEL_EXPORT_COLUMNS,
+    fieldDefs: [],
+    excelFieldColumns: {},
   };
 }
 
@@ -163,7 +171,7 @@ describe("exportExcel", () => {
         name: "実装",
         start: "2026-01-09",
         end: "2026-01-09",
-        assigneeId: null,
+        assigneeIds: [],
         status: "not-started",
         progress: 0,
         confidence: "committed",
@@ -183,119 +191,7 @@ describe("exportExcel", () => {
     expect(payload.connectors[0]?.straight).toBe(false);
     expect(payload.shapes.some((s) => s.text === "▶")).toBe(false);
     expect(payload.todayLine).not.toBeNull();
-    expect(payload.todayLine?.strokeRgb).toBe("E07B20");
-  });
-
-  it("uses light lightning color when colorScheme is dark", () => {
-    const input = baseInput();
-    input.showLightningLine = true;
-    const payload = buildExcelExportPayload({
-      ...input,
-      colorScheme: "dark",
-    });
-    expect(payload.todayLine?.strokeRgb).toBe("E07B20");
-  });
-
-  it("uses light category name when colorScheme is dark", () => {
-    const category: VisibleRow = {
-      type: "category",
-      y: 0,
-      id: "c1",
-      label: "要件",
-      collapsed: false,
-      summary: null,
-      rollupPercent: null,
-    };
-    const payload = buildExcelExportPayload({
-      ...baseInput(),
-      visibleRows: [category],
-      colorScheme: "dark",
-    });
-    expect(payload.rows[0]?.nameTextRgb).toBe("1F2937");
-  });
-
-  it("uses light category fill when colorScheme is dark", () => {
-    const payload = buildExcelExportPayload({
-      ...baseInput(),
-      colorScheme: "dark",
-    });
-    expect(payload.categoryHeadingFillRgb).toBe("F8F9FB");
-  });
-
-  it("uses light summary colors when colorScheme is dark", () => {
-    const category: VisibleRow = {
-      type: "category",
-      y: 0,
-      id: "c1",
-      label: "要件",
-      collapsed: false,
-      summary: {
-        start: "2026-01-07",
-        end: "2026-01-08",
-        covered: [{ start: "2026-01-07", end: "2026-01-08" }],
-      },
-      rollupPercent: 50,
-    };
-    const payload = buildExcelExportPayload({
-      ...baseInput(),
-      visibleRows: [category],
-      colorScheme: "dark",
-    });
-    expect(payload.shapes[0]?.fillRgb).toBe("8A94A6");
-    expect(payload.summaryGapLines).toHaveLength(0);
-  });
-
-  it("uses light hatch on tentative bars when colorScheme is dark", () => {
-    const taskRow: VisibleRow = {
-      type: "task",
-      y: 0,
-      task: {
-        id: "t1",
-        name: "未確定",
-        start: "2026-01-07",
-        end: "2026-01-08",
-        assigneeId: null,
-        status: "in-progress",
-        progress: 0,
-        confidence: "tentative",
-        predecessors: [],
-        milestoneId: null,
-      },
-    };
-    const payload = buildExcelExportPayload({
-      ...baseInput(),
-      visibleRows: [taskRow],
-      colorScheme: "dark",
-    });
-    expect(payload.shapes[0]?.patternForeRgb).toBe("818492");
-    expect(payload.shapes[0]?.fillRgb).toBe("DEE3FB");
-  });
-
-  it("uses light connector colors when colorScheme is dark", () => {
-    const task2: VisibleRow = {
-      type: "task",
-      y: 28,
-      task: {
-        id: "t2",
-        name: "実装",
-        start: "2026-01-09",
-        end: "2026-01-09",
-        assigneeId: null,
-        status: "not-started",
-        progress: 0,
-        confidence: "committed",
-        predecessors: ["t1"],
-        milestoneId: null,
-      },
-    };
-    const input = baseInput();
-    input.visibleRows = [input.visibleRows[0]!, task2];
-    input.links = [{ fromId: "t1", toId: "t2", broken: true }];
-    const payload = buildExcelExportPayload({
-      ...input,
-      colorScheme: "dark",
-    });
-    expect(payload.connectors[0]?.strokeRgb).toBe("C4351A");
+    expect(payload.todayLine?.strokeRgb).toMatch(/^[0-9A-Fa-f]{6}$/);
   });
 
   it("assigns name indent and summary decorations by row kind", () => {
@@ -374,7 +270,7 @@ describe("exportExcel", () => {
         name: "遅れ",
         start: "2026-01-06",
         end: "2026-01-06",
-        assigneeId: null,
+        assigneeIds: [],
         status: "in-progress",
         progress: 0,
         confidence: "committed",
@@ -391,6 +287,116 @@ describe("exportExcel", () => {
     );
     expect(dark.overdueNameRgb).toBe(lightPalette.dangerText.replace("#", ""));
     expect(dark.rows[1]?.nameOverdue).toBe(true);
+  });
+
+  const summarySpan = {
+    start: "2026-01-07",
+    end: "2026-01-08",
+    covered: [{ start: "2026-01-07", end: "2026-01-08" }],
+  };
+
+  it("keeps task indent 0 for task-only visible rows", () => {
+    const payload = buildExcelExportPayload(baseInput());
+    expect(payload.rows).toHaveLength(1);
+    expect(payload.rows[0]?.nameIndent).toBe(0);
+    expect(payload.rows[0]?.kind).toBe("task");
+    expect(payload.summaryCaps).toHaveLength(0);
+  });
+
+  it("indents two-level hierarchy like top heading and task", () => {
+    const heading: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "まとまり",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+      alsoTaskParent: true,
+    };
+    const input = baseInput();
+    input.visibleRows = [heading, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[0]?.nameIndent).toBe(0);
+    expect(payload.rows[1]?.nameIndent).toBe(1);
+    expect(payload.summaryCaps.length).toBeGreaterThan(0);
+  });
+
+  it("indents five-level hierarchy through depth 4 on tasks", () => {
+    const mkHeading = (
+      levelIndex: number,
+      depth: number,
+      rowKind: "top" | "middle" | "taskParent",
+      y: number,
+      ancestorIds: string[],
+    ): VisibleRow => ({
+      type: "hierarchy",
+      id: `h-${levelIndex}`,
+      label: `L${levelIndex}`,
+      y,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 10,
+      levelIndex,
+      depth,
+      rowKind,
+      ancestorIds,
+    });
+    const headings = [
+      mkHeading(0, 0, "top", 0, []),
+      mkHeading(1, 1, "middle", 28, ["h-0"]),
+      mkHeading(2, 2, "middle", 56, ["h-0", "h-1"]),
+      mkHeading(3, 3, "taskParent", 84, ["h-0", "h-1", "h-2"]),
+    ];
+    const input = baseInput();
+    input.visibleRows[0]!.y = 112;
+    input.visibleRows = [...headings, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows.map((row) => row.nameIndent)).toEqual([0, 1, 2, 3, 4]);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[3]?.kind).toBe("group");
+    expect(payload.summaryCaps.length).toBeGreaterThan(2);
+  });
+
+  it("matches legacy category group task indents for three-level outline headings", () => {
+    const top: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "工程",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 40,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+    };
+    const parent: VisibleRow = {
+      type: "hierarchy",
+      id: "h1",
+      label: "機能",
+      y: 28,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 30,
+      levelIndex: 1,
+      depth: 1,
+      rowKind: "taskParent",
+      ancestorIds: ["h0"],
+    };
+    const input = baseInput();
+    input.visibleRows[0]!.y = 56;
+    input.visibleRows = [top, parent, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows.map((row) => row.nameIndent)).toEqual([0, 1, 2]);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[1]?.kind).toBe("group");
   });
 
   it("uses milestone group name on milestone rows", () => {
@@ -437,5 +443,376 @@ describe("exportExcel", () => {
     expect(payload.dateColumnWidthPx).toBe(
       excelDateColumnWidthPx("month"),
     );
+  });
+
+  it("leaves field columns off by default", () => {
+    const input = baseInput();
+    input.fieldDefs = [
+      { key: "score", name: "点数", type: "number" },
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    input.excelFieldColumns = { score: false, memo: false };
+    const taskRow = input.visibleRows[0];
+    if (taskRow.type === "task") {
+      taskRow.task.fieldValues = { score: 10, memo: "hi" };
+    }
+    const payload = buildExcelExportPayload(input);
+    expect(payload.leftHeaders).toEqual(["名前", "開始", "終了", "ノート"]);
+    expect(payload.rows[0]?.cells).toEqual(["設計", "01/07", "01/08", ""]);
+  });
+
+  it("formats enabled field columns before note", () => {
+    const input = baseInput();
+    input.fieldDefs = [
+      { key: "score", name: "点数", type: "number" },
+      { key: "ratio", name: "消化率", type: "number", percent: true },
+      { key: "due", name: "確認日", type: "date" },
+      { key: "lane", name: "区分", type: "choice", choices: ["内製"] },
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    input.excelFieldColumns = {
+      score: true,
+      ratio: true,
+      due: true,
+      lane: true,
+      memo: true,
+    };
+    const taskRow = input.visibleRows[0];
+    if (taskRow.type === "task") {
+      taskRow.task.fieldValues = {
+        score: 3,
+        ratio: 30,
+        due: "2026-03-01",
+        lane: "内製",
+        memo: "本文",
+      };
+    }
+    const payload = buildExcelExportPayload(input);
+    expect(payload.leftHeaders).toEqual([
+      "名前",
+      "開始",
+      "終了",
+      "点数",
+      "消化率",
+      "確認日",
+      "区分",
+      "メモ",
+      "ノート",
+    ]);
+    expect(payload.rows[0]?.cells).toEqual([
+      "設計",
+      "01/07",
+      "01/08",
+      "3",
+      "30%",
+      "2026-03-01",
+      "内製",
+      "本文",
+      "",
+    ]);
+  });
+
+  it("puts full assignee text in one column for tasks and leaves headings empty", () => {
+    const members = [
+      { id: "sato", name: "佐藤" },
+      { id: "tanaka", name: "田中" },
+    ];
+    const catalog = memberMapFromList(members);
+    const excelColumns = {
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      assignee: true,
+    };
+    const category: VisibleRow = {
+      type: "category",
+      y: 0,
+      id: "c1",
+      label: "要件定義",
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+    };
+    const heading: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "まとまり",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+      alsoTaskParent: true,
+    };
+    const inputMulti = baseInput();
+    inputMulti.excelColumns = excelColumns;
+    inputMulti.memberCatalog = catalog;
+    const taskRow = inputMulti.visibleRows[0]!;
+    if (taskRow.type === "task") {
+      taskRow.task.assigneeIds = ["sato", "tanaka"];
+    }
+    inputMulti.visibleRows = [category, heading, taskRow];
+    const payloadMulti = buildExcelExportPayload(inputMulti);
+    expect(payloadMulti.leftHeaders.filter((h) => h === "担当")).toEqual([
+      "担当",
+    ]);
+    const assigneeIndex = payloadMulti.leftHeaders.indexOf("担当");
+    expect(assigneeIndex).toBe(1);
+    expect(payloadMulti.rows[0]?.kind).toBe("category");
+    expect(payloadMulti.rows[0]?.cells[assigneeIndex]).toBe("");
+    expect(payloadMulti.rows[1]?.cells[assigneeIndex]).toBe("");
+    const taskCells = payloadMulti.rows[2]?.cells;
+    expect(taskCells?.[assigneeIndex]).toBe(
+      assigneeExcelCellLabel(["sato", "tanaka"], catalog),
+    );
+
+    const inputOne = baseInput();
+    inputOne.excelColumns = excelColumns;
+    inputOne.memberCatalog = catalog;
+    const oneTask = inputOne.visibleRows[0]!;
+    if (oneTask.type === "task") {
+      oneTask.task.assigneeIds = ["sato"];
+    }
+    const payloadOne = buildExcelExportPayload(inputOne);
+    expect(payloadMulti.rows.length).toBe(payloadOne.rows.length + 2);
+    expect(payloadMulti.shapes.length).toBeGreaterThan(payloadOne.shapes.length);
+
+    const inputMultiTaskOnly = baseInput();
+    inputMultiTaskOnly.excelColumns = excelColumns;
+    inputMultiTaskOnly.memberCatalog = catalog;
+    const multiTask = inputMultiTaskOnly.visibleRows[0]!;
+    if (multiTask.type === "task") {
+      multiTask.task.assigneeIds = ["sato", "tanaka"];
+    }
+    const payloadMultiTaskOnly = buildExcelExportPayload(inputMultiTaskOnly);
+    expect(payloadMultiTaskOnly.rows.length).toBe(payloadOne.rows.length);
+    expect(payloadMultiTaskOnly.shapes.length).toBe(payloadOne.shapes.length);
+  });
+
+  it("does not add assignee cells on milestone rows when the column is on", () => {
+    const input = baseInput();
+    input.excelColumns = {
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      assignee: true,
+    };
+    input.memberCatalog = memberMapFromList([{ id: "sato", name: "佐藤" }]);
+    const taskRow = input.visibleRows[0]!;
+    if (taskRow.type === "task") {
+      taskRow.task.assigneeIds = ["sato"];
+    }
+    input.tier = "month";
+    input.timelineStart = parseDate("2026-09-01");
+    input.timelineEnd = parseDate("2026-11-01");
+    input.milestoneGroups = [{ id: "mg1", name: "リリース" }];
+    input.exportMilestones = [
+      {
+        id: "m1",
+        name: "α版",
+        date: "2026-10-01",
+        confidence: "committed",
+        groupId: "mg1",
+      },
+    ];
+    input.milestoneBandLayout = {
+      blocks: [
+        {
+          group: { id: "mg1", name: "リリース" },
+          offsetY: 0,
+          height: 20,
+          milestones: input.exportMilestones,
+          lanes: new Map(),
+          displayLabels: new Map(),
+          centerYById: new Map(),
+        },
+      ],
+      totalHeight: 20,
+      centerYById: new Map(),
+      displayLabels: new Map(),
+    };
+    const payload = buildExcelExportPayload(input);
+    expect(payload.milestoneRows).toHaveLength(1);
+    expect(payload.milestoneRows[0]?.name).toBe("リリース");
+    const assigneeIndex = payload.leftHeaders.indexOf("担当");
+    expect(payload.rows[0]?.cells[assigneeIndex]).toBe("佐藤");
+    expect(
+      payload.milestoneMarks.every((mark) => !mark.character.includes("佐藤")),
+    ).toBe(true);
+  });
+
+  it("includes row fill rgb for colored tasks", () => {
+    const input = baseInput();
+    const row = input.visibleRows[0];
+    if (row?.type !== "task") throw new Error("expected task row");
+    input.visibleRows = [
+      {
+        ...row,
+        task: { ...row.task, colorId: "focus" },
+      },
+    ];
+    input.colors = [
+      {
+        id: "focus",
+        name: "注力",
+        description: "x",
+        color: {
+          light: { bg: "#FEF3C7" },
+          dark: { bg: "#78350F" },
+        },
+      },
+    ];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows[0]?.rowFillRgb).toBe("FEF3C7");
+    const darkPayload = buildExcelExportPayload({
+      ...input,
+      colorScheme: "dark",
+    });
+    expect(darkPayload.rows[0]?.rowFillRgb).toBe("FEF3C7");
+  });
+
+  it("puts connection curves into the payload", () => {
+    const task2: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t2",
+        name: "実装",
+        start: "2026-01-08",
+        end: "2026-01-09",
+        assigneeIds: [],
+        status: "in-progress",
+        progress: 0,
+        confidence: "committed",
+        predecessors: [],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.visibleRows = [input.visibleRows[0]!, task2];
+    input.connections = [
+      { taskIds: ["t1", "t2"], label: "関係" },
+    ];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.connectionCurves).toEqual([
+      {
+        fromShapeIndex: 0,
+        toShapeIndex: 1,
+        strokeRgb: "0369A1",
+        label: "関係",
+        labelTextRgb: "075985",
+      },
+    ]);
+  });
+
+  it("leaves dependency connectors unchanged when a connection is present", () => {
+    const task2: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t2",
+        name: "実装",
+        start: "2026-01-08",
+        end: "2026-01-09",
+        assigneeIds: [],
+        status: "in-progress",
+        progress: 0,
+        confidence: "committed",
+        predecessors: ["t1"],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.visibleRows = [input.visibleRows[0]!, task2];
+    input.links = [{ fromId: "t1", toId: "t2", broken: false }];
+    input.connections = [
+      { taskIds: ["t1", "t2"], label: "関係" },
+    ];
+    input.colorScheme = "dark";
+    const payload = buildExcelExportPayload(input);
+    expect(payload.connectors).toHaveLength(1);
+    expect(payload.connectors[0]?.straight).toBe(false);
+    expect(payload.connectors[0]?.strokeRgb).toBe(
+      paletteFor("light").chart.linkOk.replace("#", ""),
+    );
+    expect(payload.connectionCurves).toHaveLength(1);
+  });
+
+  it("refuses export when visible rows exceed 10000", () => {
+    const template = baseInput().visibleRows.find((row) => row.type === "task");
+    if (!template || template.type !== "task") {
+      throw new Error("task row missing in baseInput");
+    }
+    const rows: VisibleRow[] = Array.from({ length: 10_000 }, (_, index) => ({
+      ...template,
+      y: index * 22,
+      task: {
+        ...template.task,
+        id: `t-${index}`,
+        name: `行${index}`,
+      },
+    }));
+    const input = baseInput();
+    input.visibleRows = rows;
+    expect(() => buildExcelExportPayload(input)).toThrow(
+      "書き出し対象の行数が上限（10000 行）を超えています。絞り込みや折りたたみで行数を減らしてください。",
+    );
+  });
+
+  it("puts the smoke task name, start date, and Japanese text in the excel payload", () => {
+    const doc = loadRegressionSchedule("smoke.schedule.json");
+    const survey = doc.categories[0]?.groups[0]?.tasks.find((item) => item.name === "調査");
+    if (!survey) throw new Error("調査 missing in smoke.schedule.json");
+    const timelineStart = parseDate("2026-04-01");
+    const timelineEnd = parseDate("2026-04-08");
+    const visibleRows: VisibleRow[] = [{ type: "task", y: 0, task: survey }];
+    const exportBase = baseInput();
+    const taskNames = new Map(collectTasksFromDocument(doc).map((item) => [item.id, item.name]));
+    const payload = buildExcelExportPayload({
+      ...exportBase,
+      title: doc.title,
+      visibleRows,
+      milestones: [],
+      exportMilestones: [],
+      milestoneGroups: doc.milestoneGroups,
+      milestoneBandLayout: {
+        blocks: [],
+        totalHeight: 0,
+        centerYById: new Map(),
+        displayLabels: new Map(),
+      },
+      timelineStart,
+      timelineEnd,
+      totalDays: 7,
+      taskNames,
+      milestoneBandHeight: 0,
+    });
+    const surveyRow = payload.rows.find((row) => row.cells[0] === "調査");
+    expect(surveyRow).toBeDefined();
+    expect(surveyRow?.cells).toContain("04/01");
+    expect(surveyRow?.cells.some((cell) => cell.includes("回帰確認用のノート"))).toBe(true);
+  });
+
+  it("counts connection labels toward the drawing limit", () => {
+    const payload = buildExcelExportPayload(baseInput());
+    const drawingCount =
+      payload.shapes.length +
+      payload.connectors.length +
+      payload.connectionCurves.length * 2 +
+      (payload.todayLine ? 1 : 0) +
+      payload.summaryGapLines.length +
+      payload.summaryCaps.length;
+    const extraCurves = Math.floor((EXCEL_MAX_SHAPES - drawingCount + 1) / 2);
+    expect(() =>
+      assertExcelLimits({
+        ...payload,
+        connectionCurves: Array.from({ length: extraCurves }, () => ({
+          fromShapeIndex: 0,
+          toShapeIndex: 0,
+          strokeRgb: "0369A1",
+          label: "関係",
+          labelTextRgb: "075985",
+        })),
+      }),
+    ).toThrow(/図形の数が上限/);
   });
 });

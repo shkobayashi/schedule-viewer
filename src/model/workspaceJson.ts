@@ -18,7 +18,16 @@ export function classifyOpenedJson(data: unknown): OpenedJsonKind {
     return "schedule";
   }
   if (Array.isArray(record.members)) return "unsupported";
+  if (Array.isArray(record.statuses)) return "unsupported";
+  if (Array.isArray(record.colors)) return "unsupported";
   if (Array.isArray(record.weekends)) return "unsupported";
+  if (
+    record.schemaVersion === 1 &&
+    typeof record.id === "string" &&
+    Array.isArray(record.fields)
+  ) {
+    return "unsupported";
+  }
   if (
     record.schemaVersion === 1 &&
     typeof record.schedule === "string" &&
@@ -76,10 +85,40 @@ export function resolveWorkspacePaths(
       ? resolveWorkspaceRelativePath(workspaceFilePath, document.calendar)
       : null;
   if (document.calendar != null && !calendarPath) return null;
+  const statusesPath =
+    document.statuses != null
+      ? resolveWorkspaceRelativePath(workspaceFilePath, document.statuses)
+      : null;
+  if (document.statuses != null && !statusesPath) return null;
+  const colorsPath =
+    document.colors != null
+      ? resolveWorkspaceRelativePath(workspaceFilePath, document.colors)
+      : null;
+  if (document.colors != null && !colorsPath) return null;
+  const fieldExtensionPaths: string[] = [];
+  if (document.fieldExtensions != null) {
+    for (const relative of document.fieldExtensions) {
+      const absolute = resolveWorkspaceRelativePath(workspaceFilePath, relative);
+      if (!absolute) return null;
+      fieldExtensionPaths.push(absolute);
+    }
+  }
+  let editableFieldExtensionPath: string | null = null;
+  if (document.editableFieldExtension != null) {
+    editableFieldExtensionPath = resolveWorkspaceRelativePath(
+      workspaceFilePath,
+      document.editableFieldExtension,
+    );
+    if (!editableFieldExtensionPath) return null;
+  }
   return {
     schedulePath,
     membersPath,
     calendarPath,
+    statusesPath,
+    colorsPath,
+    fieldExtensionPaths,
+    editableFieldExtensionPath,
   };
 }
 
@@ -96,5 +135,13 @@ export function serializeWorkspaceDocument(
   };
   if (document.members != null) payload.members = document.members;
   if (document.calendar != null) payload.calendar = document.calendar;
+  if (document.statuses != null) payload.statuses = document.statuses;
+  if (document.colors != null) payload.colors = document.colors;
+  if (document.fieldExtensions != null && document.fieldExtensions.length > 0) {
+    payload.fieldExtensions = document.fieldExtensions;
+  }
+  if (document.editableFieldExtension != null) {
+    payload.editableFieldExtension = document.editableFieldExtension;
+  }
   return `${JSON.stringify(payload, null, 2)}\n`;
 }

@@ -31,6 +31,7 @@ describe("parseScheduleFilterPersistence", () => {
       filters: defaultScheduleFilterViewState().filters,
       searchField: "name",
       hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
       collapsedCategoryIds: [],
       collapsedGroupIds: [],
     });
@@ -38,30 +39,6 @@ describe("parseScheduleFilterPersistence", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.data.hiddenMilestoneIds).toEqual([]);
-  });
-
-  it("rejects hiddenMilestoneIds when not a string array", () => {
-    const text = JSON.stringify({
-      version: 1,
-      path: PATH,
-      filters: defaultScheduleFilterViewState().filters,
-      searchField: "name",
-      hiddenMilestoneGroupIds: [],
-      hiddenMilestoneIds: "m1",
-      collapsedCategoryIds: [],
-      collapsedGroupIds: [],
-    });
-    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
-  });
-
-  it("round-trips hiddenMilestoneIds", () => {
-    const state = defaultScheduleFilterViewState();
-    state.hiddenMilestoneIds = ["m1", "m2"];
-    const text = serializeScheduleFilterPersistence(PATH, state);
-    const parsed = parseScheduleFilterPersistence(text, PATH);
-    expect(parsed.ok).toBe(true);
-    if (!parsed.ok) return;
-    expect(parsed.data.hiddenMilestoneIds).toEqual(["m1", "m2"]);
   });
 
   it("rejects wrong path", () => {
@@ -75,9 +52,107 @@ describe("parseScheduleFilterPersistence", () => {
 
   it("rejects wrong version", () => {
     const text = JSON.stringify({
-      version: 2,
+      version: 3,
       path: PATH,
       filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
+  });
+
+  it("accepts version 2 with fieldFilters", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        fieldFilters: {
+          memo: { empty: "any", text: "レビュー" },
+        },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.version).toBe(2);
+    expect(parsed.data.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
+
+  it("loads version 1 without fieldFilters as empty", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const view = viewStateFromPersistence(parsed.data);
+    expect(view.filters.fieldFilters).toEqual({});
+  });
+
+  it("loads version 1 with other filters while fieldFilters stay empty", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        status: "in-progress",
+        fieldFilters: { memo: { empty: "any", text: "ignored" } },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const view = viewStateFromPersistence(parsed.data);
+    expect(view.filters.fieldFilters).toEqual({});
+    expect(view.filters.status).toBe("in-progress");
+  });
+
+  it("loads version 2 skipping invalid field filter keys", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        status: "in-progress",
+        fieldFilters: {
+          memo: { empty: "any", text: "ok" },
+          score: { empty: "bad" },
+        },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.filters.fieldFilters).toEqual({
+      memo: { empty: "any", text: "ok" },
+    });
+    expect(parsed.data.filters.status).toBe("in-progress");
+  });
+
+  it("rejects filters when fieldFilters is not an object", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        fieldFilters: [],
+      },
       searchField: "name",
       hiddenMilestoneGroupIds: [],
       hiddenMilestoneIds: [],
@@ -114,11 +189,23 @@ describe("parseScheduleFilterPersistence", () => {
     expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
   });
 
-  it("rejects invalid status", () => {
+  it("accepts a status id that is not in the built-in list", () => {
     const text = JSON.stringify({
       version: 1,
       path: PATH,
-      filters: { ...defaultScheduleFilterViewState().filters, status: "bogus" },
+      filters: { ...defaultScheduleFilterViewState().filters, status: "review" },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+    });
+    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(true);
+  });
+
+  it("rejects an empty status", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: { ...defaultScheduleFilterViewState().filters, status: "" },
       searchField: "name",
       hiddenMilestoneGroupIds: [],
       hiddenMilestoneIds: [],
@@ -165,12 +252,6 @@ describe("isDefaultScheduleFilterViewState", () => {
     expect(isDefaultScheduleFilterViewState(state)).toBe(false);
   });
 
-  it("is false when milestone marks are hidden", () => {
-    const state = defaultScheduleFilterViewState();
-    state.hiddenMilestoneIds = ["m1"];
-    expect(isDefaultScheduleFilterViewState(state)).toBe(false);
-  });
-
   it("is false when a category is collapsed", () => {
     const state = defaultScheduleFilterViewState();
     state.collapsedCategoryIds = ["c1"];
@@ -199,7 +280,7 @@ describe("pruneScheduleFilterViewState", () => {
               name: "T",
               start: "2026-01-01",
               end: "2026-01-02",
-              assigneeId: null,
+              assigneeIds: [],
               status: "not-started" as const,
               progress: 0,
               confidence: "tentative" as const,
@@ -222,6 +303,25 @@ describe("pruneScheduleFilterViewState", () => {
     },
   ];
   const milestoneGroups = [{ id: "mg1", name: "MG" }, { id: "mg2", name: "MG2" }];
+
+  it("keeps field filters when pruneFieldFilters is false and definitions are empty", () => {
+    const state = defaultScheduleFilterViewState();
+    state.filters.fieldFilters = {
+      memo: { empty: "any", text: "レビュー" },
+    };
+    const pruned = pruneScheduleFilterViewState(
+      state,
+      {
+        categories,
+        milestones,
+        milestoneGroups,
+        knownMemberIds: new Set(),
+        fields: [],
+      },
+      { pruneFieldFilters: false },
+    );
+    expect(pruned.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
 
   it("clears unknown assignee", () => {
     const state = defaultScheduleFilterViewState();
@@ -271,18 +371,6 @@ describe("pruneScheduleFilterViewState", () => {
       knownMemberIds: new Set(),
     });
     expect(pruned.hiddenMilestoneGroupIds).toEqual(["mg1"]);
-  });
-
-  it("drops hidden milestone mark ids missing from document", () => {
-    const state = defaultScheduleFilterViewState();
-    state.hiddenMilestoneIds = ["m1", "missing"];
-    const pruned = pruneScheduleFilterViewState(state, {
-      categories,
-      milestones,
-      milestoneGroups,
-      knownMemberIds: new Set(),
-    });
-    expect(pruned.hiddenMilestoneIds).toEqual(["m1"]);
   });
 
   it("keeps unknown assignee when assignee pruning is off", () => {

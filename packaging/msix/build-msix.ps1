@@ -155,6 +155,19 @@ $requiredSkillFiles = @(
   "json-skills\write-members\SKILL.md",
   "json-skills\write-calendar\SKILL.md",
   "json-skills\write-workspace\SKILL.md",
+  "json-skills\write-fields\SKILL.md",
+  "json-skills\write-colors\SKILL.md",
+  "json-skills\schedule-talk\SKILL.md",
+  "json-skills\how-to\SKILL.md",
+  "json-skills\how-to\manual\user-manual.md",
+  "json-skills\how-to\manual\getting-started.md",
+  "json-skills\how-to\manual\find-by-intent.md",
+  "json-skills\how-to\manual\tutorial.md",
+  "json-skills\how-to\manual\features.md",
+  "json-skills\how-to\manual\privacy.md",
+  "json-skills\schedule-talk\references\point-by-appearance.md",
+  "json-skills\schedule-talk\references\screen-judgment.md",
+  "json-skills\schedule-talk\references\consultation-flow.md",
   "read-screen\SKILL.md"
 )
 foreach ($relativePath in $requiredSkillFiles) {

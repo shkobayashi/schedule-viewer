@@ -3,10 +3,13 @@ mod excel_drawing_patch;
 mod export_xlsx;
 #[cfg(test)]
 mod excel_book;
+mod dev_fresh_start;
 mod file_dialog_filters;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
+mod mcp_tool_names;
+mod open_new_window_diagnostic;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
@@ -14,6 +17,10 @@ mod store_distribution;
 mod recent_files;
 mod workspace;
 mod schedule_drop;
+mod field_extension_edit;
+mod status_catalog_edit;
+mod color_catalog_edit;
+mod member_catalog_edit;
 mod window_session;
 
 use json_skills::{
@@ -21,34 +28,54 @@ use json_skills::{
 };
 use read_screen_skill::{install_read_screen_skill, uninstall_read_screen_skill};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::Emitter;
-use tauri::Manager;
+use tauri::{Emitter, EventTarget, Manager};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use file_dialog_filters::{
     calendar_import_filters, members_import_filters, schedule_open_save_filters,
 };
 use mcp_bridge::{
-    cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
+    cleanup_mcp_socket, mcp_harness_gui_trace, mcp_reply, mcp_screen_listener_ready,
+    start_mcp_bridge_server,
+    McpBridgeState,
 };
 use std::sync::Arc;
+use field_extension_edit::{
+    claim_field_extension_edit, release_all_field_extension_edits_for_label,
+    release_field_extension_edit, FieldExtensionEditState,
+};
+use status_catalog_edit::{
+    claim_status_catalog_edit, release_all_status_catalog_edits_for_label,
+    release_status_catalog_edit, StatusCatalogEditState,
+};
+use color_catalog_edit::{
+    claim_color_catalog_edit, release_all_color_catalog_edits_for_label,
+    release_color_catalog_edit, ColorCatalogEditState,
+};
+use member_catalog_edit::{
+    claim_member_catalog_edit, release_all_member_catalog_edits_for_label,
+    release_member_catalog_edit, MemberCatalogEditState,
+};
 use window_session::{
     all_windows_external_drop_ready, all_windows_startup_settled,
     any_startup_auto_update_enabled,
-    create_schedule_webview_on_main_thread, delete_filter_for_path, delete_recovery_for_path,
+    delete_filter_for_path, delete_recovery_for_path,
     forget_startup_settlement, forget_window_focus, migrate_legacy_session,
-    next_schedule_window_label, note_main_thread, note_window_focus, read_open_windows,
+    note_main_thread, note_window_focus, read_open_windows,
     read_filter_for_path, read_recovery_for_path, recovery_close_persist, recovery_live_persist,
     recovery_owner_label,
     recovery_owners_by_path, remove_window_label,
     should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
-    spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
-    write_filter_for_path, write_recovery_for_path,
+    startup_focus_hold_blocks,
+    reserve_next_schedule_window_open, spawn_startup_windows, take_pending_open,
+    upsert_window_path,
+    workspace_path_for_schedule_record, write_filter_for_path, write_recovery_for_path,
+    entry_for_label,
     WindowSessionState,
     OpenWindowEntry, WindowStartupRead,
 };
@@ -141,7 +168,58 @@ fn hash_contents(contents: &str) -> String {
     sha256_hex(contents.as_bytes())
 }
 
-fn read_open_schedule<T>(
+pub(crate) fn schedule_disk_hash_mismatch(disk_contents: &str, expected_hash: &str) -> bool {
+    hash_contents(disk_contents) != expected_hash
+}
+
+pub(crate) fn blank_schedule_path_error(path: &str) -> Option<&'static str> {
+    if path.trim().is_empty() {
+        Some("保存先がありません。")
+    } else {
+        None
+    }
+}
+
+pub(crate) fn prepare_schedule_export_target(
+    path: &str,
+    extension: &str,
+) -> Result<PathBuf, String> {
+    let ext = if extension.eq_ignore_ascii_case("svg") {
+        "svg"
+    } else {
+        "html"
+    };
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let allowed = if ext == "svg" {
+        file_ext == "svg"
+    } else {
+        file_ext == "html" || file_ext == "htm"
+    };
+    if !allowed {
+        return Err("書き出し先の拡張子が形式と一致しません。".to_string());
+    }
+    Ok(target)
+}
+
+pub(crate) fn prepare_excel_export_target(path: &str) -> Result<PathBuf, String> {
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if file_ext != "xlsx" {
+        return Err("Excel の書き出し先は .xlsx である必要があります。".to_string());
+    }
+    Ok(target)
+}
+
+pub(crate) fn read_open_schedule<T>(
     states: &Mutex<ScheduleFileStates>,
     label: &str,
     use_contents: impl Fn(&ScheduleFileState, &str, &str) -> Result<T, String>,
@@ -275,19 +353,28 @@ pub(crate) fn require_active_save_path(
     Ok(active.to_path_buf())
 }
 
-fn record_open(
+fn record_schedule_open(
     app: &tauri::AppHandle,
     states: &Mutex<ScheduleFileStates>,
     label: &str,
     path: PathBuf,
     contents: &str,
+    preserve_workspace_binding: bool,
 ) -> Result<(), String> {
     let app_data = app_data_dir(app)?;
+    let path_text = path.to_string_lossy();
+    let file = read_open_windows(&app_data)?;
+    let existing = entry_for_label(&file, label);
+    let workspace_path = workspace_path_for_schedule_record(
+        existing,
+        path_text.as_ref(),
+        preserve_workspace_binding,
+    );
     upsert_window_path(
         &app_data,
         label,
-        Some(path.to_string_lossy().as_ref()),
-        None,
+        Some(path_text.as_ref()),
+        workspace_path.as_deref(),
         false,
     )?;
     let mut guard = states.lock().expect("schedule file states");
@@ -333,16 +420,18 @@ fn accept_opened_schedule(
     state: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
+    preserve_workspace_binding: Option<bool>,
 ) -> Result<(), String> {
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    record_open(
+    record_schedule_open(
         &app,
         state.inner(),
         &window_label(&window),
         PathBuf::from(path),
         &contents,
+        preserve_workspace_binding.unwrap_or(false),
     )
 }
 
@@ -383,6 +472,140 @@ fn read_json_file_limited(path: String, max_bytes: u64) -> Result<String, String
     read_utf8(&path_buf, max_bytes)
 }
 
+#[derive(Deserialize)]
+pub(crate) struct FieldExtensionExportInput {
+    #[serde(rename = "fileName")]
+    file_name: String,
+    contents: String,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_workspace_bundle_inputs(
+    schedule_contents: &str,
+    members_contents: Option<&str>,
+    calendar_contents: Option<&str>,
+    statuses_contents: Option<&str>,
+    colors_contents: Option<&str>,
+    field_extensions: &[FieldExtensionExportInput],
+) -> Result<(), String> {
+    if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("スケジュールが大きすぎます（上限 10 MB）".to_string());
+    }
+    if let Some(contents) = members_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("メンバー JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = calendar_contents {
+        if contents.len() as u64 > MAX_CALENDAR_BYTES {
+            return Err("カレンダー JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = statuses_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("ステータス JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = colors_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("色の一覧 JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    for entry in field_extensions {
+        if entry.contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("拡張項目 JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn write_workspace_bundle_to_folder(
+    folder: &Path,
+    schedule_file_name: &str,
+    schedule_contents: &str,
+    members_file_name: Option<&str>,
+    members_contents: Option<&str>,
+    calendar_file_name: Option<&str>,
+    calendar_contents: Option<&str>,
+    statuses_file_name: Option<&str>,
+    statuses_contents: Option<&str>,
+    colors_file_name: Option<&str>,
+    colors_contents: Option<&str>,
+    field_extensions: &[FieldExtensionExportInput],
+) -> Result<(), String> {
+    workspace::ensure_export_folder_ready(folder)?;
+    let schedule_name = sanitize_export_filename(schedule_file_name, "json");
+    let schedule_path = folder.join(&schedule_name);
+    write_utf8_atomic(&schedule_path, schedule_contents)?;
+    let mut wrote_any = true;
+    let mut used_names = HashSet::from([schedule_name.clone()]);
+    let mut workspace = serde_json::json!({
+        "schemaVersion": 1,
+        "schedule": schedule_name,
+    });
+    if let (Some(name), Some(contents)) = (members_file_name, members_contents) {
+        let members_name = sanitize_export_filename(name, "json");
+        used_names.insert(members_name.clone());
+        if let Err(error) = write_utf8_atomic(&folder.join(&members_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["members"] = serde_json::Value::String(members_name);
+    }
+    if let (Some(name), Some(contents)) = (calendar_file_name, calendar_contents) {
+        let calendar_name = sanitize_export_filename(name, "json");
+        used_names.insert(calendar_name.clone());
+        if let Err(error) = write_utf8_atomic(&folder.join(&calendar_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["calendar"] = serde_json::Value::String(calendar_name);
+    }
+    if let (Some(name), Some(contents)) = (statuses_file_name, statuses_contents) {
+        let statuses_name = sanitize_export_filename(name, "json");
+        used_names.insert(statuses_name.clone());
+        if let Err(error) = write_utf8_atomic(&folder.join(&statuses_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["statuses"] = serde_json::Value::String(statuses_name);
+    }
+    if let (Some(name), Some(contents)) = (colors_file_name, colors_contents) {
+        let colors_name = sanitize_export_filename(name, "json");
+        used_names.insert(colors_name.clone());
+        if let Err(error) = write_utf8_atomic(&folder.join(&colors_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["colors"] = serde_json::Value::String(colors_name);
+    }
+    let mut field_extension_paths: Vec<String> = Vec::new();
+    for entry in field_extensions {
+        let extension_name =
+            workspace::unique_export_filename(&entry.file_name, "json", &mut used_names);
+        if let Err(error) =
+            write_utf8_atomic(&folder.join(&extension_name), &entry.contents)
+        {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        field_extension_paths.push(extension_name);
+    }
+    if !field_extension_paths.is_empty() {
+        workspace["fieldExtensions"] = serde_json::json!(field_extension_paths);
+    }
+    let workspace_text = serde_json::to_string_pretty(&workspace)
+        .map_err(|e| format!("JSON を書けません: {}", e))?;
+    if let Err(error) =
+        write_utf8_atomic(&folder.join("workspace.json"), &format!("{}\n", workspace_text))
+    {
+        return Err(workspace::export_error_with_partial(error, wrote_any));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn export_workspace_bundle(
     window: tauri::Window,
@@ -392,20 +615,20 @@ async fn export_workspace_bundle(
     members_contents: Option<String>,
     calendar_file_name: Option<String>,
     calendar_contents: Option<String>,
+    statuses_file_name: Option<String>,
+    statuses_contents: Option<String>,
+    colors_file_name: Option<String>,
+    colors_contents: Option<String>,
+    field_extensions: Vec<FieldExtensionExportInput>,
 ) -> Result<(), String> {
-    if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
-        return Err("スケジュールが大きすぎます（上限 10 MB）".to_string());
-    }
-    if let Some(contents) = &members_contents {
-        if contents.len() as u64 > MAX_MEMBERS_BYTES {
-            return Err("メンバー JSON が大きすぎます（上限 2 MB）".to_string());
-        }
-    }
-    if let Some(contents) = &calendar_contents {
-        if contents.len() as u64 > MAX_CALENDAR_BYTES {
-            return Err("カレンダー JSON が大きすぎます（上限 2 MB）".to_string());
-        }
-    }
+    validate_workspace_bundle_inputs(
+        &schedule_contents,
+        members_contents.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_contents.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )?;
     let picked = window
         .dialog()
         .file()
@@ -416,39 +639,64 @@ async fn export_workspace_bundle(
         Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
         None => return Ok(()),
     };
-    workspace::ensure_export_folder_ready(&folder)?;
-    let schedule_name = sanitize_export_filename(&schedule_file_name, "json");
-    let schedule_path = folder.join(&schedule_name);
-    write_utf8_atomic(&schedule_path, &schedule_contents)?;
-    let mut wrote_any = true;
-    let mut workspace = serde_json::json!({
-        "schemaVersion": 1,
-        "schedule": schedule_name,
-    });
-    if let (Some(name), Some(contents)) = (&members_file_name, &members_contents) {
-        let members_name = sanitize_export_filename(name, "json");
-        if let Err(error) = write_utf8_atomic(&folder.join(&members_name), contents) {
-            return Err(workspace::export_error_with_partial(error, wrote_any));
-        }
-        wrote_any = true;
-        workspace["members"] = serde_json::Value::String(members_name);
+    write_workspace_bundle_to_folder(
+        &folder,
+        &schedule_file_name,
+        &schedule_contents,
+        members_file_name.as_deref(),
+        members_contents.as_deref(),
+        calendar_file_name.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_file_name.as_deref(),
+        statuses_contents.as_deref(),
+        colors_file_name.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+async fn export_workspace_bundle_at_folder(
+    folder: String,
+    schedule_file_name: String,
+    schedule_contents: String,
+    members_file_name: Option<String>,
+    members_contents: Option<String>,
+    calendar_file_name: Option<String>,
+    calendar_contents: Option<String>,
+    statuses_file_name: Option<String>,
+    statuses_contents: Option<String>,
+    colors_file_name: Option<String>,
+    colors_contents: Option<String>,
+    field_extensions: Vec<FieldExtensionExportInput>,
+) -> Result<(), String> {
+    validate_workspace_bundle_inputs(
+        &schedule_contents,
+        members_contents.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_contents.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )?;
+    let folder_path = PathBuf::from(folder.trim());
+    if folder.trim().is_empty() {
+        return Err("書き出し先のフォルダが空です。".to_string());
     }
-    if let (Some(name), Some(contents)) = (&calendar_file_name, &calendar_contents) {
-        let calendar_name = sanitize_export_filename(name, "json");
-        if let Err(error) = write_utf8_atomic(&folder.join(&calendar_name), contents) {
-            return Err(workspace::export_error_with_partial(error, wrote_any));
-        }
-        wrote_any = true;
-        workspace["calendar"] = serde_json::Value::String(calendar_name);
-    }
-    let workspace_text = serde_json::to_string_pretty(&workspace)
-        .map_err(|e| format!("JSON を書けません: {}", e))?;
-    if let Err(error) =
-        write_utf8_atomic(&folder.join("workspace.json"), &format!("{}\n", workspace_text))
-    {
-        return Err(workspace::export_error_with_partial(error, wrote_any));
-    }
-    Ok(())
+    write_workspace_bundle_to_folder(
+        &folder_path,
+        &schedule_file_name,
+        &schedule_contents,
+        members_file_name.as_deref(),
+        members_contents.as_deref(),
+        calendar_file_name.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_file_name.as_deref(),
+        statuses_contents.as_deref(),
+        colors_file_name.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )
 }
 
 #[tauri::command]
@@ -569,7 +817,6 @@ async fn save_schedule_file(
 
     if !save_as && !skip_disk_hash_check {
         let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
-        let disk_hash = hash_contents(&disk);
         let guard = state.lock().expect("schedule file states");
         let label = window_label(&window);
         let file_state = guard
@@ -580,20 +827,80 @@ async fn save_schedule_file(
             .content_hash
             .as_ref()
             .ok_or_else(|| "開いているファイルがありません".to_string())?;
-        if disk_hash != *expected_hash {
+        if schedule_disk_hash_mismatch(&disk, expected_hash) {
             return Err(DISK_HASH_MISMATCH.to_string());
         }
     }
 
     write_utf8_atomic(&target, &contents)?;
-    record_open(
+    record_schedule_open(
         window.app_handle(),
         state.inner(),
         &window_label(&window),
         target.clone(),
         &contents,
+        true,
     )?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_schedule_at_path(
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    contents: String,
+    path: String,
+    skip_disk_hash_check: bool,
+) -> Result<String, String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
+    if let Some(message) = blank_schedule_path_error(&path) {
+        return Err(message.to_string());
+    }
+    let target = PathBuf::from(path.trim());
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    let label = window_label(&window);
+    let expected_path = {
+        let guard = state.lock().expect("schedule file states");
+        guard
+            .by_label
+            .get(&label)
+            .and_then(|file_state| file_state.path.as_ref())
+            .map(|p| p.to_string_lossy().into_owned())
+    };
+    if let Some(expected) = expected_path.as_deref() {
+        if expected == path.trim() {
+            require_active_save_path(Some(Path::new(expected)), Some(path.trim()))?;
+        }
+    }
+    if !skip_disk_hash_check {
+        let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
+        let guard = state.lock().expect("schedule file states");
+        let file_state = guard
+            .by_label
+            .get(&label)
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        let expected_hash = file_state
+            .content_hash
+            .as_ref()
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        if schedule_disk_hash_mismatch(&disk, expected_hash) {
+            return Err(DISK_HASH_MISMATCH.to_string());
+        }
+    }
+    write_utf8_atomic(&target, &contents)?;
+    record_schedule_open(
+        window.app_handle(),
+        state.inner(),
+        &label,
+        target.clone(),
+        &contents,
+        true,
+    )?;
+    Ok(target.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -631,6 +938,496 @@ async fn save_html_file(
     };
     write_utf8_atomic(&target, &contents)?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+fn write_schedule_export_at_path(path: String, contents: String, extension: String) -> Result<(), String> {
+    if contents.len() as u64 > MAX_HTML_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
+    let target = prepare_schedule_export_target(&path, &extension)?;
+    write_utf8_atomic(&target, &contents)
+}
+
+#[tauri::command]
+fn write_excel_export_at_path(
+    path: String,
+    payload: export_xlsx::ExcelExportPayload,
+) -> Result<(), String> {
+    let bytes = export_xlsx::write_excel_bytes(&payload)?;
+    let target = prepare_excel_export_target(&path)?;
+    write_bytes_atomic(&target, &bytes)
+}
+
+#[tauri::command]
+async fn save_statuses_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_members_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_colors_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+fn broadcast_workspace_reload(app: &tauri::AppHandle, workspace_path: &str) -> Result<(), String> {
+    let app_data = app_data_dir(app)?;
+    let file = read_open_windows(&app_data)?;
+    for entry in &file.windows {
+        if entry.workspace_path.as_deref() == Some(workspace_path) {
+            if let Some(window) = app.get_webview_window(&entry.label) {
+                let _ = window.emit("workspace-reload", workspace_path);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn save_field_extension_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+fn write_field_extension_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_editable_field_extension_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに編集用の拡張がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
+}
+
+fn workspace_file_for_bound_window(
+    window: &tauri::Window,
+    app: &tauri::AppHandle,
+    workspace_path: &str,
+) -> Result<PathBuf, String> {
+    let workspace_path = workspace_path.trim();
+    if workspace_path.is_empty() {
+        return Err("設定ファイルで開いていないため保存できません。".to_string());
+    }
+    let app_data = app_data_dir(app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    Ok(PathBuf::from(workspace_path))
+}
+
+#[tauri::command]
+fn create_workspace_editable_field_extension(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+    relative_file_name: String,
+    contents: String,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    let relative = relative_file_name.trim();
+    if relative.is_empty()
+        || relative.contains('/')
+        || relative.contains('\\')
+        || relative.contains("..")
+    {
+        return Err("ファイル名が不正です。".to_string());
+    }
+    if !is_json_path(Path::new(relative)) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if workspace::read_workspace_editable_field_extension_path(&workspace_file)?.is_some() {
+        return Err("編集用の拡張は既にあります。".to_string());
+    }
+    let workspace_json = workspace::read_workspace_json_value(&workspace_file)?;
+    if let Some(array) = workspace_json
+        .get("fieldExtensions")
+        .and_then(|entry| entry.as_array())
+    {
+        for item in array {
+            if let Some(pinned) = item.as_str() {
+                if pinned.trim() == relative {
+                    return Err(
+                        "ピン留めした拡張と同じファイルは編集用に使えません。".to_string(),
+                    );
+                }
+            }
+        }
+    }
+    let parent = workspace_file
+        .parent()
+        .ok_or_else(|| "設定ファイルのパスが不正です。".to_string())?;
+    let target = parent.join(relative);
+    if target.exists() {
+        return Err("同じ名前のファイルが既にあります。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    if let Err(error) =
+        workspace::set_workspace_editable_field_extension_relative(&workspace_file, Some(relative))
+    {
+        let _ = std::fs::remove_file(&target);
+        return Err(error);
+    }
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_workspace_editable_field_extension(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+) -> Result<(), String> {
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    workspace::set_workspace_editable_field_extension_relative(&workspace_file, None)?;
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_workspace_editable_field_extension(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+) -> Result<(), String> {
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    let target = workspace::read_workspace_editable_field_extension_path(&workspace_file)?
+        .ok_or_else(|| "編集用の拡張はありません。".to_string())?;
+    workspace::set_workspace_editable_field_extension_relative(&workspace_file, None)?;
+    let remove_result = std::fs::remove_file(&target);
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    if let Err(error) = remove_result {
+        return Err(format!("拡張ファイルを消せません: {}", error));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn write_statuses_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_statuses_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに statuses がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn write_colors_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_colors_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに colors がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn write_members_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_members_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに members がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn create_workspace_colors_catalog(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+    relative_file_name: String,
+    contents: String,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    let relative = relative_file_name.trim();
+    if relative.is_empty()
+        || relative.contains('/')
+        || relative.contains('\\')
+        || relative.contains("..")
+    {
+        return Err("ファイル名が不正です。".to_string());
+    }
+    if !is_json_path(Path::new(relative)) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if workspace::read_workspace_colors_path(&workspace_file)?.is_some() {
+        return Err("色の一覧は既にあります。".to_string());
+    }
+    let parent = workspace_file
+        .parent()
+        .ok_or_else(|| "設定ファイルのパスが不正です。".to_string())?;
+    let target = parent.join(relative);
+    if target.exists() {
+        return Err("同じ名前のファイルが既にあります。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    if let Err(error) = workspace::set_workspace_colors_relative(&workspace_file, Some(relative)) {
+        let _ = std::fs::remove_file(&target);
+        return Err(error);
+    }
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -674,6 +1471,12 @@ struct AppSettingsFile {
     selected_members_catalog_id: Option<String>,
     #[serde(rename = "calendarLabel", default)]
     calendar_label: Option<String>,
+    #[serde(rename = "selectedStatusesCatalogId", default)]
+    selected_statuses_catalog_id: Option<String>,
+    #[serde(rename = "selectedColorsCatalogId", default)]
+    selected_colors_catalog_id: Option<String>,
+    #[serde(rename = "selectedFieldExtensionCatalogIds", default)]
+    selected_field_extension_catalog_ids: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -698,6 +1501,24 @@ fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn members_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app_data_dir(app)?.join("members");
     fs::create_dir_all(&dir).map_err(|e| format!("メンバーデータを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn statuses_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("statuses");
+    fs::create_dir_all(&dir).map_err(|e| format!("ステータスデータを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn colors_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("colors");
+    fs::create_dir_all(&dir).map_err(|e| format!("色の一覧データを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn field_extensions_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("field-extensions");
+    fs::create_dir_all(&dir).map_err(|e| format!("拡張項目データを準備できません: {}", e))?;
     Ok(dir)
 }
 
@@ -736,11 +1557,14 @@ fn sanitize_catalog_id(id: &str) -> Result<String, String> {
 }
 
 fn list_catalog_entries(app: &tauri::AppHandle) -> Result<Vec<MemberCatalogEntry>, String> {
-    let dir = members_dir(app)?;
+    list_catalog_entries_in(&members_dir(app)?)
+}
+
+fn list_catalog_entries_in(dir: &Path) -> Result<Vec<MemberCatalogEntry>, String> {
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))?
+    for entry in fs::read_dir(dir).map_err(|e| format!("カタログ一覧を読めません: {}", e))?
     {
-        let entry = entry.map_err(|e| format!("メンバー一覧を読めません: {}", e))?;
+        let entry = entry.map_err(|e| format!("カタログ一覧を読めません: {}", e))?;
         let path = entry.path();
         if !path.is_file() {
             continue;
@@ -828,6 +1652,225 @@ fn set_selected_member_catalog(
 ) -> Result<(), String> {
     let mut settings = read_settings(&app)?;
     settings.selected_members_catalog_id = match catalog_id {
+        None => None,
+        Some(id) => Some(sanitize_catalog_id(&id)?),
+    };
+    write_settings(&app, &settings)
+}
+
+#[derive(Serialize)]
+struct FieldExtensionsSettingsResult {
+    #[serde(rename = "selectedCatalogIds")]
+    selected_catalog_ids: Vec<String>,
+    catalogs: Vec<MemberCatalogEntry>,
+}
+
+#[tauri::command]
+fn get_field_extensions_settings(
+    app: tauri::AppHandle,
+) -> Result<FieldExtensionsSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries_in(&field_extensions_dir(&app)?)?;
+    Ok(FieldExtensionsSettingsResult {
+        selected_catalog_ids: settings.selected_field_extension_catalog_ids,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_field_extension_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = field_extensions_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
+}
+
+#[tauri::command]
+fn import_field_extension_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("拡張項目ファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = field_extensions_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_field_extension_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = field_extensions_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    settings
+        .selected_field_extension_catalog_ids
+        .retain(|entry| entry != &id);
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_selected_field_extension_catalogs(
+    app: tauri::AppHandle,
+    catalog_ids: Vec<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    let mut sanitized = Vec::new();
+    for id in catalog_ids {
+        sanitized.push(sanitize_catalog_id(&id)?);
+    }
+    settings.selected_field_extension_catalog_ids = sanitized;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn get_statuses_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries_in(&statuses_dir(&app)?)?;
+    Ok(MembersSettingsResult {
+        selected_catalog_id: settings.selected_statuses_catalog_id,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
+}
+
+#[tauri::command]
+fn import_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("ステータスファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_status_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    if settings.selected_statuses_catalog_id.as_deref() == Some(id.as_str()) {
+        settings.selected_statuses_catalog_id = None;
+        write_settings(&app, &settings)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_selected_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    settings.selected_statuses_catalog_id = match catalog_id {
+        None => None,
+        Some(id) => Some(sanitize_catalog_id(&id)?),
+    };
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn get_colors_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries_in(&colors_dir(&app)?)?;
+    Ok(MembersSettingsResult {
+        selected_catalog_id: settings.selected_colors_catalog_id,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
+}
+
+#[tauri::command]
+fn import_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("色の一覧ファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_color_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    if settings.selected_colors_catalog_id.as_deref() == Some(id.as_str()) {
+        settings.selected_colors_catalog_id = None;
+        write_settings(&app, &settings)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_selected_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    settings.selected_colors_catalog_id = match catalog_id {
         None => None,
         Some(id) => Some(sanitize_catalog_id(&id)?),
     };
@@ -1273,10 +2316,13 @@ fn clear_last_schedule_path(app: tauri::AppHandle, window: tauri::Window) -> Res
     Ok(())
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PendingScheduleWindowOpen {
+    label: String,
     path: String,
     contents: String,
+    #[serde(rename = "workspacePath")]
+    workspace_path: Option<String>,
 }
 
 #[tauri::command]
@@ -1285,20 +2331,86 @@ fn take_pending_schedule_window_open(
     session: State<'_, Mutex<WindowSessionState>>,
 ) -> Result<Option<PendingScheduleWindowOpen>, String> {
     let label = window_label(&window);
-    let mut guard = session.lock().expect("window session");
+    let guard = session.lock().expect("window session");
     Ok(
-        take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
+        window_session::peek_pending_open(&guard, &label).map(|pending| PendingScheduleWindowOpen {
+            label: label.clone(),
             path: pending.path,
             contents: pending.contents,
+            workspace_path: pending.workspace_path,
         }),
     )
+}
+
+#[tauri::command]
+fn ack_pending_schedule_window_open(
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let mut guard = session.lock().expect("window session");
+    window_session::ack_pending_open(&mut guard, &label);
+    Ok(())
+}
+
+#[tauri::command]
+fn record_pending_workspace_startup_stage(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    stage: String,
+) -> Result<(), String> {
+    if stage != window_session::PENDING_STARTUP_STAGE_WORKSPACE_FAILED {
+        return Err("不正なステージです。".to_string());
+    }
+    let app_data = app_data_dir(&app)?;
+    window_session::append_pending_startup_stage(
+        &app_data,
+        &window_label(&window),
+        &stage,
+    )
+}
+
+#[derive(Deserialize)]
+struct OpenNewWindowDiagnosticRecord {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    phase: String,
+    origin: String,
+    #[serde(rename = "windowLabel", default)]
+    window_label: Option<String>,
+    #[serde(rename = "handlerLabel", default)]
+    handler_label: Option<String>,
+    #[serde(default)]
+    sequence: Option<u8>,
+}
+
+#[tauri::command]
+fn record_open_new_window_diagnostic(
+    app: tauri::AppHandle,
+    record: OpenNewWindowDiagnosticRecord,
+) -> Result<(), String> {
+    let Ok(app_data) = app_data_dir(&app) else {
+        return Ok(());
+    };
+    open_new_window_diagnostic::try_append_open_new_window_diagnostic(
+        &app_data,
+        &open_new_window_diagnostic::OpenNewWindowDiagnosticInput {
+            request_id: record.request_id,
+            phase: record.phase,
+            origin: record.origin,
+            window_label: record.window_label,
+            handler_label: record.handler_label,
+            sequence: record.sequence,
+        },
+    );
+    Ok(())
 }
 
 #[tauri::command]
 async fn create_schedule_window(
     app: tauri::AppHandle,
     session: State<'_, Mutex<WindowSessionState>>,
-    states: State<'_, Mutex<ScheduleFileStates>>,
+    _states: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
     workspace_path: Option<String>,
@@ -1306,38 +2418,76 @@ async fn create_schedule_window(
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    let label = next_schedule_window_label(&app)?;
     let app_data = app_data_dir(&app)?;
-    {
-        let mut guard = session.lock().expect("window session");
-        store_pending_open(&mut guard, label.clone(), path.clone(), contents.clone());
-        note_window_focus(&mut guard, &label);
-    }
-    if let Err(error) =
-        create_schedule_webview_on_main_thread(&app, &label, "schedule-viewer")
-    {
-        {
+    let label = loop {
+        let candidate = {
             let mut guard = session.lock().expect("window session");
-            let _ = take_pending_open(&mut guard, &label);
-            forget_window_focus(&mut guard, &label);
+            reserve_next_schedule_window_open(
+                &app,
+                &mut guard,
+                path.clone(),
+                contents.clone(),
+                workspace_path.clone(),
+            )?
+        };
+        match window_session::create_schedule_webview_on_main_thread(
+            &app,
+            &candidate,
+            "schedule-viewer",
+        ) {
+            Ok(()) => {
+                if let Err(error) = upsert_window_path(&app_data, &candidate, None, None, true) {
+                    let mut guard = session.lock().expect("window session");
+                    let _ = take_pending_open(&mut guard, &candidate);
+                    forget_window_focus(&mut guard, &candidate);
+                    if let Some(window) = app.get_webview_window(&candidate) {
+                        let _ = window.close();
+                    }
+                    return Err(error);
+                }
+                let emit_app = app.clone();
+                let emit_label = candidate.clone();
+                let emit_payload = PendingScheduleWindowOpen {
+                    label: candidate.clone(),
+                    path: path.clone(),
+                    contents: contents.clone(),
+                    workspace_path: workspace_path.clone(),
+                };
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                    let app_for_main = emit_app.clone();
+                    let label_for_main = emit_label.clone();
+                    let payload = emit_payload.clone();
+                    let _ = emit_app.run_on_main_thread(move || {
+                        let _ = app_for_main.emit_to(
+                            EventTarget::webview_window(label_for_main),
+                            "schedule-pending-open",
+                            payload,
+                        );
+                    });
+                });
+                break candidate;
+            }
+            Err(error) if error.contains("同じウィンドウが既に開いています") => {
+                let mut guard = session.lock().expect("window session");
+                let _ = take_pending_open(&mut guard, &candidate);
+                forget_window_focus(&mut guard, &candidate);
+                continue;
+            }
+            Err(error) => {
+                let mut guard = session.lock().expect("window session");
+                let _ = take_pending_open(&mut guard, &candidate);
+                forget_window_focus(&mut guard, &candidate);
+                return Err(error);
+            }
         }
-        return Err(error);
-    }
-    upsert_window_path(
-        &app_data,
-        &label,
-        Some(&path),
-        workspace_path.as_deref(),
-        false,
-    )?;
-    let mut guard = states.lock().expect("schedule file states");
-    let state = guard.by_label.entry(label.clone()).or_default();
-    state.path = Some(PathBuf::from(path));
-    state.content_hash = Some(hash_contents(&contents));
+    };
+    // 明示の前面変更は、起動時の前面の保留より優先する。
+    session.lock().expect("window session").startup_focus_hold = None;
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_focus();
     }
-    let _ = set_focused_label(&app_data, &label);
+    let _ = set_focused_label(&app_data, &label, "explicit_open_window");
     Ok(label)
 }
 
@@ -1348,12 +2498,50 @@ fn register_window_focus(
     session: State<'_, Mutex<WindowSessionState>>,
 ) -> Result<(), String> {
     let label = window_label(&window);
-    {
+    let held = {
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
+        startup_focus_hold_blocks(
+            guard.startup_focus_hold.as_ref(),
+            &label,
+            std::time::Instant::now(),
+        )
+    };
+    if held {
+        log_startup_focus_hold_skip(&label, "register_window_focus");
+        return Ok(());
     }
     let app_data = app_data_dir(&app)?;
-    set_focused_label(&app_data, &label)
+    set_focused_label(&app_data, &label, "register_window_focus")
+}
+
+fn log_startup_focus_hold_skip(label: &str, trigger: &str) {
+    eprintln!(
+        "[mcp-harness] h5_focused_label_skip: label={label} trigger={trigger} reason=startup_focus_hold"
+    );
+}
+
+/// 全窓の起動が落ち着いたら保留を外し、保留していた前面を OS と記録の両方へ戻す。
+fn release_startup_focus_hold_after_settled(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+) {
+    let target = {
+        let mut guard = session.lock().expect("window session");
+        guard.startup_focus_hold.take().map(|hold| hold.target)
+    };
+    let Some(target) = target else {
+        return;
+    };
+    let focus_applied = app
+        .get_webview_window(&target)
+        .is_some_and(|window| window.set_focus().is_ok());
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=focus_hold_released target={target} focus_applied={focus_applied}"
+    );
+    if let Ok(app_data) = app_data_dir(app) {
+        let _ = set_focused_label(&app_data, &target, "startup_focus_settled");
+    }
 }
 
 #[tauri::command]
@@ -1386,6 +2574,7 @@ fn unregister_window_session(
         let mut session_guard = session.lock().expect("window session");
         forget_startup_settlement(&mut session_guard, &label);
         forget_window_focus(&mut session_guard, &label);
+        let _ = take_pending_open(&mut session_guard, &label);
         let mut states_guard = states.lock().expect("schedule file states");
         states_guard.by_label.remove(&label);
     }
@@ -1563,8 +2752,10 @@ fn focus_schedule_window(
     {
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
+        // 明示の前面変更は、起動時の前面の保留より優先する。
+        guard.startup_focus_hold = None;
     }
-    let _ = set_focused_label(&app_data_dir(&app)?, &label);
+    let _ = set_focused_label(&app_data_dir(&app)?, &label, "explicit_focus_schedule_window");
     Ok(())
 }
 
@@ -1928,6 +3119,9 @@ fn report_startup_settled(
             .insert(label, auto_update_at_startup);
         all_windows_startup_settled(&app, &guard.startup_settled_labels)
     };
+    if all_settled {
+        release_startup_focus_hold_after_settled(&app, session.inner());
+    }
     try_finalize_startup_update_check(&app, session.inner());
     Ok(StartupSettledResult { all_settled })
 }
@@ -2164,6 +3358,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(ScheduleFileStates::default()))
         .manage(Mutex::new(WindowSessionState::default()))
+        .manage(Mutex::new(StatusCatalogEditState::default()))
+        .manage(Mutex::new(ColorCatalogEditState::default()))
+        .manage(Mutex::new(MemberCatalogEditState::default()))
+        .manage(Mutex::new(FieldExtensionEditState::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2199,6 +3397,9 @@ pub fn run() {
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
+                if dev_fresh_start::fresh_start_requested() {
+                    let _ = dev_fresh_start::reset_app_data_for_fresh_start(&dir);
+                }
                 let bridge = Arc::new(McpBridgeState::new(dir.clone()));
                 app.manage(bridge.clone());
                 let without_tauri = mcp_app_data::app_data_dir_without_tauri();
@@ -2226,6 +3427,7 @@ pub fn run() {
                     let app = window.app_handle();
                     let label = window.label().to_string();
                     if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
+                        state.forget_listener(&label);
                         state.bump_generation(&label);
                     }
                     let quitting = app
@@ -2242,6 +3444,14 @@ pub fn run() {
                         let mut guard = session.lock().expect("window session");
                         forget_startup_settlement(&mut guard, &label);
                         forget_window_focus(&mut guard, &label);
+                        let _ = take_pending_open(&mut guard, &label);
+                        if guard
+                            .startup_focus_hold
+                            .as_ref()
+                            .is_some_and(|hold| hold.target == label)
+                        {
+                            guard.startup_focus_hold = None;
+                        }
                     }
                     if let Some(states) = app.try_state::<Mutex<ScheduleFileStates>>() {
                         states
@@ -2250,17 +3460,42 @@ pub fn run() {
                             .by_label
                             .remove(&label);
                     }
+                    if let Some(edit_state) = app.try_state::<Mutex<StatusCatalogEditState>>() {
+                        let mut guard = edit_state.lock().expect("status catalog edit");
+                        release_all_status_catalog_edits_for_label(&mut guard, &label);
+                    }
+                    if let Some(edit_state) = app.try_state::<Mutex<ColorCatalogEditState>>() {
+                        let mut guard = edit_state.lock().expect("color catalog edit");
+                        release_all_color_catalog_edits_for_label(&mut guard, &label);
+                    }
+                    if let Some(edit_state) = app.try_state::<Mutex<MemberCatalogEditState>>() {
+                        let mut guard = edit_state.lock().expect("member catalog edit");
+                        release_all_member_catalog_edits_for_label(&mut guard, &label);
+                    }
+                    if let Some(edit_state) = app.try_state::<Mutex<FieldExtensionEditState>>() {
+                        let mut guard = edit_state.lock().expect("field extension edit");
+                        release_all_field_extension_edits_for_label(&mut guard, &label);
+                    }
                 }
                 tauri::WindowEvent::Focused(focused) => {
                     let app = window.app_handle();
                     let label = window.label().to_string();
                     if *focused {
-                        if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
-                            let mut guard = session.lock().expect("window session");
-                            note_window_focus(&mut guard, &label);
-                        }
-                        if let Ok(app_data) = app_data_dir(app) {
-                            let _ = set_focused_label(&app_data, &label);
+                        let held = app
+                            .try_state::<Mutex<WindowSessionState>>()
+                            .is_some_and(|session| {
+                                let mut guard = session.lock().expect("window session");
+                                note_window_focus(&mut guard, &label);
+                                startup_focus_hold_blocks(
+                                    guard.startup_focus_hold.as_ref(),
+                                    &label,
+                                    std::time::Instant::now(),
+                                )
+                            });
+                        if held {
+                            log_startup_focus_hold_skip(&label, "os_focus_event");
+                        } else if let Ok(app_data) = app_data_dir(app) {
+                            let _ = set_focused_label(&app_data, &label, "os_focus_event");
                         }
                     }
                 }
@@ -2273,18 +3508,57 @@ pub fn run() {
             accept_opened_workspace,
             read_json_file_limited,
             export_workspace_bundle,
+            export_workspace_bundle_at_folder,
             check_schedule_file_changed,
             poll_schedule_file_update,
             read_open_schedule_file,
             acknowledge_schedule_file_contents,
             save_schedule_file,
+            save_schedule_at_path,
             save_html_file,
+            write_schedule_export_at_path,
+            save_statuses_json,
+            save_members_json,
+            save_colors_json,
+            write_statuses_at_path,
+            write_members_at_path,
+            write_colors_at_path,
+            create_workspace_colors_catalog,
             save_excel_export,
+            write_excel_export_at_path,
             get_members_settings,
             read_member_catalog,
             import_member_catalog,
             delete_member_catalog,
             set_selected_member_catalog,
+            claim_member_catalog_edit,
+            release_member_catalog_edit,
+            get_field_extensions_settings,
+            read_field_extension_catalog,
+            import_field_extension_catalog,
+            delete_field_extension_catalog,
+            set_selected_field_extension_catalogs,
+            save_field_extension_json,
+            write_field_extension_at_path,
+            create_workspace_editable_field_extension,
+            clear_workspace_editable_field_extension,
+            delete_workspace_editable_field_extension,
+            claim_field_extension_edit,
+            release_field_extension_edit,
+            get_statuses_settings,
+            read_status_catalog,
+            import_status_catalog,
+            delete_status_catalog,
+            set_selected_status_catalog,
+            claim_status_catalog_edit,
+            release_status_catalog_edit,
+            get_colors_settings,
+            read_color_catalog,
+            import_color_catalog,
+            delete_color_catalog,
+            set_selected_color_catalog,
+            claim_color_catalog_edit,
+            release_color_catalog_edit,
             get_calendar_state,
             read_app_calendar,
             import_app_calendar,
@@ -2314,6 +3588,9 @@ pub fn run() {
             clear_last_schedule_path,
             create_schedule_window,
             take_pending_schedule_window_open,
+            ack_pending_schedule_window_open,
+            record_pending_workspace_startup_stage,
+            record_open_new_window_diagnostic,
             register_window_focus,
             unregister_window_session,
             emit_schedule_peer_notice,
@@ -2342,11 +3619,14 @@ pub fn run() {
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            dev_fresh_start::dev_fresh_start_active,
             install_read_screen_skill,
             uninstall_read_screen_skill,
             get_executable_path,
             is_store_distribution,
+            mcp_harness_gui_trace,
             mcp_reply,
+            mcp_screen_listener_ready,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -2370,9 +3650,14 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::Mutex;
 
     use super::{
-        choose_open_directory, read_utf8, require_active_save_path, sanitize_export_filename,
+        blank_schedule_path_error, choose_open_directory, hash_contents, prepare_excel_export_target,
+        prepare_schedule_export_target, read_open_schedule, read_utf8, require_active_save_path,
+        sanitize_catalog_id, sanitize_export_filename, schedule_disk_hash_mismatch,
+        write_schedule_export_at_path, write_utf8_atomic, write_workspace_bundle_to_folder,
+        FieldExtensionExportInput, ScheduleFileState, ScheduleFileStates,
     };
 
     #[test]
@@ -2433,5 +3718,154 @@ mod tests {
             choose_open_directory(Some("/tmp/missing"), false, None),
             None
         );
+    }
+
+    #[test]
+    fn sanitize_catalog_id_rejects_empty_without_period() {
+        assert_eq!(
+            sanitize_catalog_id("  ").unwrap_err(),
+            "カタログ名が空です"
+        );
+    }
+
+    #[test]
+    fn sanitize_catalog_id_rejects_path_separators() {
+        assert_eq!(
+            sanitize_catalog_id("a/b").unwrap_err(),
+            "カタログ名に / や \\ は使えません"
+        );
+    }
+
+    #[test]
+    fn write_utf8_atomic_writes_the_given_json_and_leaves_the_sibling() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let sibling = dir.path().join("sibling.json");
+        std::fs::write(&sibling, "keep").expect("sibling");
+        let target = dir.path().join("plan.json");
+        write_utf8_atomic(&target, "{\n}\n").expect("write");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "{\n}\n");
+        assert_eq!(std::fs::read_to_string(&sibling).unwrap(), "keep");
+        assert_eq!(
+            dir.path()
+                .read_dir()
+                .unwrap()
+                .filter_map(|entry| entry.ok())
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn blank_schedule_path_error_rejects_empty_and_whitespace() {
+        assert_eq!(
+            blank_schedule_path_error(""),
+            Some("保存先がありません。")
+        );
+        assert_eq!(
+            blank_schedule_path_error("  \t"),
+            Some("保存先がありません。")
+        );
+        assert_eq!(blank_schedule_path_error("/tmp/plan.json"), None);
+    }
+
+    #[test]
+    fn schedule_disk_hash_mismatch_is_true_when_bytes_differ() {
+        let contents = r#"{"schemaVersion":8}"#;
+        let hash = hash_contents(contents);
+        assert!(!schedule_disk_hash_mismatch(contents, &hash));
+        assert!(schedule_disk_hash_mismatch(
+            r#"{"schemaVersion":8,"tasks":[]}"#,
+            &hash
+        ));
+    }
+
+    #[test]
+    fn write_workspace_bundle_to_folder_omits_builtin_statuses_and_keeps_field_order() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let extensions = vec![
+            FieldExtensionExportInput {
+                file_name: "alpha.fields.json".to_string(),
+                contents: "{}\n".to_string(),
+            },
+            FieldExtensionExportInput {
+                file_name: "beta.fields.json".to_string(),
+                contents: "{}\n".to_string(),
+            },
+        ];
+        write_workspace_bundle_to_folder(
+            dir.path(),
+            "plan.json",
+            "{}\n",
+            Some("members.json"),
+            Some("[]\n"),
+            Some("calendar.json"),
+            Some("[]\n"),
+            None,
+            None,
+            Some("colors.json"),
+            Some("[]\n"),
+            &extensions,
+        )
+        .expect("write bundle");
+        let workspace = std::fs::read_to_string(dir.path().join("workspace.json")).unwrap();
+        assert!(!workspace.contains("\"statuses\""));
+        let parsed: serde_json::Value = serde_json::from_str(&workspace).unwrap();
+        assert_eq!(parsed["schemaVersion"], 1);
+        assert_eq!(parsed["schedule"], "plan.json");
+        assert_eq!(parsed["members"], "members.json");
+        assert_eq!(parsed["calendar"], "calendar.json");
+        assert_eq!(parsed["colors"], "colors.json");
+        let paths = parsed["fieldExtensions"]
+            .as_array()
+            .expect("fieldExtensions");
+        assert_eq!(paths.len(), 2);
+        assert!(paths[0].as_str().unwrap().contains("alpha"));
+        assert!(paths[1].as_str().unwrap().contains("beta"));
+    }
+
+    #[test]
+    fn write_schedule_export_at_path_rejects_an_empty_path() {
+        let err = prepare_schedule_export_target("  ", "html").unwrap_err();
+        assert_eq!(err, "書き出し先の拡張子が形式と一致しません。");
+        let err = write_schedule_export_at_path(
+            "  ".to_string(),
+            "<p>ok</p>".to_string(),
+            "html".to_string(),
+        )
+        .unwrap_err();
+        assert_eq!(err, "書き出し先の拡張子が形式と一致しません。");
+    }
+
+    #[test]
+    fn write_excel_export_at_path_rejects_an_empty_path() {
+        let err = prepare_excel_export_target("  ").unwrap_err();
+        assert_eq!(err, "Excel の書き出し先は .xlsx である必要があります。");
+    }
+
+    #[test]
+    fn read_open_schedule_returns_new_bytes_after_the_temp_file_is_replaced() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("plan.json");
+        std::fs::write(&path, "{\"a\":1}").expect("write");
+        let mut states = ScheduleFileStates::default();
+        states.by_label.insert(
+            "main".to_string(),
+            ScheduleFileState {
+                path: Some(path.clone()),
+                content_hash: Some(hash_contents("{\"a\":1}")),
+            },
+        );
+        let mutex = Mutex::new(states);
+        let first = read_open_schedule(&mutex, "main", |_state, contents, _hash| {
+            Ok(contents.to_string())
+        })
+        .expect("first read");
+        assert_eq!(first, "{\"a\":1}");
+        std::fs::write(&path, "{\"b\":2}").expect("replace");
+        let second = read_open_schedule(&mutex, "main", |_state, contents, _hash| {
+            Ok(contents.to_string())
+        })
+        .expect("second read");
+        assert_eq!(second, "{\"b\":2}");
     }
 }

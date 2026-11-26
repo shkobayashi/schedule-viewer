@@ -233,6 +233,12 @@ export function migrateScheduleV6ToV7(data: unknown): unknown {
   return { ...data, schemaVersion: 7 };
 }
 
+/** schemaVersion 7 を 8 にする。status の値は変えない。 */
+export function migrateScheduleV7ToV8(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 7) return data;
+  return { ...data, schemaVersion: 8 };
+}
+
 export function migrateScheduleV5ToV6(data: unknown): unknown {
   if (!isRecord(data) || data.schemaVersion !== 5) return data;
   const milestones = data.milestones;

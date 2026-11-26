@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import type { StatusItem } from "../model/statusCatalog";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type {
   Milestone,
   MilestoneGroup,
+  ScheduleFieldDef,
   ScheduleFilters,
   ScheduleId,
 } from "../model/types";
@@ -11,12 +13,18 @@ import {
   addMilestoneShortcutHint,
   addTaskShortcutHint,
   deleteShortcutHint,
+  filterPanelShortcutHint,
+  goTodayShortcutHint,
+  lineageToggleShortcutHint,
   linkShortcutHint,
-  redoShortcutHint,
+  redoToolbarTitle,
   undoShortcutHint,
   usesCommandKey,
+  viewTierShortcutHint,
 } from "../model/shortcuts";
+import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../model/operationLabels";
 import type { GridTier } from "../model/timeline";
+import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { SearchField } from "../model/scheduleFilterPersistence";
 import type { ScheduleTitleCommitResult } from "../model/scheduleTitleEdit";
 import { AppMenu } from "./AppMenu";
@@ -26,11 +34,9 @@ import {
   type ScheduleToolbarTitleHandle,
 } from "./ScheduleToolbarTitle";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
+import type { AssigneeFilterOption } from "./assigneeFilterOption";
 
-export type AssigneeFilterOption = {
-  id: string;
-  label: string;
-};
+export type { AssigneeFilterOption } from "./assigneeFilterOption";
 
 export type { SearchField } from "../model/scheduleFilterPersistence";
 
@@ -49,14 +55,25 @@ type ToolbarProps = {
   onShowAllMilestoneMarks: () => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
+  scheduleFields?: readonly ScheduleFieldDef[];
+  statuses: readonly StatusItem[];
   tier: GridTier;
   lineageName: string | null;
   canStartLineage: boolean;
+  canStartLineageWithConnections: boolean;
   onToggleLineage: () => void;
+  onShowLineageWithConnections: () => void;
   linkSourceName: string | null;
   canStartLink: boolean;
   onToggleLink: () => void;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
+  onPatchFieldFilter: (
+    def: ScheduleFieldDef,
+    patch: Partial<FieldFilterCondition>,
+  ) => void;
+  onUpdateFieldFilters: (
+    build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
+  ) => void;
   onGoToday: () => void;
   onSetTier: (tier: GridTier) => void;
   onFit: () => void;
@@ -68,6 +85,7 @@ type ToolbarProps = {
   onOpenShortcuts: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onCopyDiff: () => void;
   onExportHtml: () => void;
   onExportWorkspace?: () => void;
   onOpen: () => void;
@@ -83,6 +101,8 @@ type ToolbarProps = {
   canDelete: boolean;
   onAdd: () => void;
   onAddMilestone: () => void;
+  addTopLevelMenuLabel?: string | null;
+  onAddTopLevel?: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
   startupSettled?: boolean;
@@ -92,6 +112,12 @@ type ToolbarProps = {
   onTitleBlankCommit: () => void;
   titleEditHandleRef?: RefObject<ScheduleToolbarTitleHandle | null>;
   titleEditRequestToken: number;
+  hierarchyEditDisabled?: boolean;
+  hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
+  onOpenHierarchy?: () => void;
+  recentFilesEmptyHint?: string | null;
+  filterPanelOpen?: boolean;
+  onFilterPanelOpenChange?: (open: boolean) => void;
 };
 
 export function Toolbar({
@@ -109,14 +135,20 @@ export function Toolbar({
   onShowAllMilestoneMarks,
   assigneeFilterOptions,
   scheduleTags,
+  scheduleFields,
+  statuses,
   tier,
   lineageName,
   canStartLineage,
+  canStartLineageWithConnections,
   onToggleLineage,
+  onShowLineageWithConnections,
   linkSourceName,
   canStartLink,
   onToggleLink,
   onFiltersChange,
+  onPatchFieldFilter,
+  onUpdateFieldFilters,
   onGoToday,
   onSetTier,
   onFit,
@@ -128,6 +160,7 @@ export function Toolbar({
   onOpenShortcuts,
   onShowJson,
   onShowDiff,
+  onCopyDiff,
   onExportHtml,
   onExportWorkspace,
   onOpen,
@@ -143,6 +176,8 @@ export function Toolbar({
   canDelete,
   onAdd,
   onAddMilestone,
+  addTopLevelMenuLabel = null,
+  onAddTopLevel,
   onDelete,
   fileBusy = false,
   startupSettled = true,
@@ -152,13 +187,30 @@ export function Toolbar({
   onTitleBlankCommit,
   titleEditHandleRef,
   titleEditRequestToken,
+  hierarchyEditDisabled = false,
+  hierarchyButtonRef,
+  onOpenHierarchy,
+  recentFilesEmptyHint = null,
+  filterPanelOpen: filterPanelOpenProp,
+  onFilterPanelOpenChange,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
   const linkKey = linkShortcutHint(commandKey);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpenInternal, setFilterOpenInternal] = useState(false);
+  const filterOpenControlled = filterPanelOpenProp !== undefined;
+  const filterOpen = filterPanelOpenProp ?? filterOpenInternal;
+  const setFilterOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === "function" ? next(filterOpen) : next;
+      if (filterOpenControlled) onFilterPanelOpenChange?.(value);
+      else setFilterOpenInternal(value);
+    },
+    [filterOpen, filterOpenControlled, onFilterPanelOpenChange],
+  );
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
+  const lineageButtonRef = useRef<HTMLDivElement>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addMenuPos, setAddMenuPos] = useState<{ left: number; top: number } | null>(
     null,
@@ -168,6 +220,7 @@ export function Toolbar({
     false,
     hiddenMilestoneGroupIds.length,
     hiddenMilestoneIds.length,
+    scheduleFields,
   );
 
   const showSelectionActions =
@@ -181,14 +234,35 @@ export function Toolbar({
   };
 
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const [lineageMenuOpen, setLineageMenuOpen] = useState(false);
+  const [lineageMenuPos, setLineageMenuPos] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const lineageMenuRef = useRef<HTMLDivElement>(null);
 
   const closeAddMenu = () => {
     setAddOpen(false);
     setAddMenuPos(null);
   };
 
+  const openLineageMenu = () => {
+    const anchor = lineageButtonRef.current;
+    if (!anchor) return;
+    setLineageMenuPos(anchorBelowRect(anchor));
+    setLineageMenuOpen(true);
+  };
+
+  const closeLineageMenu = () => {
+    setLineageMenuOpen(false);
+    setLineageMenuPos(null);
+  };
+
   useEffect(() => {
-    const onCloseMenus = () => closeAddMenu();
+    const onCloseMenus = () => {
+      closeAddMenu();
+      closeLineageMenu();
+    };
     document.addEventListener("schedule-viewer:close-menus", onCloseMenus);
     return () => {
       document.removeEventListener("schedule-viewer:close-menus", onCloseMenus);
@@ -218,6 +292,32 @@ export function Toolbar({
     };
   }, [addOpen]);
 
+  useEffect(() => {
+    if (!lineageMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        lineageButtonRef.current?.contains(target) ||
+        lineageMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeLineageMenu();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLineageMenu();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [lineageMenuOpen]);
+
   const searchValue =
     searchField === "name" ? filters.search : filters.noteSearch;
   const searchPlaceholder =
@@ -243,15 +343,20 @@ export function Toolbar({
         onExportWorkspace={onExportWorkspace}
         onShowJson={onShowJson}
         onShowDiff={onShowDiff}
+        onCopyDiff={onCopyDiff}
         onOpenSettings={onOpenSettings}
         onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
         onCheckForUpdates={onCheckForUpdates}
+        recentFilesEmptyHint={recentFilesEmptyHint}
       />
       <ScheduleToolbarTitle
         title={title}
         titleDiffMarked={titleDiffMarked}
         titleEditDisabled={titleEditDisabled}
+        hierarchyEditDisabled={hierarchyEditDisabled}
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={onOpenHierarchy}
         onCommitTitle={onCommitTitle}
         onEditingChange={onTitleEditingChange}
         onBlankCommit={onTitleBlankCommit}
@@ -290,6 +395,7 @@ export function Toolbar({
           type="button"
           className={`toolbar-btn${filterCount > 0 ? " active" : ""}`}
           aria-expanded={filterOpen}
+          title={`${OPERATION_FORMAL.filterPanel}（${filterPanelShortcutHint(commandKey)}）`}
           onClick={() => setFilterOpen((prev) => !prev)}
         >
           絞り込み{filterCount > 0 ? ` ${filterCount}` : ""}
@@ -308,11 +414,20 @@ export function Toolbar({
           onShowAllMilestoneMarks={onShowAllMilestoneMarks}
           assigneeFilterOptions={assigneeFilterOptions}
           scheduleTags={scheduleTags}
+          scheduleFields={scheduleFields}
+          statuses={statuses}
           onFiltersChange={onFiltersChange}
+          onPatchFieldFilter={onPatchFieldFilter}
+          onUpdateFieldFilters={onUpdateFieldFilters}
         />
       </div>
       <div className="view-controls">
-        <button type="button" className="toolbar-btn" onClick={onGoToday}>
+        <button
+          type="button"
+          className="toolbar-btn"
+          title={`${OPERATION_FORMAL.goToday}（${goTodayShortcutHint()}）`}
+          onClick={onGoToday}
+        >
           今日
         </button>
         <div className="tier-toggle" role="group" aria-label="表示の切り替え">
@@ -322,21 +437,32 @@ export function Toolbar({
               type="button"
               className={tier === value ? "active" : ""}
               aria-pressed={tier === value}
+              title={viewTierShortcutHint(value, commandKey)}
               onClick={() => onSetTier(value)}
             >
-              {value === "day" ? "日" : value === "week" ? "週" : "月"}
+              {value === "day"
+                ? TOOLBAR_SHORT.tierDay
+                : value === "week"
+                  ? TOOLBAR_SHORT.tierWeek
+                  : TOOLBAR_SHORT.tierMonth}
             </button>
           ))}
         </div>
-        <button type="button" className="toolbar-btn" onClick={onFit}>
+        <button
+          type="button"
+          className="toolbar-btn"
+          title={viewTierShortcutHint("fit", commandKey)}
+          onClick={onFit}
+        >
           全体
         </button>
         <button
           type="button"
           className="toolbar-btn"
           onClick={onOpenGuide}
+          title={OPERATION_FORMAL.guide}
         >
-          案内
+          {TOOLBAR_SHORT.guide}
         </button>
         <button
           type="button"
@@ -351,56 +477,92 @@ export function Toolbar({
       <div className="toolbar-row toolbar-row-actions">
       {showSelectionActions ? (
         <>
+      <div className="add-split lineage-split" ref={lineageButtonRef}>
+        <button
+          type="button"
+          className={`lineage-btn${lineageName ? " active" : ""}`}
+          disabled={!lineageName && !canStartLineage}
+          title={
+            lineageName
+              ? `${lineageName} の前後の系統を表示中。クリックで解除`
+              : `${OPERATION_FORMAL.lineageShow}（${lineageToggleShortcutHint(commandKey)}）`
+          }
+          onClick={onToggleLineage}
+        >
+          {lineageName ? `系統: ${lineageName}` : "系統"}
+        </button>
+        <button
+          type="button"
+          className={`lineage-btn add-split-toggle${lineageName ? " active" : ""}`}
+          aria-expanded={lineageMenuOpen}
+          aria-label="系統の辿り方"
+          title="系統の辿り方（繋がりも辿る）"
+          disabled={!canStartLineageWithConnections}
+          onClick={() =>
+            lineageMenuOpen ? closeLineageMenu() : openLineageMenu()
+          }
+        >
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+        {lineageMenuOpen && lineageMenuPos ? (
+          <div
+            ref={lineageMenuRef}
+            className="app-menu-panel app-menu-panel--fixed add-split-menu"
+            style={{
+              left: lineageMenuPos.left,
+              top: lineageMenuPos.top,
+              transform: `translate(${menuViewportShift(
+                lineageButtonRef.current!.getBoundingClientRect(),
+              ).x}px, ${menuViewportShift(lineageButtonRef.current!.getBoundingClientRect()).y}px)`,
+            }}
+            role="menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                closeLineageMenu();
+                onShowLineageWithConnections();
+              }}
+            >
+              繋がりも辿る
+            </button>
+          </div>
+        ) : null}
+      </div>
       <button
         type="button"
-        className={`lineage-btn${lineageName ? " active" : ""}`}
-        disabled={!lineageName && !canStartLineage}
-        title={
-          lineageName
-            ? `${lineageName} の前後の系統を表示中。クリックで解除`
-            : "選択中のタスクについて、前後の最初から最後までを表示"
-        }
-        onClick={onToggleLineage}
-      >
-        {lineageName ? `系統: ${lineageName}` : "系統"}
-      </button>
-      <button
-        type="button"
-        className={`lineage-btn toolbar-btn-with-shortcut${linkSourceName ? " active" : ""}`}
+        className={`lineage-btn${linkSourceName ? " active" : ""}`}
         disabled={!linkSourceName && !canStartLink}
         title={
           linkSourceName
             ? `${linkSourceName} から後続へ線を引いています。もう一度押すか、${linkKey} で中止`
-            : `選択中のタスクから、次にクリックしたタスクを後続にする（${linkKey}）`
+            : `${OPERATION_FORMAL.link}（${linkKey}）`
         }
         onClick={onToggleLink}
       >
-        <span className="toolbar-btn-label">
-          {linkSourceName ? `線を引く: ${linkSourceName}` : "線を引く"}
-        </span>
-        <span className="menu-shortcut">{linkKey}</span>
+        {linkSourceName ? `線を引く: ${linkSourceName}` : OPERATION_FORMAL.link}
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut toolbar-btn-danger"
+        className="toolbar-btn toolbar-btn-danger"
         disabled={!canDelete}
-        title={canDelete ? "選択中のタスクを削除" : "タスクを選択してから削除"}
+        title={canDelete ? `${OPERATION_FORMAL.deleteTask}（${deleteShortcutHint()}）` : "タスクを選択してから削除"}
         onClick={onDelete}
       >
         <span>削除</span>
-        <span className="menu-shortcut">{deleteShortcutHint()}</span>
       </button>
         </>
       ) : null}
       <div className="add-split" ref={addButtonRef}>
         <button
           type="button"
-          className="toolbar-btn toolbar-btn-primary toolbar-btn-with-shortcut"
+          className="toolbar-btn toolbar-btn-primary"
+          title={`${OPERATION_FORMAL.addTask}（${addTaskShortcutHint(commandKey)}）`}
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
-          <span>追加</span>
-          <span className="menu-shortcut">{addTaskShortcutHint(commandKey)}</span>
+          <span>{TOOLBAR_SHORT.addTask}</span>
         </button>
         <button
           type="button"
@@ -432,8 +594,20 @@ export function Toolbar({
                 onAdd();
               }}
             >
-              タスクを追加
+              {OPERATION_FORMAL.addTask}
             </button>
+            {addTopLevelMenuLabel && onAddTopLevel ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeAddMenu();
+                  onAddTopLevel();
+                }}
+              >
+                {addTopLevelMenuLabel}
+              </button>
+            ) : null}
             <button
               type="button"
               role="menuitem"
@@ -442,7 +616,7 @@ export function Toolbar({
                 onAddMilestone();
               }}
             >
-              <span>マイルストンを追加</span>
+              <span>{OPERATION_FORMAL.addMilestone}</span>
               <span className="menu-shortcut">
                 {addMilestoneShortcutHint(commandKey)}
               </span>
@@ -452,23 +626,21 @@ export function Toolbar({
       </div>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canUndo}
-        title="取り消し"
+        title={`取り消し（${undoShortcutHint(commandKey)}）`}
         onClick={onUndo}
       >
         <span>取り消し</span>
-        <span className="menu-shortcut">{undoShortcutHint(commandKey)}</span>
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canRedo}
-        title="やり直し"
+        title={redoToolbarTitle(commandKey)}
         onClick={onRedo}
       >
         <span>やり直し</span>
-        <span className="menu-shortcut">{redoShortcutHint(commandKey)}</span>
       </button>
       </div>
     </div>

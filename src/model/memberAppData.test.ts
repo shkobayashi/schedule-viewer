@@ -78,4 +78,10 @@ describe("member catalog storage", () => {
     await seedSampleMemberCatalogOnce("sample", sample);
     expect(await readMemberCatalog("sample")).toBeNull();
   });
+
+  it("returns null when browser storage holds an empty body", async () => {
+    installLocalStorage();
+    await importMemberCatalog("empty", "", false);
+    expect(await readMemberCatalog("empty")).toBeNull();
+  });
 });

@@ -72,6 +72,31 @@ describe("buildCommandPaletteItems", () => {
     ).toBe(true);
   });
 
+  it("labels search focus as 検索", () => {
+    expect(
+      buildCommandPaletteItems(idle).find(
+        (item) => item.kind === "command" && item.id === "find",
+      )?.label,
+    ).toBe("検索");
+  });
+
+  it("uses formal edit and delete labels", () => {
+    const items = buildCommandPaletteItems(idle);
+    expect(
+      items.find((item) => item.kind === "command" && item.id === "editTask")
+        ?.label,
+    ).toBe("編集");
+    expect(
+      items.find((item) => item.kind === "command" && item.id === "deleteTask")
+        ?.label,
+    ).toBe("削除");
+    expect(
+      items.find(
+        (item) => item.kind === "command" && item.id === "duplicateTask",
+      )?.label,
+    ).toBe("複製");
+  });
+
   it("includes edit title command", () => {
     const items = buildCommandPaletteItems(idle);
     expect(

@@ -1,0 +1,138 @@
+[
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-baseline-light-toolbar-chips.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "light"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1111,
+      "headerSampleSum": 43620,
+      "bandHeight": 29
+    },
+    "caption": "Baseline UI (smoke, not MCP): no filter chips; toolbar before lineage chip."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-baseline-light-chart-context.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "light"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1111,
+      "headerSampleSum": 43620,
+      "bandHeight": 29
+    },
+    "caption": "Baseline UI (smoke, not MCP): milestone band at fixed scroll (today=2026-05-01); 承認 and 未確定の節目 marks expected on band (Konva)."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-after-light-toolbar-chips.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "light"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1111,
+      "headerSampleSum": 43620,
+      "bandHeight": 29
+    },
+    "caption": "Equivalent UI (not MCP): chips 系統: 設計 and 帯の印: 承認（…） after toolbar + filter panel; panels closed before capture."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-after-light-chart-context.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "light"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1111,
+      "headerSampleSum": 43620,
+      "bandHeight": 29
+    },
+    "caption": "Equivalent UI (not MCP): same timeline header as baseline; filter hides 承認 on band while 未確定の節目 remains (compare to baseline chart-context at same scroll)."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-baseline-dark-toolbar-chips.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "dark"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1109,
+      "headerSampleSum": 67268,
+      "bandHeight": 29
+    },
+    "caption": "Baseline UI (smoke, not MCP): no filter chips; toolbar before lineage chip."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-baseline-dark-chart-context.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "dark"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1109,
+      "headerSampleSum": 67268,
+      "bandHeight": 29
+    },
+    "caption": "Baseline UI (smoke, not MCP): milestone band at fixed scroll (today=2026-05-01); 承認 and 未確定の節目 marks expected on band (Konva)."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-after-dark-toolbar-chips.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "dark"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1109,
+      "headerSampleSum": 67268,
+      "bandHeight": 29
+    },
+    "caption": "Equivalent UI (not MCP): chips 系統: 設計 and 帯の印: 承認（…） after toolbar + filter panel; panels closed before capture."
+  },
+  {
+    "file": "/opt/cursor/artifacts/issue-475/ui-after-dark-chart-context.png",
+    "metrics": {
+      "s": "1.15",
+      "viewport": {
+        "w": 1440,
+        "h": 900
+      },
+      "colorScheme": "dark"
+    },
+    "viewportFingerprint": {
+      "headerCanvasWidth": 1109,
+      "headerSampleSum": 67268,
+      "bandHeight": 29
+    },
+    "caption": "Equivalent UI (not MCP): same timeline header as baseline; filter hides 承認 on band while 未確定の節目 remains (compare to baseline chart-context at same scroll)."
+  }
+]

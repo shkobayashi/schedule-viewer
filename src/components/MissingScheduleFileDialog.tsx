@@ -15,11 +15,6 @@ export function MissingScheduleFileDialog({
         前回開いていた {fileLabel}{" "}
         が見つかりません。サンプルを表示します。
       </p>
-      <div className="modal-actions">
-        <button type="button" className="btn primary" onClick={onClose}>
-          閉じる
-        </button>
-      </div>
     </ModalDialog>
   );
 }
