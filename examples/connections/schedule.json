@@ -1,0 +1,382 @@
+{
+  "schemaVersion": 8,
+  "title": "前後ではない繋がりの確認（VIEW-15）",
+  "milestoneGroups": [
+    {
+      "id": "c4010001-0000-4000-8000-000000000001",
+      "name": "マイルストン"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "c4020001-0000-4000-8000-000000000001",
+      "name": "参考",
+      "date": "2026-11-15",
+      "confidence": "committed",
+      "groupId": "c4010001-0000-4000-8000-000000000001"
+    }
+  ],
+  "connections": [
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000001",
+        "c5010001-0000-4000-8000-000000000002"
+      ],
+      "label": "重なりと前後"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000003",
+        "c5010001-0000-4000-8000-000000000004"
+      ],
+      "label": "離れた関係"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000005",
+        "c5010001-0000-4000-8000-000000000007"
+      ],
+      "label": "斜めの関係"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000008",
+        "c5010001-0000-4000-8000-000000000010"
+      ],
+      "label": "あいだの棒を越える"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000011",
+        "c5010001-0000-4000-8000-000000000012"
+      ],
+      "label": "起点→近い行"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000011",
+        "c5010001-0000-4000-8000-000000000013"
+      ],
+      "label": "起点→前の日付"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000011",
+        "c5010001-0000-4000-8000-000000000014"
+      ],
+      "label": "起点→後の日付"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000015",
+        "c5010001-0000-4000-8000-000000000018"
+      ],
+      "label": "塗った行の上を通る"
+    },
+    {
+      "taskIds": [
+        "c5010001-0000-4000-8000-000000000019",
+        "c5010001-0000-4000-8000-000000000020"
+      ],
+      "label": "端が塗ってある"
+    }
+  ],
+  "categories": [
+    {
+      "id": "c4030001-0000-4000-8000-000000000001",
+      "name": "繋がりの見え方",
+      "groups": [
+        {
+          "id": "c4040001-0000-4000-8000-000000000001",
+          "name": "期間が重なる（前後の矢印あり）",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000001",
+              "name": "上：先行側",
+              "start": "2026-10-20",
+              "end": "2026-10-28",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000002",
+              "name": "下：後続側",
+              "start": "2026-10-24",
+              "end": "2026-11-01",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "committed",
+              "predecessors": [
+                "c5010001-0000-4000-8000-000000000001"
+              ],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000002",
+          "name": "期間が離れる（前後の矢印あり）",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000003",
+              "name": "左：先行",
+              "start": "2026-10-19",
+              "end": "2026-10-22",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000004",
+              "name": "右：後続",
+              "start": "2026-11-10",
+              "end": "2026-11-14",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [
+                "c5010001-0000-4000-8000-000000000003"
+              ],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000003",
+          "name": "斜め（あいだの棒は横の範囲外）",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000005",
+              "name": "左上：短い棒",
+              "start": "2026-10-21",
+              "end": "2026-10-23",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000006",
+              "name": "あいだ：範囲外の棒",
+              "start": "2026-10-17",
+              "end": "2026-10-18",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000007",
+              "name": "右下：後の棒",
+              "start": "2026-11-01",
+              "end": "2026-11-05",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000004",
+          "name": "あいだの棒（円弧が上を通る）",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000008",
+              "name": "上",
+              "start": "2026-10-22",
+              "end": "2026-10-26",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000009",
+              "name": "あいだ：障害になる棒",
+              "start": "2026-10-24",
+              "end": "2026-10-28",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000010",
+              "name": "下",
+              "start": "2026-10-30",
+              "end": "2026-11-03",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000005",
+          "name": "一つから複数",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000013",
+              "name": "前の日付",
+              "start": "2026-10-20",
+              "end": "2026-10-22",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000011",
+              "name": "起点",
+              "start": "2026-10-25",
+              "end": "2026-10-27",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 50,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000012",
+              "name": "近い行",
+              "start": "2026-10-26",
+              "end": "2026-10-29",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000014",
+              "name": "後の日付",
+              "start": "2026-11-05",
+              "end": "2026-11-08",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000006",
+          "name": "塗った行を越える（色なしの上下）",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000015",
+              "name": "上：色なし",
+              "start": "2026-10-28",
+              "end": "2026-10-31",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000016",
+              "name": "あいだ：注力",
+              "start": "2026-10-29",
+              "end": "2026-11-05",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 20,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "focus"
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000017",
+              "name": "あいだ：待ち",
+              "start": "2026-10-30",
+              "end": "2026-11-04",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "wait"
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000018",
+              "name": "下：色なし",
+              "start": "2026-11-04",
+              "end": "2026-11-07",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "c4040001-0000-4000-8000-000000000007",
+          "name": "端が塗ってある",
+          "tasks": [
+            {
+              "id": "c5010001-0000-4000-8000-000000000019",
+              "name": "注力側",
+              "start": "2026-10-27",
+              "end": "2026-10-30",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "focus"
+            },
+            {
+              "id": "c5010001-0000-4000-8000-000000000020",
+              "name": "リスク側",
+              "start": "2026-11-01",
+              "end": "2026-11-04",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "risk"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-get-colors-settings"
+description = "Allows reading color catalog settings."
+commands.allow = ["get_colors_settings"]
+
+[[permission]]
+identifier = "allow-read-color-catalog"
+description = "Allows reading a color catalog from app data."
+commands.allow = ["read_color_catalog"]
+
+[[permission]]
+identifier = "allow-import-color-catalog"
+description = "Allows importing a color catalog into app data."
+commands.allow = ["import_color_catalog"]
+
+[[permission]]
+identifier = "allow-delete-color-catalog"
+description = "Allows deleting a color catalog from app data."
+commands.allow = ["delete_color_catalog"]
+
+[[permission]]
+identifier = "allow-set-selected-color-catalog"
+description = "Allows selecting the active color catalog."
+commands.allow = ["set_selected_color_catalog"]
+
+[[permission]]
+identifier = "allow-save-colors-json"
+description = "Allows exporting a color catalog as a JSON file via native save dialog."
+commands.allow = ["save_colors_json"]

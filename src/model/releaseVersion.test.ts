@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bumpAlpha,
   bumpBeta,
   bumpMajor,
   bumpMinor,
@@ -20,7 +21,8 @@ describe("isValidReleaseVersion", () => {
     expect(isValidReleaseVersion("0.0.0")).toBe(true);
   });
 
-  it("accepts beta versions", () => {
+  it("accepts alpha and beta versions", () => {
+    expect(isValidReleaseVersion("1.5.0-alpha.1")).toBe(true);
     expect(isValidReleaseVersion("1.5.0-beta.1")).toBe(true);
     expect(isValidReleaseVersion("1.5.0-beta.12")).toBe(true);
   });
@@ -30,6 +32,7 @@ describe("isValidReleaseVersion", () => {
     expect(isValidReleaseVersion("1.4.0-beta")).toBe(false);
     expect(isValidReleaseVersion("1.4.0-beta.0")).toBe(false);
     expect(isValidReleaseVersion("1.4.0-beta.01")).toBe(false);
+    expect(isValidReleaseVersion("1.4.0-alpha.0")).toBe(false);
     expect(isValidReleaseVersion("v1.4.0")).toBe(false);
     expect(isValidReleaseVersion("1.02.3")).toBe(false);
     expect(isValidReleaseVersion("1.2.03-beta.1")).toBe(false);
@@ -37,7 +40,14 @@ describe("isValidReleaseVersion", () => {
 });
 
 describe("parseReleaseVersion", () => {
-  it("parses beta", () => {
+  it("parses alpha and beta", () => {
+    expect(parseReleaseVersion("2.0.0-alpha.2")).toEqual({
+      kind: "alpha",
+      major: 2,
+      minor: 0,
+      patch: 0,
+      alpha: 2,
+    });
     expect(parseReleaseVersion("2.0.0-beta.3")).toEqual({
       kind: "beta",
       major: 2,
@@ -54,18 +64,27 @@ describe("bump helpers", () => {
     expect(bumpMinor("1.2.3")).toBe("1.3.0");
     expect(bumpPatch("1.2.3")).toBe("1.2.4");
     expect(() => bumpMajor("1.2.3-beta.1")).toThrow();
+    expect(() => bumpMajor("1.2.3-alpha.1")).toThrow();
     expect(() => bumpMinor("1.2.3-beta.1")).toThrow();
     expect(() => bumpPatch("1.2.3-beta.1")).toThrow();
   });
 
-  it("bumps beta from stable and from beta", () => {
+  it("bumps alpha from stable and from alpha", () => {
+    expect(bumpAlpha("1.5.0")).toBe("1.5.0-alpha.1");
+    expect(bumpAlpha("1.5.0-alpha.1")).toBe("1.5.0-alpha.2");
+    expect(() => bumpAlpha("1.5.0-beta.1")).toThrow();
+  });
+
+  it("bumps beta from stable, alpha, and beta", () => {
     expect(bumpBeta("1.5.0")).toBe("1.5.0-beta.1");
+    expect(bumpBeta("1.5.0-alpha.3")).toBe("1.5.0-beta.1");
     expect(bumpBeta("1.5.0-beta.1")).toBe("1.5.0-beta.2");
   });
 
-  it("strips beta suffix", () => {
+  it("strips beta suffix for stable conversion", () => {
     expect(stripBetaSuffix("1.5.0-beta.2")).toBe("1.5.0");
     expect(() => stripBetaSuffix("1.5.0")).toThrow();
+    expect(() => stripBetaSuffix("1.5.0-alpha.1")).toThrow();
   });
 });
 
@@ -74,6 +93,9 @@ describe("updaterEndpointForVersion", () => {
     expect(updaterEndpointForVersion("1.4.1")).toBe(
       "https://github.com/shkobayashi/schedule-viewer/releases/download/updater-1/latest.json",
     );
+    expect(updaterEndpointForVersion("2.0.0-alpha.1")).toBe(
+      "https://github.com/shkobayashi/schedule-viewer/releases/download/updater-2/latest.json",
+    );
     expect(updaterEndpointForVersion("2.0.0-beta.1")).toBe(
       "https://github.com/shkobayashi/schedule-viewer/releases/download/updater-2/latest.json",
     );
@@ -81,10 +103,11 @@ describe("updaterEndpointForVersion", () => {
 });
 
 describe("compareReleaseVersions", () => {
-  it("orders stable and beta", () => {
+  it("orders stable, beta, and alpha", () => {
     expect(compareReleaseVersions("1.4.1", "1.4.2")).toBe(-1);
-    expect(compareReleaseVersions("1.4.2", "1.5.0")).toBe(-1);
     expect(compareReleaseVersions("1.4.2-beta.1", "1.4.2")).toBe(-1);
+    expect(compareReleaseVersions("1.4.2-alpha.1", "1.4.2-beta.1")).toBe(-1);
+    expect(compareReleaseVersions("2.0.0-alpha.9", "2.0.0-beta.1")).toBe(-1);
     expect(compareReleaseVersions("1.4.2", "1.4.2")).toBe(0);
   });
 });
@@ -139,7 +162,15 @@ describe("evaluateReleasePush", () => {
     ).toEqual({ ok: true, prerelease: false, tag: "v1.5.0" });
   });
 
-  it("allows beta on matching release branch", () => {
+  it("allows alpha and beta on matching release branch", () => {
+    expect(
+      evaluateReleasePush({
+        branch: "release/2.0.0",
+        version: "2.0.0-alpha.1",
+        commitSha: sha,
+        tagCommitSha: null,
+      }),
+    ).toEqual({ ok: true, prerelease: true, tag: "v2.0.0-alpha.1" });
     expect(
       evaluateReleasePush({
         branch: "release/1.5.0",
@@ -150,14 +181,23 @@ describe("evaluateReleasePush", () => {
     ).toEqual({ ok: true, prerelease: true, tag: "v1.5.0-beta.1" });
   });
 
-  it("rejects beta on main", () => {
-    const result = evaluateReleasePush({
-      branch: "main",
-      version: "1.5.0-beta.1",
-      commitSha: sha,
-      tagCommitSha: null,
-    });
-    expect(result.ok).toBe(false);
+  it("rejects prerelease on main", () => {
+    expect(
+      evaluateReleasePush({
+        branch: "main",
+        version: "1.5.0-beta.1",
+        commitSha: sha,
+        tagCommitSha: null,
+      }).ok,
+    ).toBe(false);
+    expect(
+      evaluateReleasePush({
+        branch: "main",
+        version: "2.0.0-alpha.1",
+        commitSha: sha,
+        tagCommitSha: null,
+      }).ok,
+    ).toBe(false);
   });
 
   it("rejects stable on release branch", () => {

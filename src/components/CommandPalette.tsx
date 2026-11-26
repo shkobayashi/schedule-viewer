@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { acquireBackgroundInert } from "./backgroundInert";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 import {
   buildCommandPaletteItems,
   commandPaletteActiveIndex,
@@ -11,6 +12,8 @@ import {
   type CommandPaletteContext,
   type CommandPaletteRunTarget,
 } from "../model/commandPalette";
+import { commandPaletteCommandShortcut } from "../model/commandPaletteShortcuts";
+import { usesCommandKey } from "../model/shortcuts";
 
 type CommandPaletteProps = {
   open: boolean;
@@ -68,6 +71,8 @@ export function CommandPalette({
 
   if (!open) return null;
 
+  const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
+
   const runTarget = (target: CommandPaletteRunTarget) => {
     onClose();
     window.setTimeout(() => onRun(target), 0);
@@ -124,9 +129,12 @@ export function CommandPalette({
       }}
     >
       <div className="command-palette" tabIndex={-1}>
-        <h2 id={titleId} className="command-palette-title">
-          コマンド
-        </h2>
+        <div className="ui-dialog-header command-palette-header">
+          <h2 id={titleId} className="ui-dialog-title command-palette-title">
+            コマンド
+          </h2>
+          <DialogCloseButton onClose={onClose} />
+        </div>
         <input
           ref={inputRef}
           type="search"
@@ -184,7 +192,18 @@ export function CommandPalette({
                     runTarget(target);
                   }}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.kind === "command" ? (
+                    (() => {
+                      const keys = commandPaletteCommandShortcut(
+                        item.id,
+                        commandKey,
+                      );
+                      return keys ? (
+                        <span className="menu-shortcut">{keys}</span>
+                      ) : null;
+                    })()
+                  ) : null}
                 </button>
               </li>
             ))

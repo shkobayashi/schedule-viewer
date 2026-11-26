@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import changelogMd from "../../CHANGELOG.md?raw";
 import {
+  bundledChangelogCategoryKey,
   parseBundledChangelogVersions,
   type BundledReleaseNotesVersion,
 } from "../model/releaseNotes";
@@ -103,8 +104,14 @@ function ChangelogVersionEntry({
         ) : null}
       </div>
       <div className="settings-changelog-version-body">
-        {entry.categories.map((category) => (
-          <section key={`${entry.version}-${category.title}`}>
+        {entry.categories.map((category, categoryIndex) => (
+          <section
+            key={bundledChangelogCategoryKey(
+              entry.version,
+              category.title,
+              categoryIndex,
+            )}
+          >
             <h4 className="settings-changelog-category">{category.title}</h4>
             <ul className="settings-changelog-items">
               {category.items.map((item) => (

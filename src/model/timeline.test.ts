@@ -1,12 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { isoDate, parseDate } from "./dates";
+import { addDays, parseDate } from "./dates";
 import {
   computeTimelineRange,
   fitPxPerDayToViewport,
   fitViewAfterOpen,
   resolveTimelineOrigin,
 } from "./timeline";
-import type { Category, Milestone } from "./types";
+import type { Milestone, OutlineRoot } from "./types";
+
+describe("computeTimelineRange", () => {
+  const ms: Milestone = {
+    id: "b1000001-0000-4000-8000-000000000001",
+    name: "中間確認",
+    date: "2026-10-20",
+    confidence: "committed",
+    groupId: "a1000001-0000-4000-8000-000000000001",
+  };
+
+  it("uses outline task dates when categories are empty", () => {
+    const outline: OutlineRoot = [
+      {
+        id: "f2000001-0000-4000-8000-000000000001",
+        name: "北",
+        children: [
+          {
+            id: "e2000001-0000-4000-8000-000000000001",
+            name: "早い",
+            start: "2026-10-01",
+            end: "2026-10-04",
+            assigneeIds: [],
+            status: "in-progress",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+          },
+          {
+            id: "e2000001-0000-4000-8000-000000000006",
+            name: "遅い",
+            start: "2026-10-19",
+            end: "2026-11-05",
+            assigneeIds: [],
+            status: "in-progress",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+          },
+        ],
+      },
+    ];
+    const range = computeTimelineRange([], [ms], "2026-10-15", outline);
+    expect(range.timelineStart).toEqual(addDays(parseDate("2026-10-01"), -6));
+    expect(range.timelineEnd).toEqual(addDays(parseDate("2026-11-05"), 7));
+  });
+});
 
 describe("resolveTimelineOrigin", () => {
   const pinned = parseDate("2026-09-08");
@@ -82,47 +130,5 @@ describe("fitPxPerDayToViewport", () => {
   it("includes prefix days before the data range when fitting", () => {
     const px = fitPxPerDayToViewport(800, 10, 100, () => 0);
     expect(px).toBeCloseTo(800 / 110, 1);
-  });
-});
-
-describe("computeTimelineRange", () => {
-  it("includes hidden milestone mark dates in the timeline span", () => {
-    const categories: Category[] = [
-      {
-        id: "c1",
-        name: "C",
-        groups: [
-          {
-            id: "g1",
-            name: "G",
-            tasks: [
-              {
-                id: "t1",
-                name: "T",
-                start: "2026-04-01",
-                end: "2026-04-02",
-                assigneeId: null,
-                status: "not-started",
-                progress: 0,
-                confidence: "committed",
-                predecessors: [],
-                milestoneId: null,
-              },
-            ],
-          },
-        ],
-      },
-    ];
-    const milestones: Milestone[] = [
-      {
-        id: "m-late",
-        name: "Late",
-        date: "2028-01-01",
-        confidence: "committed",
-        groupId: "g1",
-      },
-    ];
-    const range = computeTimelineRange(categories, milestones, "2026-04-08");
-    expect(isoDate(range.timelineEnd)).toBe("2028-01-08");
   });
 });

@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StatusOptions } from "./StatusOptions";
+import type { StatusItem } from "../model/statusCatalog";
 import type { TaskRef } from "../model/dependencies";
+import { AssigneeListField } from "./AssigneeListField";
 import {
-  duplicateMemberNames,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
-import {
+  BULK_COLOR_CLEAR,
+  commonAssigneeIds,
+  commonColorId,
   commonMilestoneId,
   commonStringField,
   type BulkTaskDraft,
 } from "../model/bulkTaskEdit";
+import type { ColorItem } from "../model/colorCatalog";
+import type { ResolvedColorScheme } from "../model/palette";
+import { ColorSelectField } from "./ColorSelectField";
+import {
+  colorSelectOptionsForBulk,
+  type ColorSelectOption,
+} from "./ColorOptions";
 import { daysBetween, parseDate } from "../model/dates";
+import { DateInput } from "./DateInput";
+import { isDatePopoverTarget } from "./datePopover";
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import {
-  UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleId,
   type Task,
@@ -23,30 +33,29 @@ import {
 import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
 
-/** select の「変更しない」。空文字は割り当てなし用に残す。 */
-const UNCHANGED = "__unchanged__";
-
 type LocalDraft = {
   start?: string;
   end?: string;
-  assignee: string;
+  assigneeTouched?: true;
+  assigneeIds?: MemberId[];
   status: TaskStatus | "";
   confidence: TaskConfidence | "";
   milestone: ScheduleId | null | "unchanged";
   addPredecessors: ScheduleId[];
   addSuccessors: ScheduleId[];
   addTags: string[];
+  colorId: "" | typeof BULK_COLOR_CLEAR | string;
 };
 
 function emptyLocalDraft(): LocalDraft {
   return {
-    assignee: UNCHANGED,
     status: "",
     confidence: "",
     milestone: "unchanged",
     addPredecessors: [],
     addSuccessors: [],
     addTags: [],
+    colorId: "",
   };
 }
 
@@ -72,9 +81,8 @@ function buildBulkDraft(local: LocalDraft): BulkTaskDraft | null {
   const draft: BulkTaskDraft = {};
   if (local.start !== undefined && local.start !== "") draft.start = local.start;
   if (local.end !== undefined && local.end !== "") draft.end = local.end;
-  if (local.assignee !== UNCHANGED) {
-    draft.assigneeId =
-      local.assignee === "" ? null : (local.assignee as MemberId);
+  if (local.assigneeTouched) {
+    draft.assigneeIds = [...(local.assigneeIds ?? [])];
   }
   if (local.status !== "") draft.status = local.status;
   if (local.confidence !== "") draft.confidence = local.confidence;
@@ -88,6 +96,10 @@ function buildBulkDraft(local: LocalDraft): BulkTaskDraft | null {
     draft.addSuccessorIds = local.addSuccessors;
   }
   if (local.addTags.length > 0) draft.addTags = local.addTags;
+  if (local.colorId !== "") {
+    if (local.colorId === BULK_COLOR_CLEAR) draft.colorId = null;
+    else draft.colorId = local.colorId;
+  }
   if (Object.keys(draft).length === 0) return null;
   return draft;
 }
@@ -95,26 +107,28 @@ function buildBulkDraft(local: LocalDraft): BulkTaskDraft | null {
 const FIELD_LABELS: Record<string, string> = {
   start: "開始",
   end: "終了",
-  assigneeId: "担当者",
+  assigneeIds: "担当者",
   status: "ステータス",
   confidence: "確度",
   milestoneId: "対応マイルストン",
   addPredecessorIds: "先行",
   addSuccessorIds: "後続",
   addTags: "タグ",
+  colorId: "色",
 };
 
 function draftFieldLabels(draft: BulkTaskDraft): string {
   const names: string[] = [];
   if (draft.start !== undefined) names.push(FIELD_LABELS.start);
   if (draft.end !== undefined) names.push(FIELD_LABELS.end);
-  if (draft.assigneeId !== undefined) names.push(FIELD_LABELS.assigneeId);
+  if (draft.assigneeIds !== undefined) names.push(FIELD_LABELS.assigneeIds);
   if (draft.status !== undefined) names.push(FIELD_LABELS.status);
   if (draft.confidence !== undefined) names.push(FIELD_LABELS.confidence);
   if (draft.milestoneId !== undefined) names.push(FIELD_LABELS.milestoneId);
   if (draft.addPredecessorIds?.length) names.push(FIELD_LABELS.addPredecessorIds);
   if (draft.addSuccessorIds?.length) names.push(FIELD_LABELS.addSuccessorIds);
   if (draft.addTags?.length) names.push(FIELD_LABELS.addTags);
+  if (draft.colorId !== undefined) names.push(FIELD_LABELS.colorId);
   return names.join("、");
 }
 
@@ -122,24 +136,32 @@ type BulkTaskDetailPanelProps = {
   tasks: Task[];
   selectedIds: readonly ScheduleId[];
   members: Member[];
+  memberCatalog: Map<MemberId, Member> | null;
   taskRefs: TaskRef[];
   milestones: Milestone[];
   documentTags: string[];
   onApply: (taskIds: readonly ScheduleId[], draft: BulkTaskDraft) => string | null;
   onEditingChange: (editing: boolean) => void;
   onPanelFocus?: () => void;
+  statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
 };
 
 export function BulkTaskDetailPanel({
   tasks,
   selectedIds,
   members,
+  memberCatalog,
   taskRefs,
   milestones,
   documentTags,
   onApply,
   onEditingChange,
   onPanelFocus,
+  statuses,
+  colors = null,
+  colorScheme,
 }: BulkTaskDetailPanelProps) {
   const [local, setLocal] = useState<LocalDraft>(() => emptyLocalDraft());
   const [formError, setFormError] = useState<string | null>(null);
@@ -149,7 +171,9 @@ export function BulkTaskDetailPanel({
 
   const commonStart = commonStringField(tasks, (t) => t.start);
   const commonEnd = commonStringField(tasks, (t) => t.end);
+  const commonAssignee = commonAssigneeIds(tasks);
   const commonMilestone = commonMilestoneId(tasks);
+  const commonColor = commonColorId(tasks);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -158,10 +182,15 @@ export function BulkTaskDetailPanel({
     [selectedSet, taskRefs],
   );
 
-  const duplicateNames = useMemo(
-    () => duplicateMemberNames(members),
-    [members],
-  );
+  const assigneeMixed =
+    commonAssignee === "mixed" && local.assigneeTouched !== true;
+
+  const assigneeListForEditor =
+    local.assigneeTouched === true
+      ? (local.assigneeIds ?? [])
+      : commonAssignee === "mixed"
+        ? []
+        : [...commonAssignee];
 
   const bulkDraft = useMemo(() => buildBulkDraft(local), [local]);
   const canApply = bulkDraft != null;
@@ -181,6 +210,24 @@ export function BulkTaskDetailPanel({
 
   const milestoneMixed =
     commonMilestone === "mixed" && local.milestone === "unchanged";
+
+  const colorMixed = commonColor === "mixed" && local.colorId === "";
+
+  const displayColorValue =
+    local.colorId !== ""
+      ? local.colorId
+      : commonColor === "mixed"
+        ? ""
+        : commonColor === null
+          ? BULK_COLOR_CLEAR
+          : commonColor;
+
+  const bulkColorOptions = useMemo((): ColorSelectOption[] => {
+    if (colors == null) return [];
+    const commonId =
+      commonColor === "mixed" || commonColor === null ? null : commonColor;
+    return colorSelectOptionsForBulk(colors, commonId, colorScheme);
+  }, [colors, colorScheme, commonColor]);
 
   const milestoneValue =
     local.milestone === "unchanged"
@@ -215,6 +262,7 @@ export function BulkTaskDetailPanel({
     const root = rootRef.current;
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
+    if (isDatePopoverTarget(next)) return;
     onEditingChange(bulkDraft != null);
   };
 
@@ -262,13 +310,13 @@ export function BulkTaskDetailPanel({
         <div className="detail-date-row">
           <div className="field">
             <label htmlFor="bulkStart">開始</label>
-            <input
+            <DateInput
               id="bulkStart"
-              type="date"
               value={displayStart}
-              onChange={(e) =>
+              inputClassName="ui-field"
+              onChange={(next) =>
                 setLocal((prev) =>
-                  setDraftDateField("start", e.target.value, commonStart, prev),
+                  setDraftDateField("start", next, commonStart, prev),
                 )
               }
             />
@@ -278,13 +326,13 @@ export function BulkTaskDetailPanel({
           </div>
           <div className="field">
             <label htmlFor="bulkEnd">終了</label>
-            <input
+            <DateInput
               id="bulkEnd"
-              type="date"
               value={displayEnd}
-              onChange={(e) =>
+              inputClassName="ui-field"
+              onChange={(next) =>
                 setLocal((prev) =>
-                  setDraftDateField("end", e.target.value, commonEnd, prev),
+                  setDraftDateField("end", next, commonEnd, prev),
                 )
               }
             />
@@ -304,27 +352,76 @@ export function BulkTaskDetailPanel({
       <section className="detail-section">
         <h2 className="detail-section-title">担当・状態</h2>
         <div className="field">
-          <label htmlFor="bulkAssignee">担当者</label>
-          <select
-            id="bulkAssignee"
-            value={local.assignee}
-            onChange={(e) =>
-              setLocal((prev) => ({ ...prev, assignee: e.target.value }))
-            }
-          >
-            <option value={UNCHANGED}>変更しない</option>
-            <option value="">{UNASSIGNED_LABEL}</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {memberOptionLabel(member, duplicateNames)}
-              </option>
-            ))}
-          </select>
+          <span className="field-label" id="bulkAssigneeLabel">
+            担当者
+          </span>
+          {assigneeMixed && !local.assigneeTouched ? (
+            <>
+              <p className="detail-mixed-hint">複数の値</p>
+              <button
+                type="button"
+                className="btn-link detail-reset-field"
+                onClick={() =>
+                  setLocal((prev) => ({
+                    ...prev,
+                    assigneeTouched: true,
+                    assigneeIds: [],
+                  }))
+                }
+              >
+                未割当にする
+              </button>
+              <AssigneeListField
+                idPrefix="bulk"
+                assigneeIds={[]}
+                members={members}
+                memberCatalog={memberCatalog}
+                onChange={(next) =>
+                  setLocal((prev) => ({
+                    ...prev,
+                    assigneeTouched: true,
+                    assigneeIds: next,
+                  }))
+                }
+              />
+            </>
+          ) : (
+            <AssigneeListField
+              idPrefix="bulk"
+              assigneeIds={assigneeListForEditor}
+              members={members}
+              memberCatalog={memberCatalog}
+              onChange={(next) =>
+                setLocal((prev) => ({
+                  ...prev,
+                  assigneeTouched: true,
+                  assigneeIds: next,
+                }))
+              }
+            />
+          )}
+          {local.assigneeTouched ? (
+            <button
+              type="button"
+              className="btn-link detail-reset-field"
+              onClick={() =>
+                setLocal((prev) => {
+                  const next = { ...prev };
+                  delete next.assigneeTouched;
+                  delete next.assigneeIds;
+                  return next;
+                })
+              }
+            >
+              変更しない
+            </button>
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="bulkStatus">ステータス</label>
           <select
             id="bulkStatus"
+            className="ui-field"
             value={local.status}
             onChange={(e) =>
               setLocal((prev) => ({
@@ -334,15 +431,42 @@ export function BulkTaskDetailPanel({
             }
           >
             <option value="">変更しない</option>
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} />
           </select>
         </div>
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="bulkColor">色</label>
+            <ColorSelectField
+              id="bulkColor"
+              value={displayColorValue}
+              options={bulkColorOptions}
+              onChange={(next) => {
+                setLocal((prev) => {
+                  if (next === "") {
+                    return { ...prev, colorId: "" };
+                  }
+                  if (next === BULK_COLOR_CLEAR) {
+                    if (commonColor === null) return { ...prev, colorId: "" };
+                    return { ...prev, colorId: BULK_COLOR_CLEAR };
+                  }
+                  if (commonColor !== "mixed" && next === commonColor) {
+                    return { ...prev, colorId: "" };
+                  }
+                  return { ...prev, colorId: next };
+                });
+              }}
+            />
+            {colorMixed ? (
+              <p className="detail-mixed-hint">複数の値</p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="bulkConfidence">確度</label>
           <select
             id="bulkConfidence"
+            className="ui-field"
             value={local.confidence}
             onChange={(e) =>
               setLocal((prev) => ({
@@ -471,6 +595,7 @@ export function BulkTaskDetailPanel({
           <input
             id="bulkTagInput"
             type="text"
+            className="ui-field"
             list={documentTags.length > 0 ? "bulkTagSuggestions" : undefined}
             value={tagInput}
             placeholder="タグを入力して Enter"

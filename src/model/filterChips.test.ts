@@ -5,8 +5,8 @@ import {
   filterChipClearPatch,
   hasOtherVisibleMilestoneBandGroup,
   hiddenMilestoneGroupIdsForShowOnly,
-  hiddenMilestoneIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
+  pruneHiddenMilestoneIds,
 } from "./filterChips";
 import type { ScheduleFilters } from "./types";
 
@@ -20,6 +20,7 @@ const base: ScheduleFilters = {
   tags: [],
   search: "",
   noteSearch: "",
+  fieldFilters: {},
 };
 
 describe("activeFilterChips tag", () => {
@@ -29,6 +30,7 @@ describe("activeFilterChips tag", () => {
       [],
       null,
       null,
+      [],
       [],
       [],
       ["説明", "共有", "その他"],
@@ -68,6 +70,7 @@ describe("activeFilterChips", () => {
       null,
       [{ id: "e1000001-0000-4000-8000-000000000001", name: "承認" }],
       ["e1000001-0000-4000-8000-000000000001"],
+      [],
     );
     expect(chips.map((chip) => chip.label)).toEqual(["帯の線: 承認を非表示"]);
   });
@@ -86,7 +89,6 @@ describe("activeFilterChips", () => {
       ],
       null,
       null,
-      [],
       [],
       [],
       ["00000000-0000-4000-8000-000000000010"],
@@ -111,6 +113,28 @@ describe("pruneHiddenMilestoneGroupIds", () => {
   });
 });
 
+describe("pruneHiddenMilestoneIds", () => {
+  it("drops ids whose milestones are gone", () => {
+    expect(
+      pruneHiddenMilestoneIds(
+        [
+          "a1000001-0000-4000-8000-000000000001",
+          "a1000001-0000-4000-8000-000000000099",
+        ],
+        [
+          {
+            id: "a1000001-0000-4000-8000-000000000001",
+            name: "M",
+            date: "2026-01-01",
+            confidence: "committed",
+            groupId: "g1",
+          },
+        ],
+      ),
+    ).toEqual(["a1000001-0000-4000-8000-000000000001"]);
+  });
+});
+
 describe("activeFilterCount", () => {
   it("does not count lineage for the filter button", () => {
     expect(activeFilterCount({ ...base, search: "a" }, false)).toBe(1);
@@ -123,29 +147,6 @@ describe("activeFilterCount", () => {
   it("counts tag filter once regardless of how many tags are selected", () => {
     expect(activeFilterCount({ ...base, tags: ["a"] }, false)).toBe(1);
     expect(activeFilterCount({ ...base, tags: ["a", "b"] }, false)).toBe(1);
-  });
-});
-
-describe("hiddenMilestoneIdsForShowOnly", () => {
-  const milestones = [
-    {
-      id: "m1",
-      name: "A",
-      date: "2026-01-01",
-      confidence: "committed" as const,
-      groupId: "g1",
-    },
-    {
-      id: "m2",
-      name: "B",
-      date: "2026-01-02",
-      confidence: "committed" as const,
-      groupId: "g2",
-    },
-  ];
-
-  it("hides every other milestone id for show only", () => {
-    expect(hiddenMilestoneIdsForShowOnly("m2", milestones)).toEqual(["m1"]);
   });
 });
 

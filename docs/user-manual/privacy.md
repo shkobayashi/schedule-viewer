@@ -12,8 +12,8 @@ schedule-viewer（以下「本アプリ」）の利用にあたり、本アプ�
 
 - **自動更新（GitHub Releases 版のみ）**  
   設定で「起動時に更新を確認する」をオンにしたとき、または「更新を確認」を選んだとき、入っている版のメジャー用 `updater-X` Release が載せる `latest.json` を HTTPS で取得します。Microsoft Store 版は Windows が更新するため、この取得は行いません。
-- **ベータインストーラの保存（Windows と Ubuntu の GitHub Releases 版のみ）**  
-  設定の「インストーラを保存」で、公開中のベータ用インストーラを HTTPS で取得し、利用者が選んだ場所へ保存します。
+- **Pre-release インストーラの保存（Windows と Ubuntu の GitHub Releases 版のみ）**  
+  設定の「インストーラを保存」で、公開中の Pre-release（アルファまたはベータ）用インストーラを HTTPS で取得し、利用者が選んだ場所へ保存します。
 - **変更履歴の Issue リンク**  
   設定の「変更履歴」に載る項目の Issue 番号は、利用者がリンクを開いたときに GitHub へ接続します。
 

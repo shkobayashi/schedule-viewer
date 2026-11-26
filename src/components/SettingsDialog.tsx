@@ -1,12 +1,21 @@
+import {
+  SettingsStatusesSection,
+  type SettingsStatusesSectionProps,
+} from "./SettingsStatusesSection";
+import {
+  SettingsMembersSection,
+  type SettingsMembersSectionProps,
+} from "./SettingsMembersSection";
+import {
+  SettingsColorsSection,
+  type SettingsColorsSectionProps,
+} from "./SettingsColorsSection";
 import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
+import { isDesktopFirstRunRuntime } from "../model/firstRunGuidance";
+import { SettingsDesktopSectionButtons } from "./SettingsDesktopSectionButtons";
 import packageJson from "../../package.json";
-import type { AppMembersSettings } from "../model/memberAppData";
-import {
-  catalogIdFromFilename,
-  pickMembersJsonFile,
-} from "../model/memberAppData";
 import {
   calendarLabelFromFilename,
   pickCalendarJsonFile,
@@ -15,15 +24,8 @@ import {
   formatCalendarValidationErrors,
   validateCalendar,
 } from "../model/validateCalendar";
-import {
-  formatMembersValidationErrors,
-  validateMembers,
-} from "../model/validateMembers";
 import { errorMessage } from "../model/errors";
 
-function settingsDesktopOnly(): boolean {
-  return isTauri() || import.meta.env.MODE === "manual-screenshot";
-}
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
@@ -71,8 +73,16 @@ import { workspaceFileDisplayLabel } from "../model/workspaceDisplay";
 import {
   workspaceBindingSummary,
   workspaceCalendarError,
+  workspaceFieldExtensionsError,
   workspaceMemberError,
+  workspaceStatusesError,
+  workspaceColorsError,
 } from "../model/workspaceLoad";
+import {
+  parseFieldExtensionCatalogText,
+  pickFieldExtensionsJsonFile,
+} from "../model/fieldExtensionAppData";
+import type { AppFieldExtensionsSettings } from "../model/fieldExtensionTypes";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -84,13 +94,13 @@ function formatAppVersionLine(raw: string): string {
 let cachedAppVersionLine: string | null = null;
 let appVersionFetchPromise: Promise<void> | null = null;
 
-if (!settingsDesktopOnly()) {
+if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) {
   cachedAppVersionLine = formatAppVersionLine(packageJson.version);
 }
 
 function fetchAppVersionLineIfNeeded(): Promise<void> {
   if (cachedAppVersionLine !== null) return Promise.resolve();
-  if (!settingsDesktopOnly()) {
+  if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) {
     cachedAppVersionLine = formatAppVersionLine(packageJson.version);
     return Promise.resolve();
   }
@@ -110,8 +120,6 @@ function fetchAppVersionLineIfNeeded(): Promise<void> {
 
 type SettingsDialogProps = {
   open: boolean;
-  settings: AppMembersSettings;
-  selectedCatalogLabel: string | null;
   calendarLabel: string | null;
   calendarError?: string | null;
   displayScalePreference: DisplayScalePreference;
@@ -125,10 +133,10 @@ type SettingsDialogProps = {
   sidebarColumns: SidebarColumnsPreference;
   onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
   initialSection?: SettingsSection;
+  memberCatalog: SettingsMembersSectionProps;
+  statusCatalog: SettingsStatusesSectionProps;
+  colorCatalog: SettingsColorsSectionProps;
   onClose: () => void;
-  onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
-  onSelectCatalog: (catalogId: string | null) => Promise<void>;
-  onDeleteCatalog: (catalogId: string) => Promise<void>;
   onImportCalendar: (label: string, contents: string) => Promise<void>;
   onDeleteCalendar: () => Promise<void>;
   autoUpdateEnabled?: boolean;
@@ -146,10 +154,36 @@ type SettingsDialogProps = {
   betaInstallerStatusLine?: string | null;
   storeDistribution?: boolean;
   workspaceBinding?: WorkspaceWindowBinding | null;
+  workspaceStatusEditor?: { onOpenEditor: () => void };
+  workspaceColorEditor?: { onOpenEditor: () => void };
+  workspaceMemberEditor?: { onOpenEditor: () => void };
+  onCreateWorkspaceColorsCatalog?: () => Promise<void>;
+  workspaceFieldExtensionEditor?: { onOpenEditor: () => void };
+  workspaceEditableFieldExtensionError?: string | null;
+  onCreateWorkspaceEditableFieldExtension?: () => Promise<void>;
+  onDeleteWorkspaceEditableFieldExtension?: () => Promise<void>;
+  onClearWorkspaceEditableFieldExtension?: () => Promise<void>;
+  fieldExtensionEditor?: { onOpenEditor: () => void };
+  fieldExtensionSettings?: AppFieldExtensionsSettings;
+  fieldExtensionSelectedLabels?: string[];
+  fieldExtensionsError?: string | null;
+  onImportFieldExtension?: (
+    contents: string,
+    overwrite: boolean,
+  ) => Promise<void>;
+  onToggleFieldExtension?: (
+    catalogId: string,
+    selected: boolean,
+  ) => Promise<void>;
+  onDeleteFieldExtension?: (catalogId: string) => Promise<void>;
+  /** 初回ガイド: mcp.json をコピーしたとき */
+  onMcpConfigCopied?: () => void;
+  /** 初回ガイド: JSON作成スキルを置いたとき */
+  onJsonSkillsInstalled?: () => void;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
-  if (!settingsDesktopOnly()) return null;
+  if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return null;
   const ua = navigator.userAgent;
   if (/Win/i.test(ua)) return "windows";
   if (/Linux/i.test(ua)) return "linux";
@@ -159,6 +193,9 @@ function betaInstallerPlatform(): "windows" | "linux" | null {
 export type SettingsSection =
   | "display"
   | "members"
+  | "fieldExtensions"
+  | "statuses"
+  | "colors"
   | "calendar"
   | "updates"
   | "mcp"
@@ -166,8 +203,9 @@ export type SettingsSection =
 
 export function SettingsDialog({
   open,
-  settings,
-  selectedCatalogLabel,
+  memberCatalog,
+  statusCatalog,
+  colorCatalog,
   calendarLabel,
   calendarError = null,
   displayScalePreference,
@@ -182,9 +220,6 @@ export function SettingsDialog({
   onSidebarColumnsChange,
   initialSection = "display",
   onClose,
-  onImport,
-  onSelectCatalog,
-  onDeleteCatalog,
   onImportCalendar,
   onDeleteCalendar,
   autoUpdateEnabled = false,
@@ -202,6 +237,24 @@ export function SettingsDialog({
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
   workspaceBinding = null,
+  fieldExtensionSettings,
+  fieldExtensionSelectedLabels = [],
+  fieldExtensionsError = null,
+  onImportFieldExtension,
+  onToggleFieldExtension,
+  onDeleteFieldExtension,
+  onMcpConfigCopied,
+  onJsonSkillsInstalled,
+  workspaceStatusEditor,
+  workspaceColorEditor,
+  workspaceMemberEditor,
+  onCreateWorkspaceColorsCatalog,
+  workspaceFieldExtensionEditor,
+  workspaceEditableFieldExtensionError = null,
+  onCreateWorkspaceEditableFieldExtension,
+  onDeleteWorkspaceEditableFieldExtension,
+  onClearWorkspaceEditableFieldExtension,
+  fieldExtensionEditor,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -211,6 +264,8 @@ export function SettingsDialog({
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const workspaceMembersNoteRef = useRef<HTMLParagraphElement>(null);
   const workspaceCalendarNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceStatusesNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceColorsNoteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (open) setSection(initialSection);
@@ -221,21 +276,30 @@ export function SettingsDialog({
       ? workspaceMembersNoteRef
       : section === "calendar"
         ? workspaceCalendarNoteRef
-        : undefined;
+        : section === "statuses"
+          ? workspaceStatusesNoteRef
+          : section === "colors"
+            ? workspaceColorsNoteRef
+            : undefined;
 
   useEffect(() => {
     setMessage(null);
     setMcpPanelMessage(null);
+    setDeleteEditableFieldExtensionConfirm(false);
   }, [section]);
 
   useEffect(() => {
-    if (!open || section !== "mcp" || !settingsDesktopOnly()) return;
+    if (!open || section !== "mcp" || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     void fetchMcpConfigJson().then((json) => {
       setMcpConfig(json ?? "");
     });
   }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [
+    deleteEditableFieldExtensionConfirm,
+    setDeleteEditableFieldExtensionConfirm,
+  ] = useState(false);
   const [mcpPanelMessage, setMcpPanelMessage] = useState<{
     text: string;
     kind: "status" | "alert";
@@ -260,13 +324,10 @@ export function SettingsDialog({
   const [confirmReadScreenUninstall, setConfirmReadScreenUninstall] =
     useState(false);
   const readScreenToolsTouched = useRef(false);
-  const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
-    null,
-  );
-  const [pendingImport, setPendingImport] = useState<{
-    catalogId: string;
-    contents: string;
-  } | null>(null);
+  const [confirmFieldExtensionOverwriteId, setConfirmFieldExtensionOverwriteId] =
+    useState<string | null>(null);
+  const [pendingFieldExtensionImport, setPendingFieldExtensionImport] =
+    useState<string | null>(null);
   const [confirmCalendarOverwrite, setConfirmCalendarOverwrite] = useState(false);
   const [pendingCalendarImport, setPendingCalendarImport] = useState<{
     label: string;
@@ -322,7 +383,7 @@ export function SettingsDialog({
       readScreenToolsTouched.current = false;
       return;
     }
-    if (!settingsDesktopOnly()) return;
+    if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     let cancelled = false;
     const allTools: JsonSkillToolSelection = {
       cursor: true,
@@ -374,24 +435,25 @@ export function SettingsDialog({
     try {
       await action();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : failure);
+      setMessage(errorMessage(error, failure));
     } finally {
       setBusy(false);
     }
   };
 
-  const runImport = async (
-    catalogId: string,
+  const runFieldExtensionImport = async (
     contents: string,
     overwrite: boolean,
   ) => {
+    if (!onImportFieldExtension) return;
     setBusy(true);
     setMessage(null);
     try {
-      await onImport(catalogId, contents, overwrite);
-      setMessage(`「${catalogId}」を取り込みました。`);
-      setConfirmOverwriteId(null);
-      setPendingImport(null);
+      await onImportFieldExtension(contents, overwrite);
+      const doc = parseFieldExtensionCatalogText(contents);
+      setMessage(`「${doc.name}」を取り込みました。`);
+      setConfirmFieldExtensionOverwriteId(null);
+      setPendingFieldExtensionImport(null);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "取り込みに失敗しました。",
@@ -401,10 +463,11 @@ export function SettingsDialog({
     }
   };
 
-  const handleImportClick = async () => {
-    let pick: Awaited<ReturnType<typeof pickMembersJsonFile>>;
+  const handleFieldExtensionImportClick = async () => {
+    if (!onImportFieldExtension) return;
+    let pick: Awaited<ReturnType<typeof pickFieldExtensionsJsonFile>>;
     try {
-      pick = await pickMembersJsonFile();
+      pick = await pickFieldExtensionsJsonFile();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "取り込みに失敗しました。",
@@ -412,26 +475,24 @@ export function SettingsDialog({
       return;
     }
     if (!pick) return;
-    let data: unknown;
+    let doc: ReturnType<typeof parseFieldExtensionCatalogText>;
     try {
-      data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
-    } catch {
-      setMessage("JSON の形式が正しくありません。");
+      doc = parseFieldExtensionCatalogText(pick.contents);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
       return;
     }
-    const parsed = validateMembers(data);
-    if (!parsed.ok) {
-      setMessage(formatMembersValidationErrors(parsed.errors));
-      return;
-    }
-    const catalogId = catalogIdFromFilename(pick.name);
-    const exists = settings.catalogs.some((c) => c.id === catalogId);
+    const exists = fieldExtensionSettings?.catalogs.some(
+      (catalog) => catalog.id === doc.id,
+    );
     if (exists) {
-      setPendingImport({ catalogId, contents: pick.contents });
-      setConfirmOverwriteId(catalogId);
+      setPendingFieldExtensionImport(pick.contents);
+      setConfirmFieldExtensionOverwriteId(doc.id);
       return;
     }
-    await runImport(catalogId, pick.contents, false);
+    await runFieldExtensionImport(pick.contents, false);
   };
 
   const runCalendarImport = async (label: string, contents: string) => {
@@ -508,6 +569,7 @@ export function SettingsDialog({
       setConfirmJsonSkillReplace(false);
       setPendingJsonSkillExisting(null);
       setMessage("JSON作成スキルを置きました。");
+      onJsonSkillsInstalled?.();
     } catch (error) {
       setMessage(errorMessage(error, "スキルを置けませんでした。"));
     } finally {
@@ -516,7 +578,7 @@ export function SettingsDialog({
   };
 
   const handlePickJsonSkillFolder = async () => {
-    if (!settingsDesktopOnly()) return;
+    if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -659,7 +721,11 @@ export function SettingsDialog({
       title="設定"
       onClose={onClose}
       initialFocusRef={
-        workspaceBinding && (section === "members" || section === "calendar")
+        workspaceBinding &&
+        (section === "members" ||
+          section === "calendar" ||
+          section === "statuses" ||
+          section === "colors")
           ? workspaceNoteFocusRef
           : undefined
       }
@@ -689,32 +755,40 @@ export function SettingsDialog({
             </button>
             <button
               type="button"
+              className={section === "fieldExtensions" ? "active" : undefined}
+              aria-current={section === "fieldExtensions" ? "true" : undefined}
+              onClick={() => setSection("fieldExtensions")}
+            >
+              拡張項目
+            </button>
+            <button
+              type="button"
+              className={section === "statuses" ? "active" : undefined}
+              aria-current={section === "statuses" ? "true" : undefined}
+              onClick={() => setSection("statuses")}
+            >
+              ステータス
+            </button>
+            <button
+              type="button"
+              className={section === "colors" ? "active" : undefined}
+              aria-current={section === "colors" ? "true" : undefined}
+              onClick={() => setSection("colors")}
+            >
+              色
+            </button>
+            <button
+              type="button"
               className={section === "calendar" ? "active" : undefined}
               aria-current={section === "calendar" ? "true" : undefined}
               onClick={() => setSection("calendar")}
             >
               稼働日
             </button>
-            {settingsDesktopOnly() ? (
-              <button
-                type="button"
-                className={section === "updates" ? "active" : undefined}
-                aria-current={section === "updates" ? "true" : undefined}
-                onClick={() => setSection("updates")}
-              >
-                更新
-              </button>
-            ) : null}
-            {settingsDesktopOnly() ? (
-              <button
-                type="button"
-                className={section === "mcp" ? "active" : undefined}
-                aria-current={section === "mcp" ? "true" : undefined}
-                onClick={() => setSection("mcp")}
-              >
-                画面の状態を渡す
-              </button>
-            ) : null}
+            <SettingsDesktopSectionButtons
+              section={section}
+              onSelect={setSection}
+            />
             <button
               type="button"
               className={section === "jsonSkills" ? "active" : undefined}
@@ -837,7 +911,7 @@ export function SettingsDialog({
                     >
                       {workspaceMemberError(workspaceBinding.members)
                         ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーはここでは変更できません。`
-                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーは設定ファイルの指定どおり表示します。`}
                     </p>
                     <p
                       className="settings-current"
@@ -853,86 +927,329 @@ export function SettingsDialog({
                         {workspaceMemberError(workspaceBinding.members)} 担当はメンバー不明のままです。
                       </p>
                     ) : null}
-                  </>
-                ) : (
-                  <>
-                <p className="settings-note">
-                  メンバー JSON をアプリデータへ取り込み、表示に使うカタログを選びます。スケジュール
-                  JSON には含めません。
-                </p>
-                {selectedCatalogLabel ? (
-                  <p className="settings-current">
-                    使用中: {selectedCatalogLabel}
-                  </p>
-                ) : (
-                  <p className="settings-current">使用中: 未選択</p>
-                )}
-                <div className="settings-actions">
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    disabled={busy}
-                    onClick={() => void handleImportClick()}
-                  >
-                    取り込み…
-                  </button>
-                </div>
-                <ul className="settings-catalog-list">
-                  {settings.catalogs.length === 0 ? (
-                    <li className="muted">取り込み済みのカタログはありません。</li>
-                  ) : (
-                    settings.catalogs.map((catalog) => (
-                      <li key={catalog.id}>
-                        <label className="settings-catalog-row">
-                          <input
-                            type="radio"
-                            name="memberCatalog"
-                            checked={settings.selectedCatalogId === catalog.id}
-                            disabled={busy}
-                            onChange={() =>
-                              void runAction(
-                                () => onSelectCatalog(catalog.id),
-                                "カタログを選択できませんでした。",
-                              )
-                            }
-                          />
-                          <span>{catalog.label}</span>
-                        </label>
+                    {workspaceMemberEditor ? (
+                      <div className="settings-actions">
                         <button
                           type="button"
                           className="toolbar-btn"
-                          disabled={busy}
-                          onClick={() =>
-                            void runAction(
-                              () => onDeleteCatalog(catalog.id),
-                              "カタログを外せませんでした。",
-                            )
-                          }
+                          onClick={workspaceMemberEditor.onOpenEditor}
                         >
-                          外す
+                          項目を編集…
                         </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                {settings.catalogs.length > 0 ? (
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    disabled={busy || settings.selectedCatalogId == null}
-                    onClick={() =>
-                      void runAction(
-                        () => onSelectCatalog(null),
-                        "選択を解除できませんでした。",
-                      )
-                    }
-                  >
-                    選択を解除
-                  </button>
-                ) : null}
+                      </div>
+                    ) : null}
                   </>
+                ) : (
+                  <SettingsMembersSection {...memberCatalog} />
                 )}
               </>
+            ) : null}
+            {section === "fieldExtensions" && fieldExtensionSettings ? (
+              workspaceBinding ? (
+                <>
+                  <p className="settings-note">
+                    {`このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ピン留めの拡張は設定ファイルの指定どおり表示し、ここでは直しません。編集用の拡張は、このプロジェクト用に一つだけ作って項目を直せます。`}
+                  </p>
+                  <p className="settings-current">
+                    ピン留め:{" "}
+                    {workspaceBindingSummary(workspaceBinding).fieldExtensionsLabel}
+                  </p>
+                  <p className="settings-current">
+                    編集用:{" "}
+                    {workspaceBindingSummary(workspaceBinding).editableFieldExtensionLabel}
+                  </p>
+                  {workspaceFieldExtensionsError(workspaceBinding.fieldExtensions) ? (
+                    <p className="settings-message" role="alert">
+                      {workspaceFieldExtensionsError(workspaceBinding.fieldExtensions)}
+                    </p>
+                  ) : null}
+                  {workspaceEditableFieldExtensionError ? (
+                    <p className="settings-message" role="alert">
+                      {workspaceEditableFieldExtensionError}
+                    </p>
+                  ) : null}
+                  {onClearWorkspaceEditableFieldExtension &&
+                  workspaceBinding.document.editableFieldExtension != null ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onClearWorkspaceEditableFieldExtension,
+                            "編集用の拡張を設定ファイルから外せませんでした。",
+                          )
+                        }
+                      >
+                        編集用の参照を外す
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="settings-actions">
+                    {onCreateWorkspaceEditableFieldExtension ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onCreateWorkspaceEditableFieldExtension,
+                            "編集用の拡張を作れませんでした。",
+                          )
+                        }
+                      >
+                        編集用の拡張を作る
+                      </button>
+                    ) : null}
+                    {workspaceFieldExtensionEditor ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceFieldExtensionEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    ) : null}
+                    {onDeleteWorkspaceEditableFieldExtension ? (
+                      deleteEditableFieldExtensionConfirm ? (
+                        <>
+                          <button
+                            type="button"
+                            className="toolbar-btn"
+                            disabled={busy}
+                            onClick={() =>
+                              setDeleteEditableFieldExtensionConfirm(false)
+                            }
+                          >
+                            やめる
+                          </button>
+                          <button
+                            type="button"
+                            className="toolbar-btn toolbar-btn-danger"
+                            disabled={busy}
+                            onClick={() =>
+                              void runAction(async () => {
+                                await onDeleteWorkspaceEditableFieldExtension();
+                                setDeleteEditableFieldExtensionConfirm(false);
+                              }, "編集用の拡張を消せませんでした。")
+                            }
+                          >
+                            消す
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="toolbar-btn toolbar-btn-danger"
+                          disabled={busy}
+                          onClick={() =>
+                            setDeleteEditableFieldExtensionConfirm(true)
+                          }
+                        >
+                          消す
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                  {deleteEditableFieldExtensionConfirm ? (
+                    <p className="settings-note">
+                      編集用の拡張を設定ファイルから外し、ファイルを消します。タスクの値は残り、定義の無い追加項目になります。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="settings-note">
+                    拡張項目 JSON を取り込み、使う定義を複数選べます。値のキーは
+                    プラグイン ID と項目 ID を _ でつなぎます。「項目を編集…」で定義を直せます。
+                  </p>
+                  {fieldExtensionSelectedLabels.length > 0 ? (
+                    <p className="settings-current">
+                      使用中: {fieldExtensionSelectedLabels.join("、")}
+                    </p>
+                  ) : (
+                    <p className="settings-current">使用中: 未選択</p>
+                  )}
+                  {fieldExtensionsError ? (
+                    <p className="settings-message" role="alert">
+                      {fieldExtensionsError}
+                    </p>
+                  ) : null}
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="toolbar-btn"
+                      disabled={busy || !onImportFieldExtension}
+                      onClick={() => void handleFieldExtensionImportClick()}
+                    >
+                      取り込み…
+                    </button>
+                    {fieldExtensionEditor &&
+                    fieldExtensionSettings.catalogs.length > 0 ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={fieldExtensionEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    ) : null}
+                  </div>
+                  <ul className="settings-catalog-list">
+                    {fieldExtensionSettings.catalogs.length === 0 ? (
+                      <li className="muted">取り込み済みの拡張はありません。</li>
+                    ) : (
+                      fieldExtensionSettings.catalogs.map((catalog) => (
+                        <li key={catalog.id}>
+                          <label className="settings-catalog-row">
+                            <input
+                              type="checkbox"
+                              checked={fieldExtensionSettings.selectedCatalogIds.includes(
+                                catalog.id,
+                              )}
+                              disabled={busy || !onToggleFieldExtension}
+                              onChange={(e) =>
+                                void runAction(
+                                  () =>
+                                    onToggleFieldExtension!(
+                                      catalog.id,
+                                      e.target.checked,
+                                    ),
+                                  "選択を変えられませんでした。",
+                                )
+                              }
+                            />
+                            <span>
+                              {catalog.label}（{catalog.id}）
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            className="toolbar-btn"
+                            disabled={busy || !onDeleteFieldExtension}
+                            onClick={() =>
+                              void runAction(
+                                () => onDeleteFieldExtension!(catalog.id),
+                                "拡張を外せませんでした。",
+                              )
+                            }
+                          >
+                            外す
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </>
+              )
+            ) : null}
+            {section === "statuses" ? (
+              workspaceBinding ? (
+                <>
+                  <p
+                    ref={workspaceStatusesNoteRef}
+                    className="settings-note"
+                    tabIndex={-1}
+                  >
+                    {workspaceStatusesError(workspaceBinding.statuses)
+                      ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスはここでは変更できません。`
+                      : workspaceStatusEditor
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。「項目を編集…」で、このファイルの項目だけを直せます。`
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                  </p>
+                  <p
+                    className="settings-current"
+                    title={
+                      workspaceBinding.resolved.statusesPath ??
+                      workspaceBinding.workspacePath
+                    }
+                  >
+                    使用中: {workspaceBindingSummary(workspaceBinding).statusesLabel}
+                  </p>
+                  {workspaceStatusEditor ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceStatusEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    </div>
+                  ) : null}
+                  {workspaceStatusesError(workspaceBinding.statuses) ? (
+                    <p className="settings-error" role="alert">
+                      {workspaceStatusesError(workspaceBinding.statuses)}{" "}
+                      バーの色と選択肢は組み込みの三件に戻しています。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <SettingsStatusesSection {...statusCatalog} />
+              )
+            ) : null}
+            {section === "colors" ? (
+              workspaceBinding ? (
+                <>
+                  <p
+                    ref={workspaceColorsNoteRef}
+                    className="settings-note"
+                    tabIndex={-1}
+                  >
+                    {workspaceColorsError(workspaceBinding.colors)
+                      ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色はここでは変更できません。`
+                      : workspaceColorEditor
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色は設定ファイルの指定どおり表示します。「項目を編集…」で、このファイルの項目だけを直せます。`
+                        : onCreateWorkspaceColorsCatalog
+                          ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色の一覧はまだありません。「色の一覧を作る」で、設定ファイルと同じフォルダに JSON を置き、設定ファイルへパスを足します。`
+                          : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色は設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                  </p>
+                  <p
+                    className="settings-current"
+                    title={
+                      workspaceBinding.resolved.colorsPath ??
+                      workspaceBinding.workspacePath
+                    }
+                  >
+                    使用中: {workspaceBindingSummary(workspaceBinding).colorsLabel}
+                  </p>
+                  {workspaceColorEditor ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceColorEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    </div>
+                  ) : onCreateWorkspaceColorsCatalog ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onCreateWorkspaceColorsCatalog,
+                            "色の一覧を作れませんでした。",
+                          )
+                        }
+                      >
+                        色の一覧を作る
+                      </button>
+                    </div>
+                  ) : null}
+                  {workspaceColorsError(workspaceBinding.colors) ? (
+                    <p className="settings-error" role="alert">
+                      {workspaceColorsError(workspaceBinding.colors)}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <SettingsColorsSection {...colorCatalog} />
+              )
             ) : null}
             {section === "calendar" ? (
               <>
@@ -1009,12 +1326,12 @@ export function SettingsDialog({
                 )}
               </>
             ) : null}
-            {section === "mcp" && settingsDesktopOnly() ? (
+            {section === "mcp" && isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
               <>
                 <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
                   MCP を使える Cursor または Claude 向けです。下の JSON をコピーして、mcp.json
-                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、前面の未保存の置き換え（replace_schedule）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えは前面だけです。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
+                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、画面のスケジュール JSON 全体（current_schedule）、前面の未保存の置き換え（replace_schedule）、見方（set_view）、説明のための見え方（explain_view）、説明の半透明（explain_overlay）、試しの計画の反映（apply_explanation_pattern）、計画の部分更新（edit_plan）、ファイル操作（file_action）、一覧（catalog_action）、設定（set_preferences）、取り消し（history）、ウィンドウ操作（focus_window、open_new_window、close_window、minimize_window）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えと前面向けの操作は前面だけです。操作の途中は discardInProgress が無いと拒みます。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
                 </p>
                 <label className="settings-field">
                   <span>mcp.json</span>
@@ -1033,11 +1350,13 @@ export function SettingsDialog({
                     disabled={!mcpConfig}
                     onClick={() => {
                       void navigator.clipboard.writeText(mcpConfig).then(
-                        () =>
+                        () => {
                           setMcpPanelMessage({
                             text: "JSON をコピーしました。",
                             kind: "status",
-                          }),
+                          });
+                          onMcpConfigCopied?.();
+                        },
                         () =>
                           setMcpPanelMessage({
                             text: "コピーできませんでした。",
@@ -1051,7 +1370,7 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 4 つは「JSON作成スキルを置く」にあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 8 つは「JSON作成スキルを置く」にあります。見た目で指す手順と画面の判断は schedule-talk スキルにあります。
                 </p>
                 <fieldset className="settings-field" disabled={busy}>
                   <legend>置く先</legend>
@@ -1133,7 +1452,7 @@ export function SettingsDialog({
                 ) : null}
               </>
             ) : null}
-            {section === "updates" && settingsDesktopOnly() ? (
+            {section === "updates" && isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
               storeDistribution ? (
                 <>
                   <p className="settings-note">
@@ -1208,7 +1527,7 @@ export function SettingsDialog({
                 {showBetaInstallerSave ? (
                   <>
                     <p className="settings-note">
-                      公開中のベータを、この OS のインストーラとして保存します。
+                      公開中の Pre-release（アルファまたはベータ）を、この OS のインストーラとして保存します。
                     </p>
                     <div className="settings-actions">
                       <button
@@ -1233,17 +1552,17 @@ export function SettingsDialog({
             {section === "jsonSkills" ? (
               <>
                 <p className="settings-note">
-                  write-schedule、write-members、write-calendar、write-workspace
-                  の4つをまとめて置きます。中身はマージしません。git
+                  write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk、how-to
+                  の8つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
-                {!settingsDesktopOnly() ? (
+                {!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
                   <p className="settings-note">
                     この操作はデスクトップ版でのみ使えます。
                   </p>
                 ) : null}
-                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
+                <fieldset className="settings-field" disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}>
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
@@ -1270,7 +1589,7 @@ export function SettingsDialog({
                     <span>GitHub Copilot</span>
                   </label>
                 </fieldset>
-                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
+                <fieldset className="settings-field" disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}>
                   <legend>範囲</legend>
                   <label className="settings-field-check">
                     <input
@@ -1298,7 +1617,7 @@ export function SettingsDialog({
                       <button
                         type="button"
                         className="toolbar-btn"
-                        disabled={busy || !settingsDesktopOnly()}
+                        disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
                         フォルダを選ぶ…
@@ -1317,7 +1636,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !settingsDesktopOnly() ||
+                      !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ||
                       !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
@@ -1331,7 +1650,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !settingsDesktopOnly() ||
+                      !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ||
                       !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
@@ -1379,10 +1698,10 @@ export function SettingsDialog({
             ) : null}
           </div>
         </div>
-        {confirmOverwriteId && pendingImport ? (
+        {confirmFieldExtensionOverwriteId && pendingFieldExtensionImport ? (
           <div className="settings-confirm">
             <p>
-              「{confirmOverwriteId}」は既にあります。上書きしますか？
+              「{confirmFieldExtensionOverwriteId}」は既にあります。上書きしますか？
             </p>
             <div className="modal-actions">
               <button
@@ -1390,11 +1709,7 @@ export function SettingsDialog({
                 className="toolbar-btn"
                 disabled={busy}
                 onClick={() =>
-                  void runImport(
-                    pendingImport.catalogId,
-                    pendingImport.contents,
-                    true,
-                  )
+                  void runFieldExtensionImport(pendingFieldExtensionImport, true)
                 }
               >
                 上書き
@@ -1404,8 +1719,8 @@ export function SettingsDialog({
                 className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
-                  setConfirmOverwriteId(null);
-                  setPendingImport(null);
+                  setConfirmFieldExtensionOverwriteId(null);
+                  setPendingFieldExtensionImport(null);
                 }}
               >
                 キャンセル
@@ -1541,8 +1856,8 @@ export function SettingsDialog({
         {section === "jsonSkills" && confirmJsonSkillUninstall ? (
           <div className="settings-confirm">
             <p>
-              選んだ場所から write-schedule、write-members、write-calendar、write-workspace
-              の4つを外します。ほかのスキルや skills フォルダ自体は残します。
+              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk、how-to
+              の8つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">
               <button
@@ -1564,11 +1879,6 @@ export function SettingsDialog({
             </div>
           </div>
         ) : null}
-        <div className="modal-actions">
-          <button type="button" className="toolbar-btn" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
         {appVersionLine ? (
           <p className="settings-app-version">{appVersionLine}</p>
         ) : null}

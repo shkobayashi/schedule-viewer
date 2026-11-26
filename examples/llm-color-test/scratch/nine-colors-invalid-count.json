@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "colors": [
+    {"id": "c1", "name": "1", "description": "a", "color": {"light": {"bg": "#FEF3C7"}, "dark": {"bg": "#78350F"}}},
+    {"id": "c2", "name": "2", "description": "b", "color": {"light": {"bg": "#DBEAFE"}, "dark": {"bg": "#1E3A8A"}}},
+    {"id": "c3", "name": "3", "description": "c", "color": {"light": {"bg": "#FEE2E2"}, "dark": {"bg": "#7F1D1D"}}},
+    {"id": "c4", "name": "4", "description": "d", "color": {"light": {"bg": "#DCFCE7"}, "dark": {"bg": "#14532D"}}},
+    {"id": "c5", "name": "5", "description": "e", "color": {"light": {"bg": "#CCFBF1"}, "dark": {"bg": "#134E4A"}}},
+    {"id": "c6", "name": "6", "description": "f", "color": {"light": {"bg": "#EDE9FE"}, "dark": {"bg": "#4C1D95"}}},
+    {"id": "c7", "name": "7", "description": "g", "color": {"light": {"bg": "#FFEDD5"}, "dark": {"bg": "#7C2D12"}}},
+    {"id": "c8", "name": "8", "description": "h", "color": {"light": {"bg": "#E0E7FF"}, "dark": {"bg": "#312E81"}}},
+    {"id": "c9", "name": "9", "description": "i", "color": {"light": {"bg": "#FCE7F3"}, "dark": {"bg": "#831843"}}}
+  ]
+}

@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-get-statuses-settings"
+description = "Allows reading status catalog settings."
+commands.allow = ["get_statuses_settings"]
+
+[[permission]]
+identifier = "allow-read-status-catalog"
+description = "Allows reading a status catalog from app data."
+commands.allow = ["read_status_catalog"]
+
+[[permission]]
+identifier = "allow-import-status-catalog"
+description = "Allows importing a status catalog into app data."
+commands.allow = ["import_status_catalog"]
+
+[[permission]]
+identifier = "allow-delete-status-catalog"
+description = "Allows deleting a status catalog from app data."
+commands.allow = ["delete_status_catalog"]
+
+[[permission]]
+identifier = "allow-set-selected-status-catalog"
+description = "Allows selecting the active status catalog."
+commands.allow = ["set_selected_status_catalog"]
+
+[[permission]]
+identifier = "allow-save-statuses-json"
+description = "Allows exporting a status catalog as a JSON file via native save dialog."
+commands.allow = ["save_statuses_json"]

@@ -7,6 +7,7 @@ import {
   readOpenScheduleFileViaTauri,
   safeScheduleJsonFilename,
 } from "./scheduleFile";
+import type { ScheduleFieldDef } from "./types";
 
 export type BaselineDiffsLoadResult =
   | { ok: true; text: string }
@@ -16,6 +17,7 @@ export async function loadBaselineDiffsText(
   filePath: string | null,
   baselineJson: string,
   screenJson: string,
+  fields?: readonly ScheduleFieldDef[],
 ): Promise<BaselineDiffsLoadResult> {
   const canCompareOnDisk =
     filePath != null &&
@@ -69,6 +71,7 @@ export async function loadBaselineDiffsText(
         screenParsed.document,
         fileParsed.document,
         filename,
+        fields,
       ),
     };
   } catch (error: unknown) {

@@ -6,6 +6,7 @@ import type {
   TaskConfidence,
 } from "../model/types";
 import { ModalDialog } from "./ModalDialog";
+import { DateInput } from "./DateInput";
 
 type MilestoneEditDialogProps = {
   milestone: Milestone;
@@ -45,11 +46,10 @@ export function MilestoneEditDialog({
         </div>
         <div className="field">
           <label htmlFor="milestoneDate">日付</label>
-          <input
+          <DateInput
             id="milestoneDate"
-            type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={setDate}
           />
         </div>
         <div className="field">

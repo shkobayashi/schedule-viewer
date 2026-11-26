@@ -9,7 +9,15 @@ import {
   saveScheduleViaTauri,
   suggestedJsonFilename,
 } from "../../model/scheduleFile";
+import { assessHierarchySave } from "../../model/hierarchyLevelEdit";
+import {
+  assessFieldValuesConformanceSave,
+  assessRequiredFieldValuesSave,
+} from "../../model/taskFields";
+import type { ScheduleFieldDef } from "../../model/types";
 import { withSaveFlight } from "./saveFlight";
+
+export const SCHEDULE_SAVE_ERROR_DIALOG_TITLE = "保存できません";
 
 type UseScheduleSaveOptions = {
   currentJson: string;
@@ -23,10 +31,16 @@ type UseScheduleSaveOptions = {
   baselineJsonRef: { current: string };
   fileBusyRef: { current: boolean };
   setFileBusy: (busy: boolean) => void;
-  setErrorMessageText: (message: string | null) => void;
+  reportSaveError: (message: string) => void;
   clearRecoveryDraft: () => Promise<void>;
   clearExternalReloadPromptRef: { current: () => void };
   clearInvalidDiskHashRef: { current: () => void };
+  extraFieldDefs?: readonly ScheduleFieldDef[];
+  onScheduleSavePathChanged?: (
+    previousPath: string | null,
+    newPath: string,
+  ) => void;
+  onScheduleSaved?: () => void;
 };
 
 export function useScheduleSave({
@@ -41,10 +55,13 @@ export function useScheduleSave({
   baselineJsonRef,
   fileBusyRef,
   setFileBusy,
-  setErrorMessageText,
+  reportSaveError,
   clearRecoveryDraft,
   clearExternalReloadPromptRef,
   clearInvalidDiskHashRef,
+  extraFieldDefs = [],
+  onScheduleSavePathChanged,
+  onScheduleSaved,
 }: UseScheduleSaveOptions) {
   const saveInFlightRef = useRef(false);
   const pausePollRef = useRef(false);
@@ -56,7 +73,31 @@ export function useScheduleSave({
       await withSaveFlight(saveInFlightRef, fileBusyRef.current, async () => {
         const parsed = parseScheduleText(getCanonicalJson?.() ?? currentJson);
         if (!parsed.ok) {
-          setErrorMessageText(parsed.message);
+          reportSaveError(parsed.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const hierarchyGate = assessHierarchySave(parsed.document);
+        if (!hierarchyGate.ok) {
+          reportSaveError(hierarchyGate.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const requiredGate = assessRequiredFieldValuesSave(
+          parsed.document,
+          extraFieldDefs,
+        );
+        if (!requiredGate.ok) {
+          reportSaveError(requiredGate.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const conformanceGate = assessFieldValuesConformanceSave(
+          parsed.document,
+          extraFieldDefs,
+        );
+        if (!conformanceGate.ok) {
+          reportSaveError(conformanceGate.message);
           if (skipExternalCheck) pausePollRef.current = false;
           return;
         }
@@ -80,7 +121,7 @@ export function useScheduleSave({
                   return;
                 }
               } catch (error) {
-                setErrorMessageText(
+                reportSaveError(
                   errorMessage(error, "ファイルの状態を確認できませんでした。"),
                 );
                 return;
@@ -96,13 +137,18 @@ export function useScheduleSave({
                 skipExternalCheck,
               );
               if (!writtenPath) return;
+              const previousPath = filePath;
               setFilePath(writtenPath);
               setBrowserFileLabel(null);
               setBaselineJson(contents);
               baselineJsonRef.current = contents;
               clearExternalReloadPromptRef.current();
               clearInvalidDiskHashRef.current();
+              if (previousPath !== writtenPath) {
+                onScheduleSavePathChanged?.(previousPath, writtenPath);
+              }
               await clearRecoveryDraft();
+              onScheduleSaved?.();
             } catch (error) {
               const message = errorMessage(error, "ファイルに保存できませんでした。");
               if (message.includes(DISK_HASH_MISMATCH)) {
@@ -111,7 +157,7 @@ export function useScheduleSave({
                 holdPause = true;
                 return;
               }
-              setErrorMessageText(message);
+              reportSaveError(message);
             } finally {
               setFileBusy(false);
             }
@@ -124,6 +170,7 @@ export function useScheduleSave({
           clearExternalReloadPromptRef.current();
           clearInvalidDiskHashRef.current();
           await clearRecoveryDraft();
+          onScheduleSaved?.();
           if (saveAs) {
             setFilePath(null);
             setBrowserFileLabel(null);
@@ -145,10 +192,13 @@ export function useScheduleSave({
       getDocumentTitle,
       setBaselineJson,
       setBrowserFileLabel,
-      setErrorMessageText,
+      reportSaveError,
       setFileBusy,
       setFilePath,
       title,
+      extraFieldDefs,
+      onScheduleSavePathChanged,
+      onScheduleSaved,
     ],
   );
 

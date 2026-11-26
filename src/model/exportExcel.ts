@@ -1,14 +1,25 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { fmtMonthDay, isoDate } from "./dates";
-import { assigneeSidebarLabel, resolveAssigneeDisplay } from "./assigneeDisplay";
+import { assigneeExcelCellLabel } from "./assigneeDisplay";
 import {
   EXPORT_MAX_ROWS,
+  exportHierarchyHeadingIndent,
+  exportHierarchyHeadingKind,
   ScheduleExportTooLargeError,
   type ScheduleExportInput,
 } from "./exportHtml";
 import { scheduleXlsxFilename } from "./exportFilename";
 import { isOverdue, taskBarExclusiveEnd } from "./timeline";
-import type { Milestone, MilestoneGroup, ScheduleId, Task, TaskStatus } from "./types";
+import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
+import { excelRowFillForColorId } from "./colorCatalog";
+import { excelConnectionCurvesForExport } from "./excelConnectionCurve";
+import type {
+  Milestone,
+  MilestoneGroup,
+  ScheduleId,
+  Task,
+  TaskConnection,
+} from "./types";
 import type { GridTier } from "./timeline";
 import { paletteFor } from "./palette";
 import { normalizeTaskNote } from "./taskNote";
@@ -16,8 +27,14 @@ import {
   EXCEL_EXPORT_COLUMN_ORDER,
   excelLeftHeaders,
   excelNoteColumnIndex,
+  excelTodosColumnIndex,
   type ExcelExportColumnsPreference,
+  type ExcelExportFieldColumnsPreference,
+  type ExcelLeftColumnLayoutInput,
 } from "./excelExportColumns";
+import { formatFieldValueForExcel } from "./taskFields";
+import type { ScheduleFieldDef } from "./types";
+import { formatTaskTodosForExcel } from "./taskTodos";
 import {
   EXCEL_DEFAULT_BODY_ROW_HEIGHT_PX,
   excelHeaderRowHeightPx,
@@ -62,26 +79,8 @@ export const EXCEL_MAX_DATE_COLUMNS = 2_000;
 export const EXCEL_MAX_SHAPES = 5_000;
 export const EXCEL_MAX_BYTES = 10 * 1024 * 1024;
 
-const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
-};
-
-export type ExcelExportShape = {
-  row: number;
-  anchorCol: number;
-  xOffsetPx: number;
-  yOffsetPx: number;
-  widthPx: number;
-  heightPx: number;
-  fillRgb: string;
-  pattern: "solid" | "tentative";
-  patternForeRgb: string | null;
-  fillTransparency?: number;
-  text?: string;
-  textRgb?: string;
-};
+import type { ExcelExportShape } from "./excelExportTypes";
+export type { ExcelExportShape } from "./excelExportTypes";
 
 export type ExcelExportRow = {
   kind: "category" | "group" | "task";
@@ -90,6 +89,7 @@ export type ExcelExportRow = {
   nameIndent: number;
   nameBold: boolean;
   nameTextRgb: string;
+  rowFillRgb?: string;
 };
 
 export type ExcelMilestoneRow = {
@@ -104,6 +104,14 @@ export type ExcelExportConnector = {
   broken: boolean;
   straight: boolean;
   bentAdj1: number;
+};
+
+export type ExcelExportConnectionCurve = {
+  fromShapeIndex: number;
+  toShapeIndex: number;
+  strokeRgb: string;
+  label: string;
+  labelTextRgb: string;
 };
 
 export type ExcelExportTodayLine = {
@@ -125,6 +133,7 @@ export type ExcelExportPayload = {
   rows: ExcelExportRow[];
   shapes: ExcelExportShape[];
   connectors: ExcelExportConnector[];
+  connectionCurves: ExcelExportConnectionCurve[];
   todayLine: ExcelExportTodayLine | null;
   milestoneMarks: { row: number; colIndex: number; character: string }[];
   headerGrayRgb: string;
@@ -136,6 +145,7 @@ export type ExcelExportPayload = {
   overdueNameRgb: string;
   grayHeaderOnly: boolean;
   noteWrapColumnIndex: number | null;
+  todosWrapColumnIndex: number | null;
   dateColumnWidthPx: number;
   bodyRowHeightPx: number;
   headerRowHeightPx: number;
@@ -145,8 +155,11 @@ export type ScheduleExcelInput = ScheduleExportInput & {
   exportMilestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   taskNames: ReadonlyMap<ScheduleId, string>;
+  connections?: readonly TaskConnection[];
   exportedAtIso: string;
   excelColumns: ExcelExportColumnsPreference;
+  fieldDefs: readonly ScheduleFieldDef[];
+  excelFieldColumns: ExcelExportFieldColumnsPreference;
 };
 
 export function excelDateColumnWidthPx(tier: GridTier): number {
@@ -165,26 +178,31 @@ function formatPredecessors(
     .join("、");
 }
 
-function emptyCellsForColumns(
-  excelColumns: ExcelExportColumnsPreference,
-): string[] {
-  return EXCEL_EXPORT_COLUMN_ORDER.filter((id) => excelColumns[id]).map(
-    () => "",
-  );
+function excelLeftLayout(input: ScheduleExcelInput): ExcelLeftColumnLayoutInput {
+  return {
+    excelColumns: input.excelColumns,
+    fieldDefs: input.fieldDefs,
+    excelFieldColumns: input.excelFieldColumns,
+  };
+}
+
+function emptyCellsForColumns(layout: ExcelLeftColumnLayoutInput): string[] {
+  const count = excelLeftHeaders(layout).length - 1;
+  return Array.from({ length: count }, () => "");
 }
 
 function taskCellsForColumns(
   task: Task,
-  excelColumns: ExcelExportColumnsPreference,
+  layout: ExcelLeftColumnLayoutInput,
   taskNames: ReadonlyMap<ScheduleId, string>,
   memberCatalog: ScheduleExportInput["memberCatalog"],
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string[] {
-  const assignee = assigneeSidebarLabel(
-    resolveAssigneeDisplay(task.assigneeId, memberCatalog),
-  );
+  const assignee = assigneeExcelCellLabel(task.assigneeIds, memberCatalog);
   const cells: string[] = [];
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
-    if (!excelColumns[id]) continue;
+    if (id === "note") continue;
+    if (!layout.excelColumns[id]) continue;
     switch (id) {
       case "assignee":
         cells.push(assignee);
@@ -196,7 +214,7 @@ function taskCellsForColumns(
         cells.push(fmtMonthDay(task.end));
         break;
       case "status":
-        cells.push(TASK_STATUS_LABEL[task.status]);
+        cells.push(statusLabel(statuses, task.status));
         break;
       case "predecessors":
         cells.push(formatPredecessors(task, taskNames));
@@ -204,12 +222,19 @@ function taskCellsForColumns(
       case "progress":
         cells.push(`${task.progress}%`);
         break;
-      case "note":
-        cells.push(normalizeTaskNote(task.note) ?? "");
+      case "todos":
+        cells.push(formatTaskTodosForExcel(task));
         break;
       default:
         break;
     }
+  }
+  for (const def of layout.fieldDefs) {
+    if (!layout.excelFieldColumns[def.key]) continue;
+    cells.push(formatFieldValueForExcel(def, task.fieldValues?.[def.key]));
+  }
+  if (layout.excelColumns.note) {
+    cells.push(normalizeTaskNote(task.note) ?? "");
   }
   return cells;
 }
@@ -219,7 +244,7 @@ function scopeSentence(input: ScheduleExcelInput): string {
   return `絞り込み・折りたたみで見えている行だけを書き出しています。書き出し: ${exportedAt}`;
 }
 
-function assertExcelLimits(payload: ExcelExportPayload): void {
+export function assertExcelLimits(payload: ExcelExportPayload): void {
   const dataRows =
     payload.rows.length + payload.milestoneRows.length + 1;
   if (dataRows > EXPORT_MAX_ROWS) {
@@ -235,6 +260,7 @@ function assertExcelLimits(payload: ExcelExportPayload): void {
   const drawingCount =
     payload.shapes.length +
     payload.connectors.length +
+    payload.connectionCurves.length * 2 +
     (payload.todayLine ? 1 : 0) +
     payload.summaryGapLines.length +
     payload.summaryCaps.length;
@@ -287,9 +313,11 @@ export function buildExcelExportPayload(
   const { chart, css: lightCss } = paletteFor("light");
   const excelGroupNameRgb = lightCss.groupText.replace("#", "");
   const excelOverdueNameRgb = lightCss.dangerText.replace("#", "");
-  const leftHeaders = excelLeftHeaders(input.excelColumns);
+  const leftLayout = excelLeftLayout(input);
+  const leftHeaders = excelLeftHeaders(leftLayout);
   const leftColCount = leftHeaders.length;
-  const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
+  const noteWrapColumnIndex = excelNoteColumnIndex(leftLayout);
+  const todosWrapColumnIndex = excelTodosColumnIndex(leftLayout);
   const columns = excelDateColumnsWithBorders(
     buildExcelTimeColumns(
       input.timelineStart,
@@ -326,11 +354,13 @@ export function buildExcelExportPayload(
   const taskById = new Map<ScheduleId, Task>();
 
   let bodyRow = bodyStartRow;
+  let taskNameIndent = 0;
   for (const visible of input.visibleRows) {
     if (visible.type === "category") {
+      taskNameIndent = 1;
       rows.push({
         kind: "category",
-        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
         nameOverdue: false,
         nameIndent: 0,
         nameBold: true,
@@ -354,9 +384,10 @@ export function buildExcelExportPayload(
       continue;
     }
     if (visible.type === "group") {
+      taskNameIndent = 2;
       rows.push({
         kind: "group",
-        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
         nameOverdue: false,
         nameIndent: 1,
         nameBold: true,
@@ -379,25 +410,66 @@ export function buildExcelExportPayload(
       bodyRow += 1;
       continue;
     }
+    if (visible.type === "hierarchy") {
+      const indent = exportHierarchyHeadingIndent(visible);
+      const kind = exportHierarchyHeadingKind(visible);
+      taskNameIndent = indent + 1;
+      rows.push({
+        kind,
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
+        nameOverdue: false,
+        nameIndent: indent,
+        nameBold: true,
+        nameTextRgb:
+          kind === "category"
+            ? chart.textPrimary.replace("#", "")
+            : excelGroupNameRgb,
+      });
+      if (visible.summary) {
+        const deco = excelSummaryBarDecorations(
+          bodyRow,
+          visible.summary,
+          columns,
+          input.tier,
+          leftColCount,
+          dateColumnWidthPx,
+          bodyRowHeightPx,
+        );
+        shapes.push(...deco.shapes);
+        summaryGapLines.push(...deco.gapLines);
+        summaryCaps.push(...deco.caps);
+      }
+      bodyRow += 1;
+      continue;
+    }
+    if (visible.type !== "task") continue;
     const task = visible.task;
     taskRowById.set(task.id, bodyRow);
     taskById.set(task.id, task);
-    const overdue = isOverdue(task, input.today);
+    const overdue = isOverdue(task, input.today, input.statuses);
+    const rowFill = excelRowFillForColorId(
+      input.colors ?? null,
+      task.colorId,
+    );
     rows.push({
       kind: "task",
       cells: [
         task.name,
         ...taskCellsForColumns(
           task,
-          input.excelColumns,
+          leftLayout,
           input.taskNames,
           input.memberCatalog,
+          input.statuses,
         ),
       ],
       nameOverdue: overdue,
-      nameIndent: 2,
+      nameIndent: taskNameIndent,
       nameBold: false,
       nameTextRgb: EXCEL_TASK_NAME_RGB,
+      ...(rowFill != null
+        ? { rowFillRgb: rowFill.replace("#", "") }
+        : {}),
     });
     taskShapeIndexById.set(task.id, shapes.length);
     shapes.push(
@@ -458,6 +530,17 @@ export function buildExcelExportPayload(
     });
   }
 
+  const visibleTaskIds = new Set(
+    input.visibleRows.flatMap((row) =>
+      row.type === "task" ? [row.task.id] : [],
+    ),
+  );
+  const connectionCurves = excelConnectionCurvesForExport(
+    input.connections,
+    visibleTaskIds,
+    taskShapeIndexById,
+  );
+
   const todayLine = excelTodayLineDescriptor(
     input.showLightningLine,
     input.today,
@@ -483,6 +566,7 @@ export function buildExcelExportPayload(
     rows,
     shapes,
     connectors,
+    connectionCurves,
     todayLine,
     milestoneMarks,
     headerGrayRgb: EXCEL_SHEET_NON_WORKING_RGB,
@@ -494,6 +578,7 @@ export function buildExcelExportPayload(
     overdueNameRgb: excelOverdueNameRgb,
     grayHeaderOnly: input.tier === "day",
     noteWrapColumnIndex,
+    todosWrapColumnIndex,
     dateColumnWidthPx,
     bodyRowHeightPx,
     headerRowHeightPx,
@@ -514,4 +599,15 @@ export async function exportScheduleExcel(
     payload,
     suggestedName,
   });
+}
+
+export async function exportScheduleExcelToPath(
+  input: ScheduleExcelInput,
+  path: string,
+): Promise<void> {
+  const payload = buildExcelExportPayload(input);
+  if (!isTauri()) {
+    throw new Error("Excel の書き出しはデスクトップ版だけです。");
+  }
+  await invoke("write_excel_export_at_path", { path, payload });
 }

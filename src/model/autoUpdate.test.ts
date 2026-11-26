@@ -84,9 +84,10 @@ describe("shouldAcceptAutoUpdate", () => {
     expect(shouldAcceptAutoUpdate("1.4.2-beta.1", "1.4.2")).toBe(true);
   });
 
-  it("rejects different major, beta remote, same or older", () => {
+  it("rejects different major, prerelease remote, same or older", () => {
     expect(shouldAcceptAutoUpdate("1.4.1", "2.0.0")).toBe(false);
     expect(shouldAcceptAutoUpdate("1.4.1", "1.4.1-beta.1")).toBe(false);
+    expect(shouldAcceptAutoUpdate("1.4.1", "2.0.0-alpha.1")).toBe(false);
     expect(shouldAcceptAutoUpdate("1.4.2", "1.4.2")).toBe(false);
     expect(shouldAcceptAutoUpdate("1.4.2", "1.4.1")).toBe(false);
     expect(shouldAcceptAutoUpdate("bad", "1.4.2")).toBe(false);

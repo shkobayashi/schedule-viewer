@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-claim-color-catalog-edit"
+description = "Allows claiming exclusive edit of a color catalog in one window."
+commands.allow = ["claim_color_catalog_edit"]
+
+[[permission]]
+identifier = "allow-release-color-catalog-edit"
+description = "Allows releasing exclusive edit of a color catalog."
+commands.allow = ["release_color_catalog_edit"]

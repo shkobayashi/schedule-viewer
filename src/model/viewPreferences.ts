@@ -1,6 +1,6 @@
 export type RowDensity = "comfortable" | "compact";
 
-export type SidebarColumnId = "start" | "end" | "duration" | "progress";
+export type SidebarColumnId = "start" | "end" | "duration" | "progress" | "status";
 
 export type SidebarColumnsPreference = Record<SidebarColumnId, boolean>;
 
@@ -13,6 +13,7 @@ export const SIDEBAR_COLUMN_LABELS: Record<SidebarColumnId, string> = {
   end: "終了",
   duration: "日数",
   progress: "進捗",
+  status: "ステータス",
 };
 
 export const DEFAULT_SIDEBAR_COLUMNS: SidebarColumnsPreference = {
@@ -20,6 +21,7 @@ export const DEFAULT_SIDEBAR_COLUMNS: SidebarColumnsPreference = {
   end: false,
   duration: false,
   progress: false,
+  status: false,
 };
 
 export function parseRowDensity(raw: string | null): RowDensity {
@@ -73,6 +75,7 @@ export function parseSidebarColumns(raw: string | null): SidebarColumnsPreferenc
       end: parsed.end === true,
       duration: parsed.duration === true,
       progress: parsed.progress === true,
+      status: parsed.status === true,
     };
   } catch {
     return { ...DEFAULT_SIDEBAR_COLUMNS };

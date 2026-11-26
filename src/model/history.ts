@@ -1,34 +1,13 @@
-import { scheduleToJson } from "./serialize";
-import { cloneCategories } from "./tasks";
-import type { Category, Milestone, MilestoneGroup } from "./types";
+import { cloneSnapshot, type DocumentSnapshot } from "./documentSnapshot";
+import { documentToJson } from "./serialize";
 
 export const HISTORY_MAX = 100;
 
-export type DocumentSnapshot = {
-  title: string;
-  categories: Category[];
-  milestoneGroups: MilestoneGroup[];
-  milestones: Milestone[];
-};
-
-export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
-  return {
-    title: snapshot.title,
-    categories: cloneCategories(snapshot.categories),
-    milestoneGroups: snapshot.milestoneGroups.map((group) => ({ ...group })),
-    milestones: snapshot.milestones.map((milestone) => ({ ...milestone })),
-  };
-}
+export type { DocumentSnapshot } from "./documentSnapshot";
+export { cloneSnapshot } from "./documentSnapshot";
 
 function snapshotKey(snapshot: DocumentSnapshot): string {
-  return JSON.stringify(
-    scheduleToJson(
-      snapshot.title,
-      snapshot.categories,
-      snapshot.milestoneGroups,
-      snapshot.milestones,
-    ),
-  );
+  return JSON.stringify(documentToJson(snapshot));
 }
 
 export function snapshotsEqual(

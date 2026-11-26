@@ -6,13 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Copy,
-  GitBranch,
-  Pencil,
-  StickyNote,
-  Trash2,
-} from "lucide-react";
+import { flushSync } from "react-dom";
 import type Konva from "konva";
 import { DeleteMilestoneDialog } from "./components/DeleteMilestoneDialog";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
@@ -28,6 +22,7 @@ import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
 import { DeleteHierarchyDialog } from "./components/DeleteHierarchyDialog";
 import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
+import { OutlineHeadingAddDialog } from "./components/OutlineHeadingAddDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -45,18 +40,25 @@ import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
 import { GuideDialog } from "./components/GuideDialog";
+import { FirstRunHintCard } from "./components/FirstRunHintCard";
+import { HierarchyLevelsDialog } from "./components/HierarchyLevelsDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteRunTarget } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTitle";
-import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
+import { ContextMenu } from "./components/ContextMenu";
+import { buildContextMenuItems } from "./operations/contextMenuItems";
 import {
-  deleteShortcutHint,
-  duplicateTaskShortcutHint,
-  editShortcutHint,
-  noteShortcutHint,
+  dispatchCommandPaletteRunTarget,
+  type PaletteCommandDispatchHandlers,
+} from "./operations/dispatchPaletteCommand";
+import {
+  contextMenuTarget,
+  type ContextMenuState,
+} from "./operations/contextMenuTypes";
+import {
   usesCommandKey,
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
@@ -64,19 +66,131 @@ import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
+import { useStatusCatalog } from "./hooks/useStatusCatalog";
+import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
+import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
+import { useColorCatalog } from "./hooks/useColorCatalog";
+import { useColorCatalogEditorOverlay } from "./hooks/useColorCatalogEditorOverlay";
+import { useMemberCatalogEditorOverlay } from "./hooks/useMemberCatalogEditorOverlay";
+import { MemberCatalogEditorOverlay } from "./components/MemberCatalogEditorOverlay";
+import type { MemberCatalogEditorPanelHandle } from "./components/MemberCatalogEditorPanel";
+import { ColorCatalogEditorOverlay } from "./components/ColorCatalogEditorOverlay";
+import {
+  FieldExtensionEditorOverlay,
+  type FieldExtensionEditorOverlayHandle,
+} from "./components/FieldExtensionEditorOverlay";
+import { useFieldExtensionEditorOverlay } from "./hooks/useFieldExtensionEditorOverlay";
+import {
+  clearWorkspaceEditableFieldExtension,
+  createWorkspaceEditableFieldExtension,
+  deleteWorkspaceEditableFieldExtension,
+  saveFieldExtensionJson,
+} from "./model/fieldExtensionAppData";
+import {
+  fieldExtensionDocumentToJson,
+  newEmptyExtensionDocument,
+  nextFieldExtensionCatalogId,
+} from "./model/fieldExtensionEdit";
+import type { StatusCatalogEditorPanelHandle } from "./components/StatusCatalogEditorPanel";
+import type { ColorCatalogEditorPanelHandle } from "./components/ColorCatalogEditorPanel";
+import { starterColorCatalogDocument } from "./model/colorCatalog";
+import { createWorkspaceColorsCatalog } from "./model/colorAppData";
+import { colorsToJson } from "./model/colorEdit";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
-import { safeScheduleJsonFilename } from "./model/scheduleFile";
+import {
+  buildFieldExtensionExportFiles,
+  fieldExtensionExportTooLargeMessage,
+  type FieldExtensionExportFile,
+} from "./model/workspaceFieldExtensionExport";
+import { safeScheduleJsonFilename, scheduleJsonFilename } from "./model/scheduleFile";
+import {
+  REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST,
+  REPLACE_SCHEDULE_APPLIED_TOAST,
+  assessMcpReplaceUiBlocking,
+  type ReplaceScheduleDocumentResult,
+} from "./model/replaceSchedule";
+import { assessMcpUiBlocking } from "./model/mcpOperationGate";
+import type { McpActionEnvelope } from "./model/mcpOperationGate";
+import {
+  catalogContentsFromEnvelope,
+  validateMcpCatalogContents,
+  type McpCatalogKind,
+} from "./model/mcpCatalogAction";
+import { writeMembersAtPath } from "./model/memberAppData";
+import { writeStatusesAtPath } from "./model/statusAppData";
+import { writeColorsAtPath } from "./model/colorAppData";
+import { writeFieldExtensionAtPath } from "./model/fieldExtensionAppData";
+import type { McpActionResult } from "./hooks/mcpActionExecutor";
+import { useMcpActionExecutor } from "./hooks/useMcpActionExecutor";
+import { readDroppedScheduleFileViaTauri } from "./model/windowSession";
+import { errorMessage } from "./model/errors";
+import {
+  acceptOpenedScheduleViaTauri,
+  parseScheduleText,
+} from "./model/scheduleFile";
+import type { McpSetViewPatch } from "./model/mcpSetView";
+import { cloneDocumentForMcpEditPlan } from "./model/mcpEditPlan";
+import {
+  writeRowDensity,
+  writeShowLightning,
+  writeSidebarColumns,
+} from "./model/viewPreferences";
+import { writeColorSchemePreference } from "./model/colorScheme";
+import {
+  desktopFirstRunVisibility,
+  isDesktopFirstRunRuntime,
+} from "./model/firstRunGuidance";
+import { useDesktopFirstRunSession } from "./hooks/useDesktopFirstRunSession";
+import {
+  clearPrepareLlmStepsVisible,
+  markPrepareLlmStepsVisible,
+  readPrepareLlmStepsVisible,
+} from "./model/firstRunLlmSteps";
+import { hasRecentMenuItems } from "./model/recentFilesMenu";
 import { memberMapFromList } from "./model/assigneeDisplay";
+import { mcpMembersForReadTools } from "./model/screenContext";
+import {
+  catalogMismatchBannerText,
+  catalogMismatchFlags,
+  CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT,
+  type CatalogMismatchFlags,
+} from "./model/catalogMismatch";
+import { useFieldExtensionCatalog } from "./hooks/useFieldExtensionCatalog";
+import {
+  firstFieldKeyCollision,
+  formatFieldKeyCollisionMessage,
+  knownFieldKeysFromDefs,
+  mergeExtensionFieldDefs,
+} from "./model/fieldExtensionMerge";
+import {
+  parseFieldExtensionCatalogText,
+  readFieldExtensionDocumentsForIds,
+} from "./model/fieldExtensionAppData";
+import { BUILTIN_STATUS_ITEMS } from "./model/statusCatalog";
 import {
   workspaceCalendarError,
   workspaceCalendarForDisplay,
   workspaceMemberCatalogLabel,
   workspaceMemberError,
   workspaceMembersForDisplay,
+  workspaceStatusesForDisplay,
+  workspaceColorsForDisplay,
+  workspaceColorsError,
+  workspaceEditableFieldExtensionError,
+  workspaceFieldExtensionsError,
+  workspaceFieldExtensionsForDisplay,
+  workspaceMergedFieldExtensionsForDisplay,
+  workspacePinnedFieldExtensionPluginIds,
+  readJsonFileLimitedViaTauri,
+  WORKSPACE_CALENDAR_MAX_BYTES,
+  WORKSPACE_COLORS_MAX_BYTES,
+  WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+  WORKSPACE_MEMBERS_MAX_BYTES,
+  WORKSPACE_STATUSES_MAX_BYTES,
 } from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -90,6 +204,16 @@ import {
   saveBetaInstallerViaTauri,
 } from "./model/windowSession";
 import { useScheduleFile } from "./hooks/useScheduleFile";
+import {
+  addTopLevelMenuLabel as addTopLevelMenuLabelFromLayout,
+  LEGACY_THREE_LEVEL_COUNT,
+  LEGACY_THREE_LEVEL_DEFS,
+  legacyCategoryParentSelectOptions,
+  collectTasksFromDocument,
+  findTaskInDocument,
+  listTaskRefsFromDocument,
+  HIERARCHY_MISMATCH_MESSAGE,
+} from "./model/hierarchy";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
@@ -101,7 +225,10 @@ import {
   type DiffRevealPlan,
 } from "./model/diffNavigation";
 import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
-import { collapsedSetFromIds } from "./model/scheduleFilterPersistence";
+import {
+  collapsedSetFromIds,
+} from "./model/scheduleFilterPersistence";
+import type { TaskBarAnchor } from "./model/connections";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {
   type DiffStripContentKind,
@@ -116,16 +243,26 @@ import {
   isTauri,
   serializeScheduleDocument,
 } from "./model/scheduleFile";
-import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import {
+  dependencyCountFromTasks,
+  successorIdsFromTasks,
+  visibleLinksFromTasks,
+} from "./model/dependencies";
+import { visibleConnectionsFromTasks, connectionsForTask } from "./model/connections";
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
+  exportScheduleToPath,
   ScheduleExportTooLargeError,
   type ScheduleExportFormat,
 } from "./model/exportHtml";
-import { exportScheduleExcel } from "./model/exportExcel";
-import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
-import { forEachTask } from "./model/tasks";
+import { exportScheduleExcel, exportScheduleExcelToPath } from "./model/exportExcel";
+import {
+  readExcelExportColumns,
+  readExcelExportFieldColumns,
+  type ExcelExportColumnsPreference,
+  type ExcelExportFieldColumnsPreference,
+} from "./model/excelExportColumns";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -137,19 +274,16 @@ import {
   layoutMilestoneBand,
   milestoneBandHeightPx,
   milestoneGroupIdAtBandY,
+  toggleMilestoneGuideLinesForGroup,
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
-import { hasOtherVisibleMilestoneBandGroup, hasOtherVisibleMilestoneMark } from "./model/filterChips";
-import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
   scrollYToShowSelectedTask,
 } from "./model/stickyRows";
 import {
-  canDeleteCategory,
-  canDeleteGroup,
   findTaskPlace,
 } from "./model/tasks";
 import {
@@ -162,7 +296,12 @@ import {
   taskBarWidthPx,
 } from "./model/timeline";
 import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
-import type { ScheduleDocument, ScheduleId, Task } from "./model/types";
+import {
+  SCHEDULE_SCHEMA_VERSION,
+  type ScheduleDocument,
+  type ScheduleId,
+  type Task,
+} from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
   readAutoUpdateEnabled,
@@ -213,40 +352,29 @@ import {
   SAMPLE_MEMBERS_CATALOG_ID,
 } from "./sample/ids";
 import { sampleMembersJson } from "./sample/members";
+import { todayIso } from "./model/dates";
 import {
   SAMPLE_PROJECT_TITLE,
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
+  sampleScheduleDocument,
+  sampleScheduleParts,
 } from "./sample/schedule";
 
-const INITIAL_BASELINE_JSON = serializeScheduleDocument(
-  SAMPLE_PROJECT_TITLE,
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
-);
+function initialSampleAtOpen(openToday: string) {
+  const parts = sampleScheduleParts(openToday);
+  return {
+    openToday,
+    ...parts,
+    baselineJson: serializeScheduleDocument(
+      SAMPLE_PROJECT_TITLE,
+      parts.categories,
+      parts.milestoneGroups,
+      parts.milestones,
+    ),
+  };
+}
 
-type ContextMenuState =
-  | { kind: "task"; taskId: ScheduleId; x: number; y: number }
-  | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
-  | { kind: "category"; id: ScheduleId; x: number; y: number }
-  | { kind: "group"; id: ScheduleId; x: number; y: number }
-  | {
-      kind: "link";
-      fromId: ScheduleId;
-      toId: ScheduleId;
-      x: number;
-      y: number;
-    }
-  | {
-      kind: "addMilestone";
-      date: string;
-      groupId: ScheduleId | null;
-      x: number;
-      y: number;
-    }
-  | { kind: "milestoneGroup"; groupId: ScheduleId; x: number; y: number };
+const initialSample = initialSampleAtOpen(todayIso());
+const INITIAL_BASELINE_JSON = initialSample.baselineJson;
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -271,10 +399,35 @@ function App() {
   const [uiScale, setUiScale] = useState(readUiScale);
   const uiScaleRef = useRef(uiScale);
   uiScaleRef.current = uiScale;
+  const statusEditorOverlayRef = useRef<
+    ReturnType<typeof useStatusCatalogEditorOverlay> | null
+  >(null);
+  const colorEditorOverlayRef = useRef<
+    ReturnType<typeof useColorCatalogEditorOverlay> | null
+  >(null);
+  const memberEditorOverlayRef = useRef<
+    ReturnType<typeof useMemberCatalogEditorOverlay> | null
+  >(null);
+  const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
+    null,
+  );
+  const colorCatalogEditorPanelRef = useRef<ColorCatalogEditorPanelHandle | null>(
+    null,
+  );
+  const memberCatalogEditorPanelRef = useRef<MemberCatalogEditorPanelHandle | null>(
+    null,
+  );
+  const fieldExtensionEditorPanelRef =
+    useRef<FieldExtensionEditorOverlayHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [openColorCatalogEditorAfterWorkspaceCreate, setOpenColorCatalogEditorAfterWorkspaceCreate] =
+    useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
     | "members"
+    | "fieldExtensions"
+    | "statuses"
+    | "colors"
     | "calendar"
     | "updates"
     | "mcp"
@@ -296,11 +449,39 @@ function App() {
   const [storeDistribution, setStoreDistribution] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const {
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    saveHintCompleted,
+    dismiss: dismissFirstRunHintCard,
+    markSaved: markSaveHintCompleted,
+    markStep: markFirstRunStep,
+  } = useDesktopFirstRunSession();
+  const [prepareLlmStepsVisible, setPrepareLlmStepsVisible] = useState(() =>
+    readPrepareLlmStepsVisible(),
+  );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const openGuide = useCallback(() => {
     setShortcutsOpen(false);
     setGuideOpen(true);
   }, []);
+  const openFirstRunMcpSettings = useCallback(() => {
+    setSettingsSection("mcp");
+    setSettingsOpen(true);
+  }, []);
+  const revealPrepareLlmSteps = useCallback(() => {
+    markPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(true);
+  }, []);
+  const openFirstRunJsonSkills = useCallback(() => {
+    revealPrepareLlmSteps();
+    if (isTauri()) {
+      setSettingsSection("jsonSkills");
+      setSettingsOpen(true);
+      return;
+    }
+    openGuide();
+  }, [openGuide, revealPrepareLlmSteps]);
   const openShortcuts = useCallback(() => {
     setGuideOpen(false);
     setShortcutsOpen(true);
@@ -348,7 +529,20 @@ function App() {
   const [exportOpen, setExportOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
+  const [milestoneGuideLineIds, setMilestoneGuideLineIds] = useState<
+    ReadonlySet<ScheduleId>
+  >(() => new Set());
+  const toggleMilestoneGuideLine = useCallback((id: ScheduleId) => {
+    setMilestoneGuideLineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const chartTopBannersRef = useRef<HTMLDivElement>(null);
+  const [chartTopBannerHeight, setChartTopBannerHeight] = useState(0);
   const chartPointerRef = useRef<ChartPointer>({
     overTask: false,
     overMilestone: false,
@@ -357,10 +551,16 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [connectionAddDialogOpen, setConnectionAddDialogOpen] = useState(false);
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleEditRequestToken, setTitleEditRequestToken] = useState(0);
   const [titleBlankNotice, setTitleBlankNotice] = useState<string | null>(null);
   const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
+  const hierarchyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [hierarchyLevelsOpen, setHierarchyLevelsOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [hierarchyHadDocumentLevels, setHierarchyHadDocumentLevels] =
+    useState(false);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
@@ -374,8 +574,11 @@ function App() {
       : "",
   );
 
-  const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
-    scaledLayoutSizes(uiScale, rowDensity);
+  const baseLayout = scaledLayoutSizes(uiScale, rowDensity);
+  const rowHeight = baseLayout.rowHeight;
+  const headerHeight = baseLayout.headerHeight;
+  const barHeight = baseLayout.barHeight;
+  const milestoneLaneHeight = baseLayout.milestoneLaneHeight;
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
   const refreshUiScale = useCallback(() => {
@@ -511,11 +714,15 @@ function App() {
   );
 
   const memberCatalogState = useMemberCatalog();
+  const fieldExtensionCatalogState = useFieldExtensionCatalog();
+  const statusCatalogState = useStatusCatalog();
+  const colorCatalogState = useColorCatalog();
   const appCalendarState = useAppCalendar();
   const {
     workspaceBinding,
     setWorkspaceBinding,
     clearWorkspaceBinding,
+    reloadWorkspaceBinding,
   } = useWorkspaceBinding();
   const workspaceBindingRef = useRef(workspaceBinding);
   workspaceBindingRef.current = workspaceBinding;
@@ -534,7 +741,8 @@ function App() {
 
   const displayCalendar = useMemo(() => {
     if (workspaceBinding) {
-      return workspaceCalendarForDisplay(workspaceBinding.calendar);
+      const fromWorkspace = workspaceCalendarForDisplay(workspaceBinding.calendar);
+      if (fromWorkspace != null) return fromWorkspace;
     }
     return appCalendarState.calendar;
   }, [workspaceBinding, appCalendarState.calendar]);
@@ -551,13 +759,159 @@ function App() {
     ? workspaceCalendarError(workspaceBinding.calendar)
     : appCalendarState.error;
 
+  const displayStatuses = useMemo(() => {
+    if (!workspaceBinding) return statusCatalogState.statuses;
+    const fromFile = workspaceStatusesForDisplay(workspaceBinding.statuses);
+    if (fromFile) return fromFile;
+    return BUILTIN_STATUS_ITEMS;
+  }, [workspaceBinding, statusCatalogState.statuses]);
+
+  const displayColors = useMemo(() => {
+    if (workspaceBinding) {
+      return workspaceColorsForDisplay(workspaceBinding.colors);
+    }
+    return colorCatalogState.items;
+  }, [workspaceBinding, workspaceBinding?.colors, colorCatalogState.items]);
+
+  const colorsCatalogError = workspaceBinding
+    ? workspaceColorsError(workspaceBinding.colors)
+    : colorCatalogState.error;
+
+  const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
+
+  const fieldExtensionCatalogSettled =
+    workspaceBinding != null || !fieldExtensionCatalogState.loading;
+
+  const extensionFieldDefs = useMemo(() => {
+    if (workspaceBinding) {
+      const docs = workspaceMergedFieldExtensionsForDisplay(
+        workspaceBinding.fieldExtensions,
+        workspaceBinding.editableFieldExtension,
+      );
+      return mergeExtensionFieldDefs(docs);
+    }
+    return fieldExtensionCatalogState.extensionFieldDefs;
+  }, [
+    fieldExtensionCatalogState.extensionFieldDefs,
+    workspaceBinding,
+  ]);
+
+  const fieldExtensionsCatalogError = workspaceBinding
+    ? workspaceFieldExtensionsError(workspaceBinding.fieldExtensions)
+    : fieldExtensionCatalogState.error;
+
+  const workspaceEditableFieldExtensionErrorMessage = workspaceBinding
+    ? workspaceEditableFieldExtensionError(workspaceBinding.editableFieldExtension)
+    : null;
+
+  const workspaceStatusEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.statuses.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.statusesPath) return null;
+    return {
+      statusesPath: workspaceBinding.resolved.statusesPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.statuses.items,
+      fileLabel: workspaceBinding.statuses.label,
+    };
+  }, [workspaceBinding]);
+
+  const workspaceColorEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.colors.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.colorsPath) return null;
+    return {
+      colorsPath: workspaceBinding.resolved.colorsPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.colors.items,
+      fileLabel: workspaceBinding.colors.label,
+    };
+  }, [workspaceBinding]);
+
+  const workspaceMemberEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.members.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.membersPath) return null;
+    return {
+      membersPath: workspaceBinding.resolved.membersPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.members.members,
+      fileLabel: workspaceBinding.members.label,
+    };
+  }, [workspaceBinding]);
+
+  const mcpMembers = useMemo(() => {
+    return mcpMembersForReadTools({
+      inWorkspace: workspaceBinding != null,
+      workspaceMembers: workspaceBinding?.members ?? null,
+      workspaceMembersPath: workspaceBinding?.resolved.membersPath ?? null,
+      appMembers: memberCatalogState.members,
+    });
+  }, [workspaceBinding, memberCatalogState.members]);
+
+  const workspaceFieldExtensionEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.editableFieldExtension.kind !== "loaded") return null;
+    const { document, path } = workspaceBinding.editableFieldExtension;
+    return {
+      pluginId: document.id,
+      path,
+      workspacePath: workspaceBinding.workspacePath,
+      document,
+      fileLabel: document.name,
+    };
+  }, [workspaceBinding]);
+
+  const workspacePinnedFieldExtensionDocuments = useMemo(() => {
+    if (!workspaceBinding) return [];
+    return workspaceFieldExtensionsForDisplay(workspaceBinding.fieldExtensions) ?? [];
+  }, [workspaceBinding]);
+
+  const fieldExtensionEditorOverlay = useFieldExtensionEditorOverlay({
+    settings: fieldExtensionCatalogState.settings,
+    selectedDocuments: fieldExtensionCatalogState.documents,
+    workspacePinnedDocuments: workspacePinnedFieldExtensionDocuments,
+    saveCatalog: fieldExtensionCatalogState.saveCatalog,
+    removeCatalog: fieldExtensionCatalogState.removeCatalog,
+    refreshCatalogs: fieldExtensionCatalogState.refresh,
+    workspaceTarget: workspaceFieldExtensionEditTarget,
+    onWorkspaceWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    exportJson: saveFieldExtensionJson,
+    onClosedByUser: () => {
+      setSettingsSection("fieldExtensions");
+      setSettingsOpen(true);
+    },
+  });
+
   const refreshMemberCatalog = memberCatalogState.refresh;
+  const refreshStatusCatalog = statusCatalogState.refresh;
+  const refreshColorCatalog = colorCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
   const refreshSharedSettings = useCallback((key: string | null) => {
     const all = key == null;
     if (all || key === SETTINGS_REVISION_KEY) {
-      void refreshMemberCatalog();
+      void refreshMemberCatalog().then(() => {
+        const overlay = memberEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
+      void refreshStatusCatalog().then(() => {
+        const overlay = statusEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
+      void refreshColorCatalog().then(() => {
+        const overlay = colorEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
       void refreshAppCalendar();
+      void fieldExtensionCatalogState.refresh();
     }
     if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
       setDisplayScalePreference(readDisplayScalePreference());
@@ -584,7 +938,13 @@ function App() {
     if (all || key === AUTO_UPDATE_LS_KEY) {
       setAutoUpdateEnabled(readAutoUpdateEnabled());
     }
-  }, [refreshAppCalendar, refreshMemberCatalog]);
+  }, [
+    fieldExtensionCatalogState.refresh,
+    refreshAppCalendar,
+    refreshMemberCatalog,
+    refreshStatusCatalog,
+    refreshColorCatalog,
+  ]);
 
   useSharedSettingsRevision(refreshSharedSettings);
 
@@ -611,21 +971,55 @@ function App() {
   const externalReloadHistoryRedoRef = useRef<
     (landed: import("./model/history").DocumentSnapshot) => void
   >(() => {});
+  const explainOverlayRuntimeRef = useRef<{
+    getPlanInput: () => import("./model/explainOverlayLayout").PlanExplanationScrollInput | null;
+    applyScroll: (
+      plan: import("./model/explainOverlayLayout").ExplanationScrollPlan,
+    ) => void;
+  } | null>(null);
+  const explainOverlayLiveAnchorsRef = useRef<
+    Map<ScheduleId, TaskBarAnchor>
+  >(new Map());
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
-    sampleCategories,
-    sampleMilestoneGroups,
-    sampleMilestones,
+    initialSample.categories,
+    initialSample.milestoneGroups,
+    initialSample.milestones,
     rowHeight,
     displayMembers,
     !memberCatalogState.loading,
     blockDocumentEditsRef,
     (landed) => externalReloadHistoryUndoRef.current(landed),
     (landed) => externalReloadHistoryRedoRef.current(landed),
+    displayStatuses,
+    statusesReady,
+    extensionFieldDefs,
+    fieldExtensionCatalogSettled,
+    explainOverlayRuntimeRef,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
   replaceScheduleDocumentRef.current = schedule.replaceScheduleDocument;
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    const loadSample = (today: string) => {
+      replaceScheduleDocumentRef.current(sampleScheduleDocument(today));
+    };
+    (
+      window as Window & {
+        __manualScreenshotLoadSampleForToday?: (today: string) => void;
+      }
+    ).__manualScreenshotLoadSampleForToday = loadSample;
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotLoadSampleForToday?: (today: string) => void;
+        }
+      ).__manualScreenshotLoadSampleForToday;
+    };
+  }, []);
+
   const {
     redo,
     undo,
@@ -648,14 +1042,155 @@ function App() {
     setMilestoneMarkVisible,
     showOnlyMilestoneMark,
   } = schedule;
+
+  const [mcpPngUsesDocumentRows, setMcpPngUsesDocumentRows] = useState(false);
+  const chartVisibleRows = mcpPngUsesDocumentRows
+    ? schedule.visibleRows
+    : schedule.displayVisibleRows;
+  const prepareMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(true));
+  }, []);
+  const finalizeMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(false));
+  }, []);
+
+  useEffect(() => {
+    const ids = new Set(schedule.milestones.map((milestone) => milestone.id));
+    setMilestoneGuideLineIds((prev) => {
+      let changed = false;
+      const next = new Set<ScheduleId>();
+      for (const id of prev) {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      }
+      if (!changed && next.size === prev.size) return prev;
+      return next;
+    });
+  }, [schedule.milestones]);
+
+  const editableFieldDefs = extensionFieldDefs;
+
+  const knownFieldKeys = useMemo(
+    () => knownFieldKeysFromDefs(editableFieldDefs),
+    [editableFieldDefs],
+  );
+
+  const catalogMismatch = useMemo(() => {
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    return catalogMismatchFlags(
+      tasks,
+      displayStatuses,
+      displayMemberMap,
+      knownFieldKeys,
+      displayColors,
+    );
+  }, [
+    displayColors,
+    displayMemberMap,
+    displayStatuses,
+    knownFieldKeys,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
+
+  const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
+
+  const catalogMismatchPrevRef = useRef<CatalogMismatchFlags | undefined>(
+    undefined,
+  );
+  const [catalogMismatchAnnouncement, setCatalogMismatchAnnouncement] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const prev = catalogMismatchPrevRef.current;
+    const prevActive =
+      prev != null &&
+      (prev.status || prev.assignee || prev.color || prev.fieldValues);
+    const active =
+      catalogMismatch.status ||
+      catalogMismatch.assignee ||
+      catalogMismatch.color ||
+      catalogMismatch.fieldValues;
+    if (
+      prev?.status === catalogMismatch.status &&
+      prev?.assignee === catalogMismatch.assignee &&
+      prev?.color === catalogMismatch.color &&
+      prev?.fieldValues === catalogMismatch.fieldValues
+    ) {
+      return;
+    }
+    catalogMismatchPrevRef.current = catalogMismatch;
+    if (active) {
+      setCatalogMismatchAnnouncement(catalogMismatchBannerText(catalogMismatch));
+      return;
+    }
+    if (prevActive) {
+      setCatalogMismatchAnnouncement(CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT);
+      return;
+    }
+    setCatalogMismatchAnnouncement(null);
+  }, [catalogMismatch]);
+
+  const hierarchyTopBanner =
+    schedule.levels != null &&
+    schedule.levels.length > 0 &&
+    !schedule.hierarchyLayout.aligned
+      ? "mismatch"
+      : schedule.hierarchyLevelBanner
+        ? "levels"
+        : null;
+
+  const showChartTopBanners =
+    catalogMismatchText != null ||
+    linkSourceId != null ||
+    hierarchyTopBanner != null ||
+    schedule.explanationSessionActive;
+
+  useLayoutEffect(() => {
+    const node = chartTopBannersRef.current;
+    if (!node) {
+      setChartTopBannerHeight(0);
+      return;
+    }
+    const measure = () => {
+      setChartTopBannerHeight(node.getBoundingClientRect().height);
+    };
+    measure();
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [
+    showChartTopBanners,
+    catalogMismatchText,
+    hierarchyTopBanner,
+    schedule.hierarchyLevelBanner,
+    linkSourceId,
+    linkError,
+    schedule.explanationSessionActive,
+  ]);
+
   const range = useMemo(
     () =>
       computeTimelineRange(
         schedule.categories,
         schedule.milestones,
         schedule.today,
+        schedule.outline,
       ),
-    [schedule.categories, schedule.milestones, schedule.today],
+    [schedule.categories, schedule.milestones, schedule.today, schedule.outline],
   );
 
   const monthHeaderFontSize = 12 * (headerHeight / LAYOUT_HEADER_HEIGHT);
@@ -668,7 +1203,7 @@ function App() {
         pxPerDay: px,
         tier: gridTier(px),
         milestoneGroups: schedule.milestoneGroups,
-        milestones: schedule.milestones,
+        milestones: schedule.milestonesForBandLayout,
         visibleGroupIds: schedule.visibleMilestoneGroupIds,
         hiddenMilestoneIds: schedule.hiddenMilestoneIdSet,
         milestoneFontSize,
@@ -683,7 +1218,7 @@ function App() {
       range.timelineStart,
       range.totalDays,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
       schedule.hiddenMilestoneIdSet,
     ],
@@ -699,7 +1234,7 @@ function App() {
     (pxPerDay) => {
       const band = milestoneBandHeightPx(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
@@ -708,8 +1243,11 @@ function App() {
         "screen",
         schedule.hiddenMilestoneIdSet,
       );
-      const body = Math.max(120, timelineSlotHeight - headerHeight - band);
-      const rows = schedule.visibleRows;
+      const body = Math.max(
+        120,
+        timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
+      );
+      const rows = chartVisibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
       return Math.max(0, contentHeight - body);
@@ -724,7 +1262,7 @@ function App() {
     () =>
       layoutMilestoneBand(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         view.pxPerDay,
         milestoneFontSize,
@@ -739,15 +1277,33 @@ function App() {
       milestoneLaneHeight,
       schedule.hiddenMilestoneIdSet,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
       view.pxPerDay,
     ],
   );
   const milestoneBandHeight = milestoneBandLayout.totalHeight;
+  const toggleMilestoneGroupGuideLines = useCallback(
+    (groupId: ScheduleId) => {
+      const block = milestoneBandLayout.blocks.find(
+        (item) => item.group.id === groupId,
+      );
+      if (block == null) return;
+      setMilestoneGuideLineIds((prev) =>
+        toggleMilestoneGuideLinesForGroup(
+          prev,
+          block.milestones.map((milestone) => milestone.id),
+        ),
+      );
+    },
+    [milestoneBandLayout.blocks],
+  );
   const bodyHeight = Math.max(
     120,
-    timelineSlotHeight - headerHeight - milestoneBandHeight,
+    timelineSlotHeight -
+      headerHeight -
+      milestoneBandHeight -
+      chartTopBannerHeight,
   );
 
   const {
@@ -760,6 +1316,7 @@ function App() {
     handleWheel,
     xToDate,
     reveal,
+    applyScrollPosition,
     pxPerDay,
     scrollX,
     scrollY,
@@ -769,6 +1326,44 @@ function App() {
     totalDays: viewTotalDays,
     timelineEnd: viewTimelineEnd,
   } = view;
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    (
+      window as Window & {
+        __manualScreenshotScrollToToday?: () => void;
+      }
+    ).__manualScreenshotScrollToToday = () => {
+      scrollToToday();
+    };
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotScrollToToday?: () => void;
+        }
+      ).__manualScreenshotScrollToToday;
+    };
+  }, [scrollToToday]);
+
+  explainOverlayRuntimeRef.current = {
+    getPlanInput: () => ({
+      marks: [],
+      visibleRows: chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      scrollX,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      chartWidth: Math.max(200, timelineWidth),
+      timelineStart: viewStart,
+      totalDays: viewTotalDays,
+      liveAnchors: explainOverlayLiveAnchorsRef.current,
+    }),
+    applyScroll: (plan) =>
+      applyScrollPosition(plan.scrollX, plan.scrollY),
+  };
 
   const filterAssigneeLabel = useMemo(
     () =>
@@ -798,6 +1393,11 @@ function App() {
     [commitTitle],
   );
 
+  const handleScheduleSaved = useCallback(() => {
+    schedule.clearExplanationView();
+    markSaveHintCompleted();
+  }, [markSaveHintCompleted, schedule.clearExplanationView]);
+
   const reportFileErrorRef = useRef<(message: string) => void>(() => {});
   const {
     recentFilesStore,
@@ -811,6 +1411,9 @@ function App() {
     categories: schedule.categories,
     milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
+    levels: schedule.levels,
+    outline: schedule.outline,
+    connections: schedule.connections,
     replaceDocument: schedule.replaceDocument,
     applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -819,16 +1422,25 @@ function App() {
     hasOpenEditDialog:
       titleEditing ||
       detailPanelEditing ||
+      connectionAddDialogOpen ||
+      hierarchyLevelsOpen ||
+      fieldExtensionEditorOverlay.open ||
+      (statusEditorOverlayRef.current?.open ?? false) ||
+      (colorEditorOverlayRef.current?.open ?? false) ||
+      (memberEditorOverlayRef.current?.open ?? false) ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
       schedule.addingHierarchyTarget != null ||
+      schedule.outlineHeadingAddOpen ||
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
     setFilterViewState: schedule.setFilterViewState,
     getFilterViewState: schedule.getFilterViewState,
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
+    fieldExtensionCatalogSettled,
+    extraFieldDefs: extensionFieldDefs,
     sidebarReorderDragging,
     getCanonicalJson,
     getDocumentTitle,
@@ -837,6 +1449,7 @@ function App() {
       if (binding) setWorkspaceBinding(binding);
       else clearWorkspaceBinding();
     },
+    onScheduleSaved: handleScheduleSaved,
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
@@ -870,57 +1483,479 @@ function App() {
 
   const showScheduleBody = scheduleFile.startupContentReady;
 
+  const showingBuiltInSample =
+    scheduleFile.filePath == null &&
+    scheduleFile.displayFileName === "サンプルデータ";
+  const firstRunChrome = desktopFirstRunVisibility({
+    desktopRuntime: isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE),
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    startupSettled: scheduleFile.startupSettled,
+    saveHintCompleted,
+    isDirty: scheduleFile.isDirty,
+    commandKey,
+    recentMenuEmpty: !hasRecentMenuItems(recentFilesStore),
+  });
+  const showFirstRunHintCard = firstRunChrome.showCard;
+  const statusBarSaveHint = firstRunChrome.saveHint;
+  const recentFilesMenuEmptyHint = firstRunChrome.recentEmptyHint;
+
+  const onFirstRunOpenFile = useCallback(() => {
+    flushTitleEdit();
+    scheduleFile.requestOpen();
+  }, [flushTitleEdit, scheduleFile]);
+
+  const onFirstRunOpenGuide = useCallback(() => {
+    openGuide();
+  }, [openGuide]);
+
+  const onFirstRunOpenMcpSettings = useCallback(() => {
+    openFirstRunMcpSettings();
+  }, [openFirstRunMcpSettings]);
+
+  useEffect(() => {
+    if (!scheduleFile.startupSettled) return;
+    if (scheduleFile.filePath == null) {
+      return;
+    }
+    markFirstRunStep("prepareSchedule");
+    clearPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(false);
+  }, [markFirstRunStep, scheduleFile.filePath, scheduleFile.startupSettled]);
+
+  useEffect(() => {
+    if (!guideOpen) return;
+    markFirstRunStep("guide");
+  }, [guideOpen, markFirstRunStep]);
+
+  useEffect(() => {
+    if (!settingsOpen || settingsSection !== "mcp") return;
+    markFirstRunStep("mcp");
+  }, [markFirstRunStep, settingsOpen, settingsSection]);
+
   const showUpdateToast = useCallback((message: string) => {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
-  const handleExportWorkspace = useCallback(async () => {
-    if (!isTauri() || workspaceBinding) return;
-    try {
-      const scheduleContents = getCanonicalJson();
-      const scheduleFileName = safeScheduleJsonFilename(scheduleFile.filePath);
+  const statusEditorOverlay = useStatusCatalogEditorOverlay({
+    settings: statusCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : statusCatalogState.settings.selectedCatalogId,
+    saveCatalog: statusCatalogState.saveCatalog,
+    removeCatalog: statusCatalogState.removeCatalog,
+    workspaceTarget: workspaceStatusEditTarget,
+    onWorkspaceStatusesWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  statusEditorOverlayRef.current = statusEditorOverlay;
+
+  const colorEditorOverlay = useColorCatalogEditorOverlay({
+    settings: colorCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : colorCatalogState.settings.selectedCatalogId,
+    saveCatalog: colorCatalogState.saveCatalog,
+    removeCatalog: colorCatalogState.removeCatalog,
+    workspaceTarget: workspaceColorEditTarget,
+    onWorkspaceColorsWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  colorEditorOverlayRef.current = colorEditorOverlay;
+
+  const memberEditorOverlay = useMemberCatalogEditorOverlay({
+    settings: memberCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : memberCatalogState.settings.selectedCatalogId,
+    saveCatalog: memberCatalogState.saveCatalog,
+    removeCatalog: memberCatalogState.removeCatalog,
+    workspaceTarget: workspaceMemberEditTarget,
+    onWorkspaceMembersWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  memberEditorOverlayRef.current = memberEditorOverlay;
+
+  useEffect(() => {
+    if (!openColorCatalogEditorAfterWorkspaceCreate) return;
+    if (!workspaceColorEditTarget) return;
+    setOpenColorCatalogEditorAfterWorkspaceCreate(false);
+    setSettingsOpen(false);
+    colorEditorOverlay.openEditor();
+  }, [
+    colorEditorOverlay.openEditor,
+    openColorCatalogEditorAfterWorkspaceCreate,
+    workspaceColorEditTarget,
+  ]);
+
+  const handleStatusCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await statusCatalogState.importCatalog(catalogId, contents, overwrite);
+      statusEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [statusCatalogState.importCatalog],
+  );
+
+  const handleCreateWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    if (workspaceBinding.editableFieldExtension.kind !== "unset") return;
+    const usedIds = [
+      ...workspacePinnedFieldExtensionPluginIds(workspaceBinding.fieldExtensions),
+    ];
+    const pluginId = nextFieldExtensionCatalogId(usedIds);
+    const document = newEmptyExtensionDocument(pluginId);
+    const relativeFileName = `${pluginId}.fields.json`;
+    await createWorkspaceEditableFieldExtension(
+      workspaceBinding.workspacePath,
+      relativeFileName,
+      fieldExtensionDocumentToJson(document),
+    );
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleDeleteWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    await deleteWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleClearWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    await clearWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleStatusCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await statusCatalogState.removeCatalog(catalogId);
+      statusEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [statusCatalogState.removeCatalog],
+  );
+
+  const handleColorCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await colorCatalogState.importCatalog(catalogId, contents, overwrite);
+      colorEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [colorCatalogState.importCatalog],
+  );
+
+  const handleColorCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await colorCatalogState.removeCatalog(catalogId);
+      colorEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [colorCatalogState.removeCatalog],
+  );
+
+  const handleMemberCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await memberCatalogState.importCatalog(catalogId, contents, overwrite);
+      memberEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [memberCatalogState.importCatalog],
+  );
+
+  const handleMemberCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await memberCatalogState.removeCatalog(catalogId);
+      memberEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [memberCatalogState.removeCatalog],
+  );
+
+  const handleCreateWorkspaceColorsCatalog = useCallback(async () => {
+    if (!workspaceBinding) return;
+    if (workspaceBinding.document.colors != null) return;
+    if (workspaceColorsError(workspaceBinding.colors)) return;
+    const doc = starterColorCatalogDocument();
+    const contents = colorsToJson(doc.colors);
+    await createWorkspaceColorsCatalog(
+      workspaceBinding.workspacePath,
+      "colors.json",
+      contents,
+    );
+    await reloadWorkspaceBinding();
+    setOpenColorCatalogEditorAfterWorkspaceCreate(true);
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const collectWorkspaceExportBundle = useCallback(async () => {
+    const scheduleContents = getCanonicalJson();
+    const scheduleFileName = safeScheduleJsonFilename(scheduleFile.filePath);
+
+    const readSidecar = async (
+      path: string | null,
+      maxBytes: number,
+    ): Promise<string | null> => {
+      if (!path || !isTauri()) return null;
+      try {
+        const text = await readJsonFileLimitedViaTauri(path, maxBytes);
+        return text.endsWith("\n") ? text : `${text}\n`;
+      } catch {
+        return null;
+      }
+    };
+    const sidecarFileName = (path: string | null, fallback: string) =>
+      path ? (scheduleJsonFilename(path) ?? fallback) : fallback;
+
+    if (workspaceBinding) {
       let membersContents: string | null = null;
       let membersFileName: string | null = null;
-      const selectedId = memberCatalogState.settings.selectedCatalogId;
-      if (selectedId) {
-        const text = await invoke<string | null>("read_member_catalog", {
-          catalogId: selectedId,
-        });
-        if (text) {
-          membersContents = text.endsWith("\n") ? text : `${text}\n`;
-          const label =
-            memberCatalogState.selectedCatalogLabel ?? selectedId;
-          membersFileName = `${label}.members.json`;
-        }
+      if (
+        workspaceBinding.members.kind === "loaded" &&
+        workspaceBinding.resolved.membersPath
+      ) {
+        membersContents = await readSidecar(
+          workspaceBinding.resolved.membersPath,
+          WORKSPACE_MEMBERS_MAX_BYTES,
+        );
+        membersFileName = sidecarFileName(
+          workspaceBinding.resolved.membersPath,
+          "members.json",
+        );
       }
       let calendarContents: string | null = null;
       let calendarFileName: string | null = null;
-      if (appCalendarState.label) {
-        const text = await invoke<string | null>("read_app_calendar");
-        if (text) {
-          calendarContents = text.endsWith("\n") ? text : `${text}\n`;
-          calendarFileName = appCalendarState.label.endsWith(".json")
-            ? appCalendarState.label
-            : `${appCalendarState.label}.calendar.json`;
+      if (
+        workspaceBinding.calendar.kind === "loaded" &&
+        workspaceBinding.resolved.calendarPath
+      ) {
+        calendarContents = await readSidecar(
+          workspaceBinding.resolved.calendarPath,
+          WORKSPACE_CALENDAR_MAX_BYTES,
+        );
+        calendarFileName = sidecarFileName(
+          workspaceBinding.resolved.calendarPath,
+          "calendar.json",
+        );
+      }
+      let statusesContents: string | null = null;
+      let statusesFileName: string | null = null;
+      if (
+        workspaceBinding.statuses.kind === "loaded" &&
+        workspaceBinding.resolved.statusesPath
+      ) {
+        statusesContents = await readSidecar(
+          workspaceBinding.resolved.statusesPath,
+          WORKSPACE_STATUSES_MAX_BYTES,
+        );
+        statusesFileName = sidecarFileName(
+          workspaceBinding.resolved.statusesPath,
+          "statuses.json",
+        );
+      }
+      let colorsContents: string | null = null;
+      let colorsFileName: string | null = null;
+      if (
+        workspaceBinding.colors.kind === "loaded" &&
+        workspaceBinding.resolved.colorsPath
+      ) {
+        colorsContents = await readSidecar(
+          workspaceBinding.resolved.colorsPath,
+          WORKSPACE_COLORS_MAX_BYTES,
+        );
+        colorsFileName = sidecarFileName(
+          workspaceBinding.resolved.colorsPath,
+          "colors.json",
+        );
+      }
+      const fieldExtensions: FieldExtensionExportFile[] = [];
+      if (workspaceBinding.fieldExtensions.kind === "loaded") {
+        const paths = workspaceBinding.resolved.fieldExtensionPaths;
+        for (let i = 0; i < workspaceBinding.fieldExtensions.documents.length; i++) {
+          const doc = workspaceBinding.fieldExtensions.documents[i];
+          const path = paths[i];
+          if (!path) continue;
+          const contents = await readSidecar(
+            path,
+            WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+          );
+          if (!contents) continue;
+          const tooLarge = fieldExtensionExportTooLargeMessage(contents);
+          if (tooLarge) throw tooLarge;
+          fieldExtensions.push({
+            fileName: sidecarFileName(path, `${doc.id}.fields.json`),
+            contents,
+          });
         }
       }
-      await exportWorkspaceBundleViaTauri({
+      if (workspaceBinding.editableFieldExtension.kind === "loaded") {
+        const path = workspaceBinding.resolved.editableFieldExtensionPath;
+        if (path) {
+          const contents = await readSidecar(
+            path,
+            WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+          );
+          if (contents) {
+            const tooLarge = fieldExtensionExportTooLargeMessage(contents);
+            if (tooLarge) throw tooLarge;
+            fieldExtensions.push({
+              fileName: sidecarFileName(
+                path,
+                `${workspaceBinding.editableFieldExtension.document.id}.fields.json`,
+              ),
+              contents,
+            });
+          }
+        }
+      }
+      return {
         scheduleContents,
         scheduleFileName,
         membersContents,
         membersFileName,
         calendarContents,
         calendarFileName,
+        statusesContents,
+        statusesFileName,
+        colorsContents,
+        colorsFileName,
+        fieldExtensions,
+      };
+    }
+
+    let membersContents: string | null = null;
+    let membersFileName: string | null = null;
+    const selectedId = memberCatalogState.settings.selectedCatalogId;
+    if (selectedId) {
+      const text = await invoke<string | null>("read_member_catalog", {
+        catalogId: selectedId,
       });
+      if (text) {
+        membersContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = memberCatalogState.selectedCatalogLabel ?? selectedId;
+        membersFileName = `${label}.members.json`;
+      }
+    }
+    let calendarContents: string | null = null;
+    let calendarFileName: string | null = null;
+    if (appCalendarState.label) {
+      const text = await invoke<string | null>("read_app_calendar");
+      if (text) {
+        calendarContents = text.endsWith("\n") ? text : `${text}\n`;
+        calendarFileName = appCalendarState.label.endsWith(".json")
+          ? appCalendarState.label
+          : `${appCalendarState.label}.calendar.json`;
+      }
+    }
+    let statusesContents: string | null = null;
+    let statusesFileName: string | null = null;
+    const selectedStatusId = statusCatalogState.settings.selectedCatalogId;
+    if (selectedStatusId) {
+      const text = await invoke<string | null>("read_status_catalog", {
+        catalogId: selectedStatusId,
+      });
+      if (text) {
+        statusesContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = statusCatalogState.selectedCatalogLabel ?? selectedStatusId;
+        statusesFileName = label.endsWith(".json")
+          ? label
+          : `${label}.statuses.json`;
+      }
+    }
+    let colorsContents: string | null = null;
+    let colorsFileName: string | null = null;
+    const selectedColorId = colorCatalogState.settings.selectedCatalogId;
+    if (selectedColorId) {
+      const text = await invoke<string | null>("read_color_catalog", {
+        catalogId: selectedColorId,
+      });
+      if (text) {
+        colorsContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = colorCatalogState.selectedCatalogLabel ?? selectedColorId;
+        colorsFileName = label.endsWith(".json")
+          ? label
+          : `${label}.colors.json`;
+      }
+    }
+    const selectedExtensionIds =
+      fieldExtensionCatalogState.settings.selectedCatalogIds;
+    const extensionContentsById: Record<string, string | null> = {};
+    for (const catalogId of selectedExtensionIds) {
+      const text = await invoke<string | null>("read_field_extension_catalog", {
+        catalogId,
+      });
+      extensionContentsById[catalogId] = text;
+    }
+    const fieldExtensions = buildFieldExtensionExportFiles(
+      selectedExtensionIds,
+      extensionContentsById,
+    );
+    for (const entry of fieldExtensions) {
+      const tooLarge = fieldExtensionExportTooLargeMessage(entry.contents);
+      if (tooLarge) {
+        throw tooLarge;
+      }
+    }
+    return {
+      scheduleContents,
+      scheduleFileName,
+      membersContents,
+      membersFileName,
+      calendarContents,
+      calendarFileName,
+      statusesContents,
+      statusesFileName,
+      colorsContents,
+      colorsFileName,
+      fieldExtensions,
+    };
+  }, [
+    appCalendarState.label,
+    colorCatalogState.selectedCatalogLabel,
+    colorCatalogState.settings.selectedCatalogId,
+    fieldExtensionCatalogState.settings.selectedCatalogIds,
+    getCanonicalJson,
+    memberCatalogState.selectedCatalogLabel,
+    memberCatalogState.settings.selectedCatalogId,
+    scheduleFile.filePath,
+    statusCatalogState.selectedCatalogLabel,
+    statusCatalogState.settings.selectedCatalogId,
+    workspaceBinding,
+  ]);
+
+  const handleExportWorkspace = useCallback(async () => {
+    if (!isTauri() || workspaceBinding) return;
+    try {
+      const bundle = await collectWorkspaceExportBundle();
+      await exportWorkspaceBundleViaTauri(bundle);
       const parts = [
         "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
       ];
-      if (!membersContents) {
+      if (!bundle.membersContents) {
         parts.push("メンバーは未選択のため書いていません。");
       }
-      if (!calendarContents) {
+      if (!bundle.calendarContents) {
         parts.push("稼働日は未設定のため書いていません。");
+      }
+      if (!bundle.statusesContents) {
+        parts.push("ステータスは組み込みの三件のため書いていません。");
+      }
+      if (!bundle.colorsContents) {
+        parts.push("色は未選択のため書いていません。");
+      }
+      if (bundle.fieldExtensions.length === 0) {
+        parts.push("拡張項目は選んでいないため書いていません。");
       }
       showUpdateToast(parts.join(" "));
     } catch (error) {
@@ -932,50 +1967,156 @@ function App() {
             : "書き出しに失敗しました。";
       scheduleFile.showError(message, "書き出しに失敗しました");
     }
-  }, [
-    appCalendarState.label,
-    getCanonicalJson,
-    memberCatalogState.selectedCatalogLabel,
-    memberCatalogState.settings.selectedCatalogId,
-    scheduleFile,
-    showUpdateToast,
-    workspaceBinding,
-  ]);
+  }, [collectWorkspaceExportBundle, scheduleFile.showError, showUpdateToast, workspaceBinding]);
 
   const showReplaceScreenToast = useCallback(() => {
     setToastMessage("画面を置き換えました");
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
-  const mcpReplaceUiBlocking = useCallback(() => {
-    if (scheduleFile.fileBusy) return true;
-    if (titleEditing) return true;
-    if (detailPanelEditing) return true;
-    if (
-      schedule.editingNoteTask != null ||
-      schedule.editingMilestone != null ||
-      schedule.editingHierarchyTarget != null ||
-      schedule.addingHierarchyTarget != null ||
-      schedule.deletingHierarchyTarget != null
-    ) {
-      return true;
-    }
-    if (schedule.reorderPreview != null) return true;
-    if (sidebarReorderDragging) return true;
-    if (document.querySelector('[role="dialog"]') != null) return true;
-    return false;
+  const completeReplaceDuringConflictReloadRef = useRef(
+    scheduleFile.completeReplaceDuringConflictReload,
+  );
+  completeReplaceDuringConflictReloadRef.current =
+    scheduleFile.completeReplaceDuringConflictReload;
+
+  const [chartBarDragging, setChartBarDragging] = useState(false);
+
+  const mcpUiBlocking = useCallback(() => {
+    const assessment = scheduleFile.externalReloadAssessment;
+    const externalReloadConflictDialogOpen =
+      scheduleFile.externalReloadOpen &&
+      assessment?.kind === "blocked" &&
+      assessment.conflictLines.length > 0;
+    return assessMcpUiBlocking({
+      fileBusy: scheduleFile.fileBusy,
+      titleEditing,
+      detailPanelEditing,
+      scheduleInlineEditing:
+        schedule.editingNoteTask != null ||
+        schedule.editingMilestone != null ||
+        schedule.editingHierarchyTarget != null ||
+        schedule.addingHierarchyTarget != null ||
+        schedule.outlineHeadingAddOpen ||
+        schedule.deletingHierarchyTarget != null,
+      reorderDragging: schedule.reorderPreview != null,
+      sidebarReorderDragging,
+      chartBarDragging,
+      modalDialogOpen:
+        settingsOpen ||
+        exportOpen ||
+        guideOpen ||
+        shortcutsOpen ||
+        connectionAddDialogOpen ||
+        hierarchyLevelsOpen ||
+        commandPaletteOpen ||
+        fieldExtensionEditorOverlay.open ||
+        (statusEditorOverlayRef.current?.open ?? false) ||
+        (colorEditorOverlayRef.current?.open ?? false) ||
+        (memberEditorOverlayRef.current?.open ?? false) ||
+        schedule.duplicatingTask != null,
+      externalReloadConflictDialogOpen,
+    });
   }, [
     detailPanelEditing,
     titleEditing,
     schedule.addingHierarchyTarget,
+    schedule.outlineHeadingAddOpen,
     schedule.deletingHierarchyTarget,
     schedule.editingHierarchyTarget,
     schedule.editingMilestone,
     schedule.editingNoteTask,
     schedule.reorderPreview,
+    scheduleFile.externalReloadAssessment,
+    scheduleFile.externalReloadOpen,
     scheduleFile.fileBusy,
     sidebarReorderDragging,
+    chartBarDragging,
   ]);
+
+  const mcpReplaceUiBlocking = useCallback(() => {
+    const assessment = scheduleFile.externalReloadAssessment;
+    const externalReloadConflictDialogOpen =
+      scheduleFile.externalReloadOpen &&
+      assessment?.kind === "blocked" &&
+      assessment.conflictLines.length > 0;
+    return assessMcpReplaceUiBlocking({
+      fileBusy: scheduleFile.fileBusy,
+      titleEditing,
+      detailPanelEditing,
+      scheduleInlineEditing:
+        schedule.editingNoteTask != null ||
+        schedule.editingMilestone != null ||
+        schedule.editingHierarchyTarget != null ||
+        schedule.addingHierarchyTarget != null ||
+        schedule.outlineHeadingAddOpen ||
+        schedule.deletingHierarchyTarget != null,
+      reorderDragging: schedule.reorderPreview != null,
+      sidebarReorderDragging,
+      chartBarDragging,
+      modalDialogOpen:
+        settingsOpen ||
+        exportOpen ||
+        guideOpen ||
+        shortcutsOpen ||
+        connectionAddDialogOpen ||
+        hierarchyLevelsOpen ||
+        commandPaletteOpen ||
+        fieldExtensionEditorOverlay.open ||
+        (statusEditorOverlayRef.current?.open ?? false) ||
+        (colorEditorOverlayRef.current?.open ?? false) ||
+        (memberEditorOverlayRef.current?.open ?? false) ||
+        schedule.duplicatingTask != null,
+      externalReloadConflictDialogOpen,
+    });
+  }, [
+    detailPanelEditing,
+    titleEditing,
+    schedule.addingHierarchyTarget,
+    schedule.outlineHeadingAddOpen,
+    schedule.deletingHierarchyTarget,
+    schedule.editingHierarchyTarget,
+    schedule.editingMilestone,
+    schedule.editingNoteTask,
+    schedule.reorderPreview,
+    scheduleFile.externalReloadAssessment,
+    scheduleFile.externalReloadOpen,
+    scheduleFile.fileBusy,
+    sidebarReorderDragging,
+    chartBarDragging,
+  ]);
+
+  const onReplaceScheduleApplied = useCallback(
+    (result: ReplaceScheduleDocumentResult) => {
+      if (result.outcome !== "applied") return;
+      const assessment = scheduleFile.externalReloadAssessment;
+      const conflictOpen =
+        scheduleFile.externalReloadOpen &&
+        assessment?.kind === "blocked" &&
+        assessment.conflictLines.length > 0;
+      if (conflictOpen) {
+        completeReplaceDuringConflictReloadRef.current({
+          before: result.before,
+          after: result.after,
+        });
+        const sameAsBaseline = result.screenJson === scheduleFile.baselineJson;
+        setToastMessage(
+          sameAsBaseline
+            ? REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST
+            : REPLACE_SCHEDULE_APPLIED_TOAST,
+        );
+        window.setTimeout(() => setToastMessage(null), 4000);
+        return;
+      }
+      showReplaceScreenToast();
+    },
+    [
+      scheduleFile.baselineJson,
+      scheduleFile.externalReloadAssessment,
+      scheduleFile.externalReloadOpen,
+      showReplaceScreenToast,
+    ],
+  );
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -1037,7 +2178,7 @@ function App() {
       const tags = await fetchBetaReleaseTagsViaTauri();
       const version = pickSaveableBetaVersion(installed, tags);
       if (!version) {
-        setBetaInstallerStatusLine("公開中のベータはありません");
+        setBetaInstallerStatusLine("公開中の Pre-release はありません");
         return;
       }
       const saved = await saveBetaInstallerViaTauri(version);
@@ -1047,7 +2188,7 @@ function App() {
         setBetaInstallerStatusLine(previousLine);
       }
     } catch {
-      setBetaInstallerStatusLine("ベータの取得に失敗しました");
+      setBetaInstallerStatusLine("Pre-release の取得に失敗しました");
     }
   }, [betaInstallerStatusLine, storeDistribution, updateUiState.phase]);
 
@@ -1108,10 +2249,49 @@ function App() {
         : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
-    const total = listTasks(schedule.categories).length;
-    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    const total = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    }).length;
+    const visible = chartVisibleRows.filter(
+      (row) => row.type === "task" && row.explanationTrial == null,
+    ).length;
     return { visibleTaskCount: visible, totalTaskCount: total };
-  }, [schedule.categories, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    chartVisibleRows,
+  ]);
+
+  const documentTasks = useMemo(
+    () =>
+      collectTasksFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
+  );
 
   const {
     categories,
@@ -1126,9 +2306,23 @@ function App() {
     lineageTask,
     addPredecessorLink,
     removePredecessorLink,
+    addTaskConnection,
+    updateTaskConnectionLabel,
+    removeTaskConnection,
     setTaskConfidence,
     setMilestoneConfidence,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
+    canDeleteOutlineBranch,
+    levels,
+    outline,
+    hierarchyLayout,
   } = schedule;
+
+  const addTopLevelMenuLabel = useMemo(
+    () => addTopLevelMenuLabelFromLayout(schedule.hierarchyLayoutForMenus),
+    [schedule.hierarchyLayoutForMenus],
+  );
   const {
     fileBusy,
     requestOpen,
@@ -1200,14 +2394,14 @@ function App() {
 
   const revealTaskRow = useCallback(
     (taskId: ScheduleId) => {
-      const row = visibleRows.find(
+      const row = chartVisibleRows.find(
         (item) => item.type === "task" && item.task.id === taskId,
       );
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
         scrollYToShowSelectedTask(
-          visibleRows,
+          chartVisibleRows,
           row.y,
           rowHeight,
           bodyHeight,
@@ -1216,7 +2410,15 @@ function App() {
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
+    [
+      bodyHeight,
+      chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      reveal,
+      rowHeight,
+      scrollY,
+    ],
   );
 
   const focusDetailName = useCallback(() => {
@@ -1257,8 +2459,24 @@ function App() {
   );
 
   const taskRefs = useMemo(
-    () => listTasks(schedule.categories),
-    [schedule.categories],
+    () =>
+      listTaskRefsFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
   );
   const selectedTaskIdSet = useMemo(
     () => new Set(schedule.selectedTaskIds),
@@ -1268,15 +2486,25 @@ function App() {
     () =>
       schedule.selectedTaskId == null
         ? null
-        : findTaskById(schedule.categories, schedule.selectedTaskId),
-    [schedule.categories, schedule.selectedTaskId],
+        : findTaskInDocument(
+            schedule.categories,
+            schedule.outline,
+            schedule.selectedTaskId,
+          ),
+    [schedule.categories, schedule.outline, schedule.selectedTaskId],
   );
   const bulkDetailTasks = useMemo(() => {
     if (schedule.selectedTaskIds.length <= 1) return [];
     return schedule.selectedTaskIds
-      .map((id) => findTaskById(schedule.categories, id))
+      .map((id) =>
+        findTaskInDocument(schedule.categories, schedule.outline, id),
+      )
       .filter((task): task is NonNullable<typeof task> => task != null);
-  }, [schedule.categories, schedule.selectedTaskIds]);
+  }, [schedule.categories, schedule.outline, schedule.selectedTaskIds]);
+
+  useEffect(() => {
+    setConnectionAddDialogOpen(false);
+  }, [schedule.selectedTaskId, schedule.selectedTaskIds.length]);
 
   const handleBulkEditingChange = useCallback((editing: boolean) => {
     bulkHadDraftRef.current = editing;
@@ -1349,23 +2577,68 @@ function App() {
     [openTaskForEdit, schedule.selectedTaskIds.length],
   );
 
-  const selectedDetailSuccessors = useMemo(
-    () =>
-      selectedDetailTask
-        ? successorIds(schedule.categories, selectedDetailTask.id)
-        : [],
-    [schedule.categories, selectedDetailTask],
-  );
+  const selectedDetailSuccessors = useMemo(() => {
+    if (!selectedDetailTask) return [];
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    return successorIdsFromTasks(tasks, selectedDetailTask.id);
+  }, [
+    selectedDetailTask,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
-    const links = visibleLinks(schedule.categories, visibleIds);
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    const links = visibleLinksFromTasks(tasks, visibleIds);
     if (schedule.filters.relation !== "broken") return links;
     return links.filter((link) => link.broken);
-  }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.filters.relation,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    chartVisibleRows,
+  ]);
+
+  const taskConnections = useMemo(() => {
+    const visibleIds = new Set(
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
+      ),
+    );
+    return visibleConnectionsFromTasks(schedule.connections, visibleIds);
+  }, [chartVisibleRows, schedule.connections]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -1375,23 +2648,31 @@ function App() {
   );
 
   const stickyLayout = useMemo(
-    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
-    [bodyHeight, rowHeight, scrollY, visibleRows],
+    () => layoutStickyHeaders(chartVisibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, chartVisibleRows],
   );
 
   useLayoutEffect(() => {
     if (focusTaskId == null) return;
-    const row = visibleRows.find(
+    const row = chartVisibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
     reveal(
       parseDate(row.task.start),
-      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      scrollYToRevealTask(chartVisibleRows, row.y, rowHeight, bodyHeight),
       taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
+  }, [
+    bodyHeight,
+    chartVisibleRows,
+    dateToX,
+    focusTaskId,
+    pxPerDay,
+    reveal,
+    rowHeight,
+  ]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -1404,9 +2685,11 @@ function App() {
   );
 
   const runScheduleExport = useCallback(
-    (
+    async (
       format: ScheduleExportFormat,
-      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelColumns?: ExcelExportColumnsPreference,
+      excelFieldColumns?: ExcelExportFieldColumnsPreference,
+      exportPath?: string,
     ) => {
       flushTitleEdit();
       const milestones = milestonesForExport(
@@ -1485,6 +2768,7 @@ function App() {
         milestoneFontSize,
         labelScale: uiScale,
         today: schedule.today,
+        statuses: displayStatuses,
         memberCatalog: displayMemberMap,
         calendar: displayCalendar,
         filterSummary: describeActiveFilters(
@@ -1493,11 +2777,14 @@ function App() {
           assigneeLabel,
           schedule.milestoneGroups,
           schedule.hiddenMilestoneGroupIds,
-          schedule.scheduleTags,
           schedule.hiddenMilestoneIds,
+          schedule.scheduleTags,
+          displayStatuses,
         ),
         colorScheme: resolvedColorScheme,
+        colors: displayColors,
         showLightningLine,
+        milestoneGuideLineIds,
       };
       const onExportError = (error: unknown) => {
         if (error instanceof ScheduleExportTooLargeError) {
@@ -1509,30 +2796,55 @@ function App() {
         );
       };
       if (format === "xlsx") {
-        const taskNames = new Map<string, string>();
-        forEachTask(schedule.categories, (task) => {
-          taskNames.set(task.id, task.name);
+        const exportTasks = collectTasksFromDocument({
+          schemaVersion: SCHEDULE_SCHEMA_VERSION,
+          title: schedule.title,
+          categories: schedule.categories,
+          milestoneGroups: schedule.milestoneGroups,
+          milestones: schedule.milestones,
+          levels: schedule.levels,
+          outline: schedule.outline,
         });
-        void exportScheduleExcel({
+        const taskNames = new Map(
+          exportTasks.map((task) => [task.id, task.name]),
+        );
+        const excelInput = {
           ...exportInput,
           exportMilestones: milestones,
           milestoneGroups: schedule.milestoneGroups,
           taskNames,
+          connections: schedule.connections,
           exportedAtIso: new Date().toISOString(),
-          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
-        }).catch(onExportError);
+          excelColumns: excelColumns ?? readExcelExportColumns(),
+          fieldDefs: editableFieldDefs,
+          excelFieldColumns:
+            excelFieldColumns ??
+            readExcelExportFieldColumns(editableFieldDefs),
+        };
+        if (exportPath) {
+          await exportScheduleExcelToPath(excelInput, exportPath);
+          return;
+        }
+        await exportScheduleExcel(excelInput).catch(onExportError);
         return;
       }
-      void exportSchedule(exportInput, format).catch(onExportError);
+      if (exportPath) {
+        await exportScheduleToPath(exportInput, format, exportPath);
+        return;
+      }
+      await exportSchedule(exportInput, format).catch(onExportError);
     },
     [
       displayCalendar,
+      displayColors,
+      displayStatuses,
       headerHeight,
       links,
       displayMemberMap,
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
+      milestoneGuideLineIds,
       monthHeaderFontSize,
       pxPerDay,
       rowHeight,
@@ -1545,6 +2857,7 @@ function App() {
       flushTitleEdit,
       getDocumentTitle,
       showLightningLine,
+      editableFieldDefs,
     ],
   );
 
@@ -1555,6 +2868,7 @@ function App() {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
       getCanonicalJson(),
+      editableFieldDefs,
     );
     if (result.ok) {
       return { ok: true, text: result.text, entries: result.entries };
@@ -1566,14 +2880,357 @@ function App() {
         !result.isError &&
         result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
     };
-  }, [getCanonicalJson, scheduleFile.filePath]);
+  }, [editableFieldDefs, getCanonicalJson, scheduleFile.filePath]);
+
+  const onMcpDiscardInProgress = useCallback(() => {
+    setDetailPanelEditing(false);
+    setTitleEditing(false);
+    schedule.cancelReorder();
+    setChartBarDragging(false);
+    setSidebarReorderDragging(false);
+    setCommandPaletteOpen(false);
+    setSettingsOpen(false);
+    setExportOpen(false);
+    setHierarchyLevelsOpen(false);
+    setConnectionAddDialogOpen(false);
+    fieldExtensionEditorOverlay.forceClose();
+    colorEditorOverlay.forceClose();
+    memberEditorOverlay.forceClose();
+    statusEditorOverlay.forceClose();
+    schedule.closeDuplicateDialog();
+    schedule.closeTaskNoteDialog();
+    schedule.closeMilestoneEdit();
+    schedule.closeHierarchyEdit();
+    schedule.closeAddingHierarchy();
+    schedule.closeDeleteHierarchy();
+  }, [
+    colorEditorOverlay,
+    fieldExtensionEditorOverlay,
+    memberEditorOverlay,
+    schedule,
+    statusEditorOverlay,
+  ]);
+
+  const runMcpCatalogAction = useCallback(
+    async (
+      catalog: McpCatalogKind,
+      envelope: McpActionEnvelope,
+    ): Promise<McpActionResult> => {
+      const contents = catalogContentsFromEnvelope(envelope);
+      if (!contents.ok) return contents;
+      const validated = validateMcpCatalogContents(catalog, contents.text);
+      if (!validated.ok) return validated;
+      if (envelope.save !== true) {
+        return { ok: true, text: "内容を確認しました。ファイルは変えていません。" };
+      }
+      const overwrite = envelope.overwrite === true;
+      try {
+        if (catalog === "members") {
+          if (workspaceMemberEditTarget) {
+            await writeMembersAtPath(
+              workspaceMemberEditTarget.membersPath,
+              validated.canonical,
+              workspaceMemberEditTarget.workspacePath,
+            );
+            await reloadWorkspaceBinding();
+            return { ok: true, text: workspaceMemberEditTarget.membersPath };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : memberCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存するメンバー一覧が選ばれていません。" };
+          }
+          await memberCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (catalog === "statuses") {
+          if (workspaceStatusEditTarget) {
+            await writeStatusesAtPath(
+              workspaceStatusEditTarget.statusesPath,
+              validated.canonical,
+              workspaceStatusEditTarget.workspacePath,
+            );
+            await reloadWorkspaceBinding();
+            return { ok: true, text: workspaceStatusEditTarget.statusesPath };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : statusCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存するステータス一覧が選ばれていません。" };
+          }
+          await statusCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (catalog === "colors") {
+          if (workspaceColorEditTarget) {
+            await writeColorsAtPath(
+              workspaceColorEditTarget.colorsPath,
+              validated.canonical,
+              workspaceColorEditTarget.workspacePath,
+            );
+            const reloaded = await reloadWorkspaceBinding();
+            if (!reloaded.ok) {
+              return { ok: false, message: reloaded.message };
+            }
+            const colorLoadError = workspaceColorsError(reloaded.binding.colors);
+            if (colorLoadError) {
+              return { ok: false, message: colorLoadError };
+            }
+            return { ok: true, text: workspaceColorEditTarget.colorsPath };
+          }
+          if (workspaceBinding?.colors.kind === "error") {
+            return { ok: false, message: workspaceBinding.colors.message };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : colorCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存する色の一覧が選ばれていません。" };
+          }
+          await colorCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (workspaceFieldExtensionEditTarget) {
+          await writeFieldExtensionAtPath(
+            workspaceFieldExtensionEditTarget.path,
+            validated.canonical,
+            workspaceFieldExtensionEditTarget.workspacePath,
+          );
+          await reloadWorkspaceBinding();
+          return { ok: true, text: workspaceFieldExtensionEditTarget.path };
+        }
+        const catalogId =
+          typeof envelope.catalogId === "string"
+            ? envelope.catalogId
+            : fieldExtensionCatalogState.settings.selectedCatalogIds[0] ?? null;
+        if (!catalogId) {
+          return { ok: false, message: "保存する拡張項目が選ばれていません。" };
+        }
+        const nextId = await fieldExtensionCatalogState.saveCatalog(
+          catalogId,
+          validated.canonical,
+        );
+        return { ok: true, text: nextId };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "一覧を保存できませんでした。",
+        };
+      }
+    },
+    [
+      colorCatalogState,
+      fieldExtensionCatalogState,
+      memberCatalogState,
+      reloadWorkspaceBinding,
+      statusCatalogState,
+      workspaceColorEditTarget,
+      workspaceFieldExtensionEditTarget,
+      workspaceMemberEditTarget,
+      workspaceStatusEditTarget,
+      workspaceBinding,
+    ],
+  );
+
+  const mcpActionExecutor = useMcpActionExecutor({
+    levels: schedule.levels,
+    visibleRows: schedule.visibleRows,
+    getDocument: () => {
+      return cloneDocumentForMcpEditPlan({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+        connections: schedule.connections,
+      });
+    },
+    replaceScheduleDocument: (document) =>
+      replaceScheduleDocumentRef.current(document),
+    scheduleFilePath: scheduleFile.filePath,
+    getScheduleFilePath: scheduleFile.getFilePath,
+    fields: editableFieldDefs,
+    getCanonicalJson,
+    documentTitle: schedule.title,
+    setBaselineAfterSave: scheduleFile.markSavedAtPath,
+    isDirty: scheduleFile.isDirty,
+    getIsDirty: scheduleFile.getIsDirty,
+    openPathWithoutDialog: async (path, discardUnsaved) => {
+      if (scheduleFile.getIsDirty() && !discardUnsaved) {
+        return {
+          ok: false,
+          message: "未保存の変更があります。discardUnsaved を true にしてください。",
+        };
+      }
+      try {
+        const contents = await readDroppedScheduleFileViaTauri(path);
+        const parsed = parseScheduleText(contents);
+        if (!parsed.ok) {
+          return { ok: false, message: parsed.message };
+        }
+        await acceptOpenedScheduleViaTauri(path, contents);
+        await scheduleFile.applyOpenedFile(
+          { path, contents },
+          { recordRecent: false },
+        );
+        return { ok: true, text: path };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "ファイルを開けませんでした。",
+        };
+      }
+    },
+    getCollapsed: () => schedule.getCollapsedForMcp(),
+    getFilterViewState: () => schedule.getFilterViewState(),
+    clearExplanationOnSetView: schedule.clearExplanationView,
+    runExplainViewAction: schedule.runExplainViewAction,
+    runExplainOverlayAction: schedule.runExplainOverlayAction,
+    getExplanationOverlay: () => schedule.explanationOverlay,
+    applyPartialFilterViewState: schedule.applyPartialFilterViewState,
+    applyMcpSetViewLineage: (lineage) => {
+      if (lineage.taskId === null) {
+        schedule.clearLineage();
+        return;
+      }
+      if (lineage.includesConnections) {
+        schedule.showLineageWithConnections(lineage.taskId);
+        return;
+      }
+      schedule.showLineage(lineage.taskId);
+    },
+    applySetViewPreferences: (patch: McpSetViewPatch) => {
+      if (patch.displayScale !== undefined) {
+        setDisplayScalePreference(patch.displayScale);
+        writeDisplayScalePreference(patch.displayScale);
+      }
+      if (patch.rowDensity !== undefined) {
+        setRowDensity(patch.rowDensity);
+        writeRowDensity(patch.rowDensity);
+      }
+      if (patch.showLightningLine !== undefined) {
+        setShowLightningLine(patch.showLightningLine);
+        writeShowLightning(patch.showLightningLine);
+      }
+      if (patch.sidebarColumns !== undefined) {
+        setSidebarColumns(patch.sidebarColumns);
+        writeSidebarColumns(patch.sidebarColumns);
+      }
+      if (patch.colorScheme !== undefined) {
+        setColorSchemePreference(patch.colorScheme);
+        setResolvedColorScheme(resolveColorScheme(patch.colorScheme));
+        writeColorSchemePreference(patch.colorScheme);
+      }
+    },
+    applySetViewTimeline: (patch: McpSetViewPatch) => {
+      if (patch.zoomTier !== undefined) {
+        view.setTierZoom(patch.zoomTier);
+      }
+      if (patch.fitToWidth) {
+        view.fitToWidth();
+      }
+      if (patch.scrollX !== undefined) {
+        view.scrollBy(patch.scrollX - view.scrollX, 0);
+      }
+      if (patch.scrollY !== undefined) {
+        view.scrollBy(0, patch.scrollY - view.scrollY);
+      }
+    },
+    applyCalendarAction: async (action) => {
+      if (action.kind === "clear") {
+        await appCalendarState.removeCalendar();
+        return { ok: true, text: "稼働日を外しました。" };
+      }
+      if (action.kind === "removeBinding") {
+        await appCalendarState.removeCalendar();
+        return { ok: true, text: "稼働日を外しました。" };
+      }
+      try {
+        const contents = await readDroppedScheduleFileViaTauri(action.path);
+        const label = action.path.split(/[/\\]/).pop() ?? action.path;
+        await appCalendarState.importCalendar(label, contents);
+        return { ok: true, text: action.path };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "稼働日を取り込めませんでした。",
+        };
+      }
+    },
+    runExport: async (format, path, excelColumns, excelFieldColumns) => {
+      try {
+        await runScheduleExport(
+          format,
+          excelColumns,
+          excelFieldColumns,
+          path,
+        );
+        return { ok: true, text: path };
+      } catch (error) {
+        return {
+          ok: false,
+          message: errorMessage(error, "書き出せませんでした。"),
+        };
+      }
+    },
+    undo: schedule.undo,
+    redo: schedule.redo,
+    memberCatalogSave: (envelope) => runMcpCatalogAction("members", envelope),
+    colorCatalogSave: (envelope) => runMcpCatalogAction("colors", envelope),
+    statusCatalogSave: (envelope) => runMcpCatalogAction("statuses", envelope),
+    fieldCatalogSave: (envelope) => runMcpCatalogAction("fields", envelope),
+    exportWorkspaceToFolder: async (folder) => {
+      try {
+        const bundle = await collectWorkspaceExportBundle();
+        await exportWorkspaceBundleViaTauri({ ...bundle, folder });
+        return { ok: true, text: folder };
+      } catch (error) {
+        return {
+          ok: false,
+          message: errorMessage(
+            error,
+            "設定ファイルを書き出せませんでした。",
+          ),
+        };
+      }
+    },
+    mcpUiBlocking,
+  });
 
   useMcpScreenBridge({
+    statuses: displayStatuses,
+    colors: displayColors,
+    colorsCatalogError,
     categories: schedule.categories,
+    outline: schedule.outline,
+    title: schedule.title,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
     lineageTaskId: schedule.lineageTaskId,
+    lineageIncludesConnections: schedule.lineageIncludesConnections,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
     hiddenMilestoneIds: schedule.hiddenMilestoneIds,
@@ -1581,7 +3238,23 @@ function App() {
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
     memberMap: displayMemberMap,
-    scheduleFilePath: scheduleFile.filePath,
+    mcpMembers,
+    levels: schedule.levels,
+    fields: editableFieldDefs,
+    collapsed: schedule.getDisplayedCollapsedForMcp(),
+    userCollapsed: schedule.getCollapsedForMcp(),
+    explanationView: schedule.explanationView,
+    explanationOverlay: schedule.explanationOverlay,
+    displayScalePreference,
+    effectiveUiScale: uiScale,
+    rowDensity,
+    showLightningLine,
+    sidebarColumns,
+    colorSchemePreference,
+    resolvedColorScheme,
+    calendar: displayCalendar,
+    getScheduleFilePath: scheduleFile.getFilePath,
+    getCanonicalJson,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
     startupSettled: scheduleFile.startupSettled,
@@ -1589,10 +3262,31 @@ function App() {
       scheduleFile.recoveryConflictOpen ||
       scheduleFile.missingScheduleLabel != null ||
       scheduleFile.recoveryInvalidOpen,
+    fileBusy: scheduleFile.fileBusy,
     mcpReplaceUiBlocking,
+    mcpUiBlocking,
+    onDiscardInProgress: onMcpDiscardInProgress,
+    mcpActionExecutor,
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
-    onReplaceScheduleApplied: showReplaceScreenToast,
+    onReplaceScheduleApplied,
+    visibleRows: chartVisibleRows,
+    prepareMcpPngCapture,
+    finalizeMcpPngCapture,
+    viewStart,
+    viewTotalDays,
+    scrollX,
+    pxPerDay,
+    chartWidth: timelineWidth,
+    scrollY,
+    rowHeight,
+    bodyHeight,
+    dateToX,
+    headerHeight: headerHeight,
+    milestoneBandHeight,
+    barHeight,
+    mainElement: mainRef.current,
+    explainOverlayLiveAnchorsRef,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -1640,6 +3334,7 @@ function App() {
       next: DiffStripView,
       announce: boolean,
       entries?: ScheduleDiffEntry[],
+      source: "auto" | "explicit" = "auto",
     ) => {
       if (!next.visible) {
         if (!diffStripRef.current.visible) {
@@ -1659,6 +3354,7 @@ function App() {
           diffStripRef.current,
           next,
           diffStripFocusedRef.current,
+          source,
         )
       ) {
         pendingDiffBodyRef.current = next.text;
@@ -1666,6 +3362,10 @@ function App() {
           pendingDiffEntriesRef.current = entries;
         }
         return;
+      }
+      if (source === "explicit") {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
       }
       const prev = diffStripRef.current;
       const wasVisible = prev.visible;
@@ -1742,8 +3442,9 @@ function App() {
         filterState.collapsedGroupIds,
       );
       const outcome = resolveDiffNavigation(entry, {
-        visibleRows: schedule.visibleRows,
+        visibleRows: chartVisibleRows,
         categories: schedule.categories,
+        outline: schedule.outline,
         collapsed,
         filters: schedule.filters,
         today: schedule.today,
@@ -1797,6 +3498,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
           return;
         }
@@ -1820,7 +3523,7 @@ function App() {
             setDiffPanelExpanded(false);
           }
         }
-        commitDiffStripView(view, true, result.entries);
+        commitDiffStripView(view, true, result.entries, "auto");
         return;
       }
       const explicitView = resolveStripAfterExplicitLoad(result.text);
@@ -1831,6 +3534,8 @@ function App() {
         explicitView.kind === "body" &&
         result.text === strip.text
       ) {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
         return;
       }
       const view = explicitView;
@@ -1839,7 +3544,7 @@ function App() {
       if (view.kind === "body") {
         setDiffFocusListOnMount(true);
       }
-      commitDiffStripView(view, true, result.entries);
+      commitDiffStripView(view, true, result.entries, "explicit");
     },
     [commitDiffStripView],
   );
@@ -1917,6 +3622,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
         } else {
           setDiffError(result.message);
@@ -1934,7 +3641,7 @@ function App() {
         if (view.kind === "body") {
           setDiffFocusListOnMount(true);
         }
-        commitDiffStripView(view, false, result.entries);
+        commitDiffStripView(view, false, result.entries, "explicit");
       }
     });
   }, [
@@ -2016,9 +3723,63 @@ function App() {
     ],
   );
 
-  const runCommandPalette = useCallback(
-    (target: CommandPaletteRunTarget) => {
-      const stepScale = (direction: "in" | "out") => {
+  const paletteCommandDispatchHandlers = useMemo(
+    (): PaletteCommandDispatchHandlers => ({
+      onOpen: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpen();
+      },
+      onOpenInNewWindow: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpenInNewWindow();
+      },
+      onSave: () => {
+        flushTitleEdit();
+        void scheduleFile.save(false);
+      },
+      onSaveAs: () => {
+        flushTitleEdit();
+        void scheduleFile.save(true);
+      },
+      onExportHtml: () => {
+        flushTitleEdit();
+        setExportOpen(true);
+      },
+      onExportWorkspace: workspaceBinding
+        ? undefined
+        : () => {
+            flushTitleEdit();
+            void handleExportWorkspace();
+          },
+      onShowJson: () => {
+        flushTitleEdit();
+        setJsonOpen(true);
+      },
+      onShowDiff: showScheduleDiff,
+      onCopyDiff: copyScheduleDiff,
+      onClearRecentHistory: handleClearRecentHistory,
+      onOpenRecent: requestOpenFromRecentWithTitleFlush,
+      onEditTitle: () => setTitleEditRequestToken((token) => token + 1),
+      onFocusSearch: () => {
+        taskSearchRef.current?.focus();
+        taskSearchRef.current?.select();
+      },
+      onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+      onOpenGuide: openGuide,
+      onOpenShortcuts: openShortcuts,
+      onOpenSettings: () => {
+        setSettingsSection("display");
+        setSettingsOpen(true);
+      },
+      onCheckForUpdates: storeDistribution
+        ? undefined
+        : () => handleCheckForUpdates(false),
+      onGoToday: scrollToToday,
+      onSetTier: setTierZoom,
+      onFit: fitToWidth,
+      onUndo: undo,
+      onRedo: redo,
+      onAdjustDisplayScale: (direction) => {
         const next = stepDisplayScale(
           displayScalePreferenceRef.current,
           uiScaleRef.current,
@@ -2033,127 +3794,21 @@ function App() {
         );
         writeDisplayScalePreference(next);
         handleDisplayScaleChange(next);
-      };
-      if (target.type === "openRecent") {
-        requestOpenFromRecentWithTitleFlush(target.path);
-        return;
-      }
-      switch (target.id) {
-        case "clearRecentHistory":
-          handleClearRecentHistory();
-          break;
-        case "editTitle":
-          setTitleEditRequestToken((token) => token + 1);
-          break;
-        case "open":
-          flushTitleEdit();
-          scheduleFile.requestOpen();
-          break;
-        case "openNewWindow":
-          flushTitleEdit();
-          scheduleFile.requestOpenInNewWindow();
-          break;
-        case "save":
-          flushTitleEdit();
-          void scheduleFile.save(false);
-          break;
-        case "saveAs":
-          flushTitleEdit();
-          void scheduleFile.save(true);
-          break;
-        case "find":
-          taskSearchRef.current?.focus();
-          taskSearchRef.current?.select();
-          break;
-        case "showDiff":
-          showScheduleDiff();
-          break;
-        case "copyDiff":
-          copyScheduleDiff();
-          break;
-        case "showJson":
-          flushTitleEdit();
-          setJsonOpen(true);
-          break;
-        case "export":
-          flushTitleEdit();
-          setExportOpen(true);
-          break;
-        case "settings":
-          setSettingsSection("display");
-          setSettingsOpen(true);
-          break;
-        case "guide":
-          openGuide();
-          break;
-        case "shortcuts":
-          openShortcuts();
-          break;
-        case "goToday":
-          scrollToToday();
-          break;
-        case "tierDay":
-          setTierZoom("day");
-          break;
-        case "tierWeek":
-          setTierZoom("week");
-          break;
-        case "tierMonth":
-          setTierZoom("month");
-          break;
-        case "fit":
-          fitToWidth();
-          break;
-        case "undo":
-          undo();
-          break;
-        case "redo":
-          redo();
-          break;
-        case "displayScaleIn":
-          stepScale("in");
-          break;
-        case "displayScaleOut":
-          stepScale("out");
-          break;
-        case "editTask":
-          if (schedule.selectedTaskId == null) break;
-          focusDetailName();
-          break;
-        case "deleteTask":
-          requestDeleteTask();
-          break;
-        case "link":
-          toggleLinkMode();
-          break;
-        case "note":
-          if (schedule.selectedTaskId != null) {
-            schedule.openTaskNoteDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "lineage":
-          schedule.toggleLineage();
-          break;
-        case "addTask":
-          setAddOpen(true);
-          break;
-        case "addMilestone":
-          setAddMilestoneInitialDate(null);
-          setAddMilestoneInitialGroupId(null);
-          setAddMilestoneOpen(true);
-          break;
-        case "duplicateTask":
-          if (schedule.selectedTaskId != null) {
-            openDuplicateDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "checkForUpdates":
-          handleCheckForUpdates(false);
-          break;
-        default:
-          break;
-      }
-    },
+      },
+      onFocusEditTask: focusDetailName,
+      onDeleteTask: requestDeleteTask,
+      onToggleLinkMode: toggleLinkMode,
+      onOpenTaskNote: (taskId) => schedule.openTaskNoteDialog(taskId),
+      onToggleLineage: () => schedule.toggleLineage(),
+      onAddTask: () => setAddOpen(true),
+      onAddMilestone: () => {
+        setAddMilestoneInitialDate(null);
+        setAddMilestoneInitialGroupId(null);
+        setAddMilestoneOpen(true);
+      },
+      onDuplicateTask: (taskId) => openDuplicateDialog(taskId),
+      selectedTaskId: schedule.selectedTaskId,
+    }),
     [
       copyScheduleDiff,
       fitToWidth,
@@ -2162,6 +3817,7 @@ function App() {
       handleCheckForUpdates,
       handleClearRecentHistory,
       handleDisplayScaleChange,
+      handleExportWorkspace,
       openDuplicateDialog,
       openGuide,
       openShortcuts,
@@ -2173,9 +3829,18 @@ function App() {
       scrollToToday,
       setTierZoom,
       showScheduleDiff,
+      storeDistribution,
       toggleLinkMode,
       undo,
+      workspaceBinding,
     ],
+  );
+
+  const runCommandPalette = useCallback(
+    (target: CommandPaletteRunTarget) => {
+      dispatchCommandPaletteRunTarget(target, paletteCommandDispatchHandlers);
+    },
+    [paletteCommandDispatchHandlers],
   );
 
   useAppKeyboard({
@@ -2193,6 +3858,7 @@ function App() {
     openTaskNote: schedule.openTaskNoteDialog,
     clearLinkMode,
     removePredecessorLink,
+    removeTaskConnection,
     chartPointerRef,
     closeFloatingMenus,
     requestDeleteTask,
@@ -2231,6 +3897,32 @@ function App() {
     },
     onDuplicateTask: openDuplicateDialog,
     commitTaskReorder: schedule.commitTaskReorder,
+    filterPanelOpen,
+    onOpenSettings: () => {
+      setSettingsSection("display");
+      setSettingsOpen(true);
+    },
+    onGoToday: scrollToToday,
+    onSetViewTier: (tier) => {
+      if (tier === "fit") fitToWidth();
+      else setTierZoom(tier);
+    },
+    onToggleLineage: () => schedule.toggleLineage(),
+    onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+    onToggleTaskConfidence: () => {
+      for (const taskId of schedule.selectedTaskIds) {
+        const task = findTaskInDocument(
+          schedule.categories,
+          schedule.outline,
+          taskId,
+        );
+        if (!task) continue;
+        schedule.setTaskConfidence(
+          taskId,
+          task.confidence === "tentative" ? "committed" : "tentative",
+        );
+      }
+    },
   });
 
   useMacOSAppMenu(
@@ -2255,6 +3947,10 @@ function App() {
       setJsonOpen(true);
     },
     onShowDiff: showScheduleDiff,
+    onCopyDiff: () => {
+      flushTitleEdit();
+      copyScheduleDiff();
+    },
     onOpenGuide: openGuide,
     onOpenShortcuts: openShortcuts,
     onOpenSettings: () => {
@@ -2267,8 +3963,103 @@ function App() {
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
-    onUndo: undo,
-    onRedo: redo,
+    statusCatalogEditorBlocksDocumentUndo: () =>
+      (statusEditorOverlayRef.current?.open ?? false) ||
+      (colorEditorOverlayRef.current?.open ?? false) ||
+      (memberEditorOverlayRef.current?.open ?? false) ||
+      fieldExtensionEditorOverlay.open,
+    onUndo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.undo();
+        return;
+      }
+      const colorOverlay = colorEditorOverlayRef.current;
+      if (colorOverlay?.open) {
+        if (
+          colorOverlay.discardPrompt ||
+          colorOverlay.copyConfirmOpen ||
+          colorOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        colorCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      const memberOverlay = memberEditorOverlayRef.current;
+      if (memberOverlay?.open) {
+        if (
+          memberOverlay.discardPrompt ||
+          memberOverlay.copyConfirmOpen ||
+          memberOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        memberCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      undo();
+    },
+    onRedo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.redo();
+        return;
+      }
+      const colorOverlay = colorEditorOverlayRef.current;
+      if (colorOverlay?.open) {
+        if (
+          colorOverlay.discardPrompt ||
+          colorOverlay.copyConfirmOpen ||
+          colorOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        colorCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      const memberOverlay = memberEditorOverlayRef.current;
+      if (memberOverlay?.open) {
+        if (
+          memberOverlay.discardPrompt ||
+          memberOverlay.copyConfirmOpen ||
+          memberOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        memberCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      redo();
+    },
   },
     recentFilesStore,
   );
@@ -2312,15 +4103,24 @@ function App() {
   );
 
   const openHierarchyContextMenu = useCallback(
-    (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
+    (
+      kind: "category" | "group" | "outline",
+      id: ScheduleId,
+      x: number,
+      y: number,
+    ) => {
       if (linkSourceId != null) return;
+      if (kind === "outline") {
+        setContextMenu({ kind: "hierarchy", id, x, y });
+        return;
+      }
       setContextMenu({ kind, id, x, y });
     },
     [linkSourceId],
   );
 
   const openHierarchyEdit = useCallback(
-    (kind: "category" | "group", id: ScheduleId) => {
+    (kind: "category" | "group" | "outline", id: ScheduleId) => {
       if (linkSourceId != null) return;
       schedule.openHierarchyEdit(kind, id);
     },
@@ -2328,8 +4128,14 @@ function App() {
   );
 
   const openLinkContextMenu = useCallback(
-    (fromId: ScheduleId, toId: ScheduleId, x: number, y: number) => {
-      setContextMenu({ kind: "link", fromId, toId, x, y });
+    (
+      fromId: ScheduleId,
+      toId: ScheduleId,
+      x: number,
+      y: number,
+      linkKind: "predecessor" | "connection",
+    ) => {
+      setContextMenu({ kind: "link", fromId, toId, linkKind, x, y });
     },
     [],
   );
@@ -2380,300 +4186,122 @@ function App() {
     [addPredecessorLink, linkSourceId],
   );
 
-  const contextMenuItems = useMemo((): ContextMenuItem[] => {
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    const openForCapture = () => {
+      const row =
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task.selected:not(.sidebar-row--explanation-trial)",
+        ) ??
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task:not(.sidebar-row--explanation-trial)",
+        );
+      const taskId = row?.dataset.taskId ?? null;
+      if (taskId == null) return;
+      openTaskContextMenu(taskId as ScheduleId, 520, 360);
+    };
+    (
+      window as Window & {
+        __manualScreenshotOpenTaskContextMenu?: () => void;
+      }
+    ).__manualScreenshotOpenTaskContextMenu = openForCapture;
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotOpenTaskContextMenu?: () => void;
+        }
+      ).__manualScreenshotOpenTaskContextMenu;
+    };
+  }, [openTaskContextMenu]);
+
+  const contextMenuItemHandlers = useMemo(
+    () => ({
+      setMilestoneMarkVisible,
+      showOnlyMilestoneMark,
+      openMilestoneEdit,
+      setMilestoneConfidence,
+      setDeleteMilestoneId,
+      removeTaskConnection,
+      removePredecessorLink,
+      openAddMilestone: (date: string, groupId: ScheduleId | null) => {
+        setAddMilestoneInitialDate(date);
+        setAddMilestoneInitialGroupId(groupId);
+        setAddMilestoneOpen(true);
+      },
+      setMilestoneGroupVisible,
+      showOnlyMilestoneGroup,
+      openHierarchyEdit,
+      openAddCategoryAfter,
+      openAddGroupToCategory,
+      openAddGroupAfter,
+      openAddOutlineSiblingAfter,
+      openAddOutlineChild,
+      openDeleteHierarchy,
+      setDeleteOpen,
+      openTaskForEdit,
+      openDuplicateDialog,
+      setTaskConfidence,
+      openTaskNoteDialog,
+      clearLineage,
+      showLineage,
+    }),
+    [
+      setMilestoneMarkVisible,
+      showOnlyMilestoneMark,
+      openMilestoneEdit,
+      setMilestoneConfidence,
+      removeTaskConnection,
+      removePredecessorLink,
+      setMilestoneGroupVisible,
+      showOnlyMilestoneGroup,
+      openHierarchyEdit,
+      openAddCategoryAfter,
+      openAddGroupToCategory,
+      openAddGroupAfter,
+      openAddOutlineSiblingAfter,
+      openAddOutlineChild,
+      openDeleteHierarchy,
+      openTaskForEdit,
+      openDuplicateDialog,
+      setTaskConfidence,
+      openTaskNoteDialog,
+      clearLineage,
+      showLineage,
+    ],
+  );
+
+  const contextMenuItems = useMemo(() => {
     if (contextMenu == null) return [];
-    if (contextMenu.kind === "milestone") {
-      const milestoneId = contextMenu.milestoneId;
-      const milestone = milestones.find((item) => item.id === milestoneId);
-      return [
-        {
-          type: "item",
-          id: "edit",
-          label: "編集",
-          icon: <Pencil size={14} strokeWidth={2} />,
-          onSelect: () => openMilestoneEdit(milestoneId),
-        },
-        ...(milestone
-          ? [
-              {
-                type: "item" as const,
-                id: "confidence",
-                label:
-                  milestone.confidence === "tentative"
-                    ? "確定にする"
-                    : "未確定にする",
-                onSelect: () => {
-                  setMilestoneConfidence(
-                    milestoneId,
-                    milestone.confidence === "tentative" ? "committed" : "tentative",
-                  );
-                },
-              },
-            ]
-          : []),
-        {
-          type: "item",
-          id: "hide-milestone-mark",
-          label: "非表示",
-          onSelect: () => setMilestoneMarkVisible(milestoneId, false),
-        },
-        ...(hasOtherVisibleMilestoneMark(
-          visibleMilestoneGroupIds,
-          milestones,
-          hiddenMilestoneIdSet,
-          milestoneId,
-        )
-          ? [
-              {
-                type: "item" as const,
-                id: "show-only-milestone-mark",
-                label: "このマイルストンだけ表示",
-                onSelect: () => showOnlyMilestoneMark(milestoneId),
-              },
-            ]
-          : []),
-        { type: "separator", id: "milestone-sep" },
-        {
-          type: "item",
-          id: "delete",
-          label: "削除",
-          danger: true,
-          icon: <Trash2 size={14} strokeWidth={2} />,
-          onSelect: () => setDeleteMilestoneId(milestoneId),
-        },
-      ];
-    }
-    if (contextMenu.kind === "link") {
-      const { fromId, toId } = contextMenu;
-      return [
-        {
-          type: "item",
-          id: "unlink",
-          label: "線を外す",
-          onSelect: () => removePredecessorLink(fromId, toId),
-        },
-      ];
-    }
-    if (contextMenu.kind === "addMilestone") {
-      const date = contextMenu.date;
-      return [
-        {
-          type: "item",
-          id: "add-milestone",
-          label: "マイルストンを追加",
-          onSelect: () => {
-            setAddMilestoneInitialDate(date);
-            setAddMilestoneInitialGroupId(contextMenu.groupId);
-            setAddMilestoneOpen(true);
-          },
-        },
-      ];
-    }
-    if (contextMenu.kind === "milestoneGroup") {
-      const groupId = contextMenu.groupId;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "hide-milestone-group",
-          label: "非表示",
-          onSelect: () => setMilestoneGroupVisible(groupId, false),
-        },
-      ];
-      if (
-        hasOtherVisibleMilestoneBandGroup(
-          visibleMilestoneGroupIds,
-          milestones,
-          groupId,
-        )
-      ) {
-        items.push({
-          type: "item",
-          id: "show-only-milestone-group",
-          label: "この行だけ表示",
-          onSelect: () => showOnlyMilestoneGroup(groupId),
-        });
-      }
-      return items;
-    }
-    if (contextMenu.kind === "category") {
-      const { id } = contextMenu;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "rename",
-          label: "名前を変更",
-          onSelect: () => openHierarchyEdit("category", id),
-        },
-        {
-          type: "item",
-          id: "add-category",
-          label: "下にカテゴリを追加",
-          onSelect: () => openAddCategoryAfter(id),
-        },
-        {
-          type: "item",
-          id: "add-group",
-          label: "グループを追加",
-          onSelect: () => openAddGroupToCategory(id),
-        },
-      ];
-      if (canDeleteCategory(categories, id)) {
-        items.push(
-          { type: "separator", id: "category-sep" },
-          {
-            type: "item",
-            id: "delete",
-            label: "削除",
-            danger: true,
-            icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => openDeleteHierarchy("category", id),
-          },
-        );
-      }
-      return items;
-    }
-    if (contextMenu.kind === "group") {
-      const { id } = contextMenu;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "rename",
-          label: "名前を変更",
-          onSelect: () => openHierarchyEdit("group", id),
-        },
-        {
-          type: "item",
-          id: "add-group",
-          label: "下にグループを追加",
-          onSelect: () => openAddGroupAfter(id),
-        },
-      ];
-      if (canDeleteGroup(categories, id)) {
-        items.push(
-          { type: "separator", id: "group-sep" },
-          {
-            type: "item",
-            id: "delete",
-            label: "削除",
-            danger: true,
-            icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => openDeleteHierarchy("group", id),
-          },
-        );
-      }
-      return items;
-    }
-    const taskId = contextMenu.taskId;
-    const task = findTaskById(categories, taskId);
-    const multiCount = schedule.selectedTaskIds.length;
-    if (multiCount > 1) {
-      return [
-        {
-          type: "item",
-          id: "delete",
-          label: "削除",
-          danger: true,
-          icon: <Trash2 size={14} strokeWidth={2} />,
-          shortcut: deleteShortcutHint(),
-          onSelect: () => setDeleteOpen(true),
-        },
-      ];
-    }
-    const lineageActive = lineageTask?.id === taskId;
-    const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
-    return [
-      {
-        type: "item",
-        id: "edit",
-        label: "編集",
-        icon: <Pencil size={14} strokeWidth={2} />,
-        shortcut: editShortcutHint(),
-        onSelect: () => {
-          if (task) openTaskForEdit(task);
-        },
-      },
-      {
-        type: "item",
-        id: "duplicate",
-        label: "複製",
-        icon: <Copy size={14} strokeWidth={2} />,
-        shortcut: duplicateTaskShortcutHint(),
-        onSelect: () => openDuplicateDialog(taskId),
-      },
-      { type: "separator", id: "task-sep-1" },
-      ...(task
-        ? [
-            {
-              type: "item" as const,
-              id: "confidence",
-              label:
-                task.confidence === "tentative" ? "確定にする" : "未確定にする",
-              onSelect: () => {
-                setTaskConfidence(
-                  taskId,
-                  task.confidence === "tentative" ? "committed" : "tentative",
-                );
-              },
-            },
-          ]
-        : []),
-      {
-        type: "item",
-        id: "note",
-        label: "ノート",
-        icon: <StickyNote size={14} strokeWidth={2} />,
-        shortcut: noteShortcutHint(commandKey),
-        onSelect: () => openTaskNoteDialog(taskId),
-      },
-      { type: "separator", id: "task-sep-2" },
-      {
-        type: "item",
-        id: "lineage",
-        label: lineageActive ? "系統を解除" : "系統を表示",
-        icon: <GitBranch size={14} strokeWidth={2} />,
-        onSelect: () => {
-          if (lineageActive) clearLineage();
-          else showLineage(taskId);
-        },
-      },
-      { type: "separator", id: "task-sep-3" },
-      {
-        type: "item",
-        id: "delete",
-        label: "削除",
-        danger: true,
-        icon: <Trash2 size={14} strokeWidth={2} />,
-        shortcut: deleteShortcutHint(),
-        onSelect: () => setDeleteOpen(true),
-      },
-    ];
+    return buildContextMenuItems({
+      target: contextMenuTarget(contextMenu),
+      categories,
+      outline,
+      levels,
+      milestones,
+      hierarchyAligned: hierarchyLayout.aligned,
+      visibleMilestoneGroupIds,
+      hiddenMilestoneIdSet,
+      selectedTaskCount: schedule.selectedTaskIds.length,
+      lineageTaskId: lineageTask?.id,
+      commandKey: usesCommandKey(navigator.platform || navigator.userAgent),
+      canDeleteOutlineBranch,
+      handlers: contextMenuItemHandlers,
+    });
   }, [
     categories,
-    clearLineage,
     contextMenu,
+    contextMenuItemHandlers,
+    hierarchyLayout.aligned,
+    hiddenMilestoneIdSet,
+    levels,
     lineageTask?.id,
     milestones,
-    openDuplicateDialog,
-    openTaskForEdit,
-    openHierarchyEdit,
-    setMilestoneConfidence,
-    setTaskConfidence,
-    openMilestoneEdit,
-    openTaskNoteDialog,
-    removePredecessorLink,
-    openAddCategoryAfter,
-    openAddGroupToCategory,
-    openAddGroupAfter,
-    openDeleteHierarchy,
-    setMilestoneGroupVisible,
-    showOnlyMilestoneGroup,
-    visibleMilestoneGroupIds,
-    hiddenMilestoneIdSet,
-    setMilestoneMarkVisible,
-    showOnlyMilestoneMark,
-    showLineage,
+    outline,
     schedule.selectedTaskIds.length,
+    visibleMilestoneGroupIds,
+    canDeleteOutlineBranch,
   ]);
+
 
   return (
     <div
@@ -2687,9 +4315,22 @@ function App() {
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {titleBlankNotice}
       </p>
+      <div className="app-workspace">
+        <div
+          className="app-workspace-content"
+          inert={
+            statusEditorOverlay.open ||
+            colorEditorOverlay.open ||
+            memberEditorOverlay.open ||
+            fieldExtensionEditorOverlay.open
+              ? true
+              : undefined
+          }
+        >
       <Toolbar
         title={showScheduleBody ? schedule.title : ""}
         titleDiffMarked={diffNavigationMark.title}
+        statuses={displayStatuses}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -2702,18 +4343,30 @@ function App() {
         onShowAllMilestoneMarks={schedule.showAllMilestoneMarks}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={editableFieldDefs}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
+        canStartLineageWithConnections={schedule.selectedTaskIds.length === 1}
         onToggleLineage={schedule.toggleLineage}
+        onShowLineageWithConnections={() => {
+          const id = schedule.selectedTaskIds[0];
+          if (id != null) schedule.showLineageWithConnections(id);
+        }}
         linkSourceName={
           linkSourceId == null
             ? null
-            : (findTaskById(schedule.categories, linkSourceId)?.name ?? null)
+            : (findTaskInDocument(
+                schedule.categories,
+                schedule.outline,
+                linkSourceId,
+              )?.name ?? null)
         }
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
+        onPatchFieldFilter={schedule.patchFieldFilter}
+        onUpdateFieldFilters={schedule.updateFieldFilters}
         onGoToday={scrollToToday}
         onSetTier={setTierZoom}
         onFit={fitToWidth}
@@ -2728,6 +4381,10 @@ function App() {
           setJsonOpen(true);
         }}
         onShowDiff={showScheduleDiff}
+        onCopyDiff={() => {
+          flushTitleEdit();
+          copyScheduleDiff();
+        }}
         onOpen={() => {
           flushTitleEdit();
           scheduleFile.requestOpen();
@@ -2753,6 +4410,17 @@ function App() {
         onTitleBlankCommit={showTitleBlankNotice}
         titleEditHandleRef={titleEditHandleRef}
         titleEditRequestToken={titleEditRequestToken}
+        hierarchyEditDisabled={
+          scheduleFile.fileBusy || !scheduleFile.startupSettled
+        }
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={() => {
+          flushTitleEdit();
+          setHierarchyHadDocumentLevels(schedule.documentHasExplicitLevels());
+          setHierarchyLevelsOpen(true);
+        }}
+        filterPanelOpen={filterPanelOpen}
+        onFilterPanelOpenChange={setFilterPanelOpen}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);
@@ -2776,14 +4444,25 @@ function App() {
           setAddMilestoneInitialGroupId(null);
           setAddMilestoneOpen(true);
         }}
+        addTopLevelMenuLabel={addTopLevelMenuLabel}
+        onAddTopLevel={() => {
+          if (
+            schedule.hierarchyLayout.useLegacyCategoryRows ||
+            schedule.usesOutlineStorage
+          ) {
+            schedule.openAddOutlineHeadingFromToolbar();
+          }
+        }}
         onDelete={() => {
           if (schedule.selectedTaskIds.length > 0) setDeleteOpen(true);
         }}
         fileBusy={scheduleFile.fileBusy}
         startupSettled={scheduleFile.startupSettled}
+        recentFilesEmptyHint={recentFilesMenuEmptyHint}
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
+        statuses={displayStatuses}
         filters={schedule.filters}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
@@ -2791,6 +4470,7 @@ function App() {
         hiddenMilestoneIds={schedule.hiddenMilestoneIds}
         assigneeLabel={filterAssigneeLabel}
         lineageName={schedule.lineageTask?.name ?? null}
+        lineageIncludesConnections={schedule.lineageIncludesConnections}
         onFiltersChange={schedule.updateFilters}
         onClearLineage={schedule.clearLineage}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
@@ -2798,11 +4478,19 @@ function App() {
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
         onShowAllMilestoneMarks={schedule.showAllMilestoneMarks}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={editableFieldDefs}
       />
       <div ref={mainRef} className="main">
         <Sidebar
+          statuses={displayStatuses}
+          rowColors={displayColors}
+          colorScheme={resolvedColorScheme}
           categories={showScheduleBody ? schedule.categories : []}
-          rows={showScheduleBody ? schedule.visibleRows : []}
+          outline={showScheduleBody ? schedule.outline : undefined}
+          levelCount={schedule.hierarchyLayout.levelCount}
+          usesOutlineStorage={schedule.usesOutlineStorage}
+          allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
+          rows={showScheduleBody ? chartVisibleRows : []}
           reorderBaseRows={showScheduleBody ? schedule.baseVisibleRows : []}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
@@ -2845,6 +4533,8 @@ function App() {
           onTaskContextMenu={openTaskContextMenu}
           onHierarchyContextMenu={openHierarchyContextMenu}
           onMilestoneGroupContextMenu={openMilestoneGroupContextMenu}
+          onToggleMilestoneGroupGuideLines={toggleMilestoneGroupGuideLines}
+          linkMode={linkSourceId != null}
           onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={displayMemberMap}
@@ -2859,6 +4549,8 @@ function App() {
           onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
+          chartTopBannerHeight={chartTopBannerHeight}
+          explanationOverlay={schedule.explanationOverlay}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -2872,14 +4564,68 @@ function App() {
           tabIndex={-1}
           aria-label="スケジュールチャート"
         >
-          {linkSourceId != null ? (
-            <div className="link-banner" role="status">
-              <div>次にクリックしたタスクを後続にします。Esc で中止</div>
-              {linkError ? <div className="hint-error">{linkError}</div> : null}
+          <p
+            className="filter-panel-sr-only"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {catalogMismatchAnnouncement ?? ""}
+          </p>
+          {showChartTopBanners ? (
+            <div ref={chartTopBannersRef} className="chart-top-banners">
+              {hierarchyTopBanner === "mismatch" ? (
+                <div className="hierarchy-banner hierarchy-banner-mismatch" role="status">
+                  <div>{HIERARCHY_MISMATCH_MESSAGE}</div>
+                </div>
+              ) : hierarchyTopBanner === "levels" ? (
+                <div className="hierarchy-banner" role="status">
+                  <div>{schedule.hierarchyLevelBanner}</div>
+                </div>
+              ) : null}
+              {catalogMismatchText ? (
+                <div className="catalog-mismatch-banner">
+                  <div>{catalogMismatchText}</div>
+                </div>
+              ) : null}
+              {linkSourceId != null ? (
+                <div className="link-banner" role="status">
+                  <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+                  {linkError ? (
+                    <div className="hint-error">{linkError}</div>
+                  ) : null}
+                </div>
+              ) : null}
+              {schedule.explanationSessionActive ? (
+                <div className="explanation-banner" role="status">
+                  <div className="explanation-banner-text">
+                    <div>説明を表示しています</div>
+                    {schedule.explanationOverlay?.summary?.trim() ? (
+                      <div
+                        className="explanation-banner-summary"
+                        data-explanation-overlay=""
+                      >
+                        {schedule.explanationOverlay.summary}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="explanation-banner-dismiss"
+                    onClick={() => {
+                      schedule.clearExplanationView();
+                      timelineAreaRef.current?.focus();
+                    }}
+                  >
+                    説明を消す
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <Timeline
-            visibleRows={showScheduleBody ? schedule.visibleRows : []}
+            statuses={displayStatuses}
+            rowColors={displayColors}
+            visibleRows={showScheduleBody ? chartVisibleRows : []}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
@@ -2902,12 +4648,13 @@ function App() {
             onResizeStart={handleResizeStart}
             onResizeEnd={handleResizeEnd}
             links={links}
+            connections={taskConnections}
             onOpenEdit={openTaskFromChart}
             onTaskContextMenu={openTaskContextMenu}
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
-            milestones={showScheduleBody ? schedule.milestones : []}
+            milestones={showScheduleBody ? schedule.milestonesForBandLayout : []}
             milestoneBandLayout={milestoneBandLayout}
             milestoneBandHeight={showScheduleBody ? milestoneBandHeight : 0}
             milestoneLaneHeight={milestoneLaneHeight}
@@ -2916,6 +4663,8 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             onMilestoneContextMenu={openMilestoneContextMenu}
+            milestoneGuideLineIds={milestoneGuideLineIds}
+            onToggleMilestoneGuideLine={toggleMilestoneGuideLine}
             diffMarkedMilestoneId={diffNavigationMark.chartMilestoneId}
             diffMarkStrokeWidth={Math.max(2, Math.round(3 * uiScale))}
             today={schedule.today}
@@ -2932,15 +4681,23 @@ function App() {
             }}
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
-            scheduleBodyVisible={showScheduleBody}
+            onBarDragActiveChange={setChartBarDragging}
+            explanationOverlay={schedule.explanationOverlay}
+            explainOverlayCategories={schedule.categories}
+            explainOverlayOutline={schedule.outline}
+            explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
+            uiScale={uiScale}
           />
         </div>
         {selectedDetailTask ? (
           <TaskDetailPanel
+            statuses={displayStatuses}
+            colors={displayColors}
+            colorScheme={resolvedColorScheme}
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
-            members={memberCatalogState.members ?? []}
+            members={displayMembers ?? []}
             memberCatalog={displayMemberMap}
             tasks={taskRefs}
             milestones={schedule.milestones}
@@ -2951,14 +4708,44 @@ function App() {
             documentTags={schedule.scheduleTags}
             onAddTag={(tag) => schedule.appendTaskTag(selectedDetailTask.id, tag)}
             onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
+            onUpdateTodos={(items) =>
+              schedule.setTaskTodos(selectedDetailTask.id, items)
+            }
+            scheduleFields={editableFieldDefs}
+            onSetTaskField={(fieldKey, raw) =>
+              schedule.setTaskFieldValue(selectedDetailTask.id, fieldKey, raw)
+            }
             onEditingChange={setDetailPanelEditing}
+            connections={connectionsForTask(
+              schedule.connections,
+              selectedDetailTask.id,
+            )}
+            onAddConnection={(otherTaskId, label) =>
+              addTaskConnection(selectedDetailTask.id, otherTaskId, label)
+            }
+            onUpdateConnectionLabel={(otherTaskId, label) =>
+              updateTaskConnectionLabel(
+                selectedDetailTask.id,
+                otherTaskId,
+                label,
+              )
+            }
+            onRemoveConnection={(otherTaskId) =>
+              removeTaskConnection(selectedDetailTask.id, otherTaskId)
+            }
+            connectionAddDialogOpen={connectionAddDialogOpen}
+            onConnectionAddDialogOpenChange={setConnectionAddDialogOpen}
           />
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
+            statuses={displayStatuses}
+            colors={displayColors}
+            colorScheme={resolvedColorScheme}
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
-            members={memberCatalogState.members ?? []}
+            members={displayMembers ?? []}
+            memberCatalog={displayMemberMap}
             taskRefs={taskRefs}
             milestones={schedule.milestones}
             documentTags={schedule.scheduleTags}
@@ -2993,6 +4780,120 @@ function App() {
         ) : null}
         </div>
       </div>
+        </div>
+        <FieldExtensionEditorOverlay
+          ref={fieldExtensionEditorPanelRef}
+          state={fieldExtensionEditorOverlay}
+        />
+        {statusEditorOverlay.open ? (
+          <StatusCatalogEditorOverlay
+            mode={statusEditorOverlay.mode}
+            catalogs={statusEditorOverlay.catalogs}
+            editingCatalogId={statusEditorOverlay.editingCatalogId}
+            editingItems={statusEditorOverlay.editingItems}
+            itemsRevision={statusEditorOverlay.itemsRevision}
+            appliedCatalogId={statusEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={statusEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={statusEditorOverlay.workspaceAppliedNote}
+            busy={statusEditorOverlay.busy}
+            message={statusEditorOverlay.message}
+            setMessage={statusEditorOverlay.setMessage}
+            onDirtyChange={statusEditorOverlay.setDirty}
+            discardPrompt={statusEditorOverlay.discardPrompt}
+            copyConfirmOpen={statusEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={statusEditorOverlay.removeConfirmOpen}
+            dirty={statusEditorOverlay.dirty}
+            onConfirmDiscard={() => void statusEditorOverlay.confirmDiscard()}
+            onCancelDiscard={statusEditorOverlay.cancelDiscard}
+            onConfirmCopy={statusEditorOverlay.confirmCopy}
+            onCancelCopy={statusEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={statusEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void statusEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={statusEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={statusEditorOverlay.selectCatalog}
+            onRequestClose={statusEditorOverlay.requestClose}
+            onRequestNewList={statusEditorOverlay.requestNewList}
+            onRequestCopyList={statusEditorOverlay.requestCopyList}
+            onSaveApp={statusEditorOverlay.save}
+            onSaveWorkspace={statusEditorOverlay.saveWorkspace}
+            editorPanelRef={statusCatalogEditorPanelRef}
+          />
+        ) : null}
+        {colorEditorOverlay.open ? (
+          <ColorCatalogEditorOverlay
+            mode={colorEditorOverlay.mode}
+            catalogs={colorEditorOverlay.catalogs}
+            editingCatalogId={colorEditorOverlay.editingCatalogId}
+            editingItems={colorEditorOverlay.editingItems}
+            itemsRevision={colorEditorOverlay.itemsRevision}
+            appliedCatalogId={colorEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={colorEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={colorEditorOverlay.workspaceAppliedNote}
+            busy={colorEditorOverlay.busy}
+            message={colorEditorOverlay.message}
+            setMessage={colorEditorOverlay.setMessage}
+            onDirtyChange={colorEditorOverlay.setDirty}
+            discardPrompt={colorEditorOverlay.discardPrompt}
+            copyConfirmOpen={colorEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={colorEditorOverlay.removeConfirmOpen}
+            dirty={colorEditorOverlay.dirty}
+            onConfirmDiscard={() => void colorEditorOverlay.confirmDiscard()}
+            onCancelDiscard={colorEditorOverlay.cancelDiscard}
+            onConfirmCopy={colorEditorOverlay.confirmCopy}
+            onCancelCopy={colorEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={colorEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void colorEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={colorEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={colorEditorOverlay.selectCatalog}
+            onRequestClose={colorEditorOverlay.requestClose}
+            onRequestNewList={colorEditorOverlay.requestNewList}
+            onRequestCopyList={colorEditorOverlay.requestCopyList}
+            onSaveApp={colorEditorOverlay.save}
+            onSaveWorkspace={colorEditorOverlay.saveWorkspace}
+            editorPanelRef={colorCatalogEditorPanelRef}
+          />
+        ) : null}
+        {memberEditorOverlay.open ? (
+          <MemberCatalogEditorOverlay
+            mode={memberEditorOverlay.mode}
+            catalogs={memberEditorOverlay.catalogs}
+            editingCatalogId={memberEditorOverlay.editingCatalogId}
+            editingItems={memberEditorOverlay.editingItems}
+            itemsRevision={memberEditorOverlay.itemsRevision}
+            appliedCatalogId={memberEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={memberEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={memberEditorOverlay.workspaceAppliedNote}
+            busy={memberEditorOverlay.busy}
+            message={memberEditorOverlay.message}
+            setMessage={memberEditorOverlay.setMessage}
+            onDirtyChange={memberEditorOverlay.setDirty}
+            discardPrompt={memberEditorOverlay.discardPrompt}
+            copyConfirmOpen={memberEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={memberEditorOverlay.removeConfirmOpen}
+            dirty={memberEditorOverlay.dirty}
+            onConfirmDiscard={() => void memberEditorOverlay.confirmDiscard()}
+            onCancelDiscard={memberEditorOverlay.cancelDiscard}
+            onConfirmCopy={memberEditorOverlay.confirmCopy}
+            onCancelCopy={memberEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={memberEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void memberEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={memberEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={memberEditorOverlay.selectCatalog}
+            onRequestClose={memberEditorOverlay.requestClose}
+            onRequestNewList={memberEditorOverlay.requestNewList}
+            onRequestCopyList={memberEditorOverlay.requestCopyList}
+            onSaveApp={memberEditorOverlay.save}
+            onSaveWorkspace={memberEditorOverlay.saveWorkspace}
+            editorPanelRef={memberCatalogEditorPanelRef}
+          />
+        ) : null}
+      </div>
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {diffLiveStatus ?? ""}
       </p>
@@ -3001,10 +4902,10 @@ function App() {
         saveStatus={scheduleFile.saveStatusLabel}
         saveStatusClickable={scheduleFile.isDirty}
         onSaveStatusClick={showScheduleDiff}
-        hideFileStatus={!showScheduleBody}
         membersCatalogLabel={membersCatalogLabel}
         membersCatalogError={membersCatalogError}
         calendarError={calendarDisplayError}
+        colorsCatalogError={colorsCatalogError}
         tier={tier}
         visibleTaskCount={visibleTaskCount}
         totalTaskCount={totalTaskCount}
@@ -3019,7 +4920,25 @@ function App() {
           setSettingsOpen(true);
         }}
         onOpenShortcuts={openShortcuts}
+        saveHint={statusBarSaveHint}
       />
+      {showFirstRunHintCard ? (
+        <FirstRunHintCard
+          commandKey={commandKey}
+          showingSample={showingBuiltInSample}
+          checklist={firstRunChecklist}
+          showPrepareLlmSteps={prepareLlmStepsVisible}
+          hasOpenedScheduleFile={scheduleFile.filePath != null}
+          openExistingJsonDisabled={
+            scheduleFile.fileBusy || !scheduleFile.startupSettled
+          }
+          onDismiss={dismissFirstRunHintCard}
+          onPrepareWithLlm={openFirstRunJsonSkills}
+          onOpenExistingJson={onFirstRunOpenFile}
+          onOpenGuide={onFirstRunOpenGuide}
+          onOpenMcpSettings={onFirstRunOpenMcpSettings}
+        />
+      ) : null}
       {showCornerNotice && updateCornerMessage ? (
         updateCornerMode === "offer" || updateCornerMode === "installing" ? (
           <UpdateOfferNotice
@@ -3074,10 +4993,13 @@ function App() {
       ) : null}
       {schedule.duplicatingTask ? (
         <TaskEditDialog
+          statuses={displayStatuses}
+          colors={displayColors}
+          colorScheme={resolvedColorScheme}
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}
-          members={memberCatalogState.members ?? []}
+          members={displayMembers ?? []}
           memberCatalog={displayMemberMap}
           tasks={taskRefs}
           milestones={schedule.milestones}
@@ -3120,9 +5042,34 @@ function App() {
           onSave={schedule.saveHierarchyAdd}
         />
       ) : null}
+      {schedule.outlineHeadingAddOpen &&
+      (schedule.hierarchyLayout.useLegacyCategoryRows ||
+        (schedule.outline != null && schedule.levels != null)) ? (
+        <OutlineHeadingAddDialog
+          key={`outline-heading:${schedule.diskEpoch}`}
+          levels={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_DEFS
+              : schedule.levels!
+          }
+          outline={schedule.outline}
+          categoryParentOptions={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? legacyCategoryParentSelectOptions(schedule.categories)
+              : undefined
+          }
+          levelCount={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_COUNT
+              : schedule.levels!.length
+          }
+          onClose={schedule.closeAddingHierarchy}
+          onSave={schedule.saveOutlineHeadingAdd}
+        />
+      ) : null}
       {schedule.deletingHierarchyTarget ? (
         <DeleteHierarchyDialog
-          kind={schedule.deletingHierarchyTarget.kind}
+          label={schedule.deletingHierarchyTarget.label}
           name={schedule.deletingHierarchyTarget.name}
           onClose={schedule.closeDeleteHierarchy}
           onConfirm={schedule.confirmDeleteHierarchy}
@@ -3152,6 +5099,12 @@ function App() {
       {addOpen ? (
         <TaskAddDialog
           categories={schedule.categories}
+          parentBranches={
+            schedule.taskParentBranches.length > 0
+              ? schedule.taskParentBranches
+              : undefined
+          }
+          initialParentBranchId={schedule.taskParentBranches[0]?.id ?? null}
           initialCategory={
             (schedule.selectedTaskId
               ? findTaskPlace(schedule.categories, schedule.selectedTaskId)
@@ -3169,16 +5122,25 @@ function App() {
             ""
           }
           initialStart={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.start ?? schedule.today
           }
           initialEnd={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.end ?? schedule.today
           }
           onClose={() => setAddOpen(false)}
           onSave={(input) => {
-            const id = schedule.addTask(input);
+            const id = schedule.addTask({
+              ...input,
+              parentBranchId: input.parentBranchId,
+            });
             setAddOpen(false);
             if (id != null) setFocusTaskId(id);
           }}
@@ -3205,8 +5167,9 @@ function App() {
         <DeleteTaskDialog
           taskName={
             schedule.selectedTaskIds.length === 1
-              ? (findTaskById(
+              ? (findTaskInDocument(
                   schedule.categories,
+                  schedule.outline,
                   schedule.selectedTaskIds[0]!,
                 )?.name ?? "このタスク")
               : undefined
@@ -3217,7 +5180,7 @@ function App() {
               : undefined
           }
           hasDependencies={schedule.selectedTaskIds.some(
-            (id) => dependencyCount(schedule.categories, id) > 0,
+            (id) => dependencyCountFromTasks(documentTasks, id) > 0,
           )}
           onClose={() => setDeleteOpen(false)}
           onConfirm={() => {
@@ -3233,8 +5196,39 @@ function App() {
       {settingsOpen ? (
         <SettingsDialog
           open={settingsOpen}
-          settings={memberCatalogState.settings}
-          selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
+          statusCatalog={{
+            settings: statusCatalogState.settings,
+            selectedCatalogLabel: statusCatalogState.selectedCatalogLabel,
+            onImport: handleStatusCatalogImport,
+            onSelectCatalog: statusCatalogState.selectCatalog,
+            onDeleteCatalog: handleStatusCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              statusEditorOverlay.openEditor();
+            },
+          }}
+          colorCatalog={{
+            settings: colorCatalogState.settings,
+            selectedCatalogLabel: colorCatalogState.selectedCatalogLabel,
+            onImport: handleColorCatalogImport,
+            onSelectCatalog: colorCatalogState.selectCatalog,
+            onDeleteCatalog: handleColorCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              colorEditorOverlay.openEditor();
+            },
+          }}
+          memberCatalog={{
+            settings: memberCatalogState.settings,
+            selectedCatalogLabel: memberCatalogState.selectedCatalogLabel,
+            onImport: handleMemberCatalogImport,
+            onSelectCatalog: memberCatalogState.selectCatalog,
+            onDeleteCatalog: handleMemberCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              memberEditorOverlay.openEditor();
+            },
+          }}
           displayScalePreference={displayScalePreference}
           onDisplayScaleChange={handleDisplayScaleChange}
           colorSchemePreference={colorSchemePreference}
@@ -3247,14 +5241,48 @@ function App() {
           onSidebarColumnsChange={setSidebarColumns}
           initialSection={settingsSection}
           onClose={handleSettingsClose}
-          onImport={memberCatalogState.importCatalog}
-          onSelectCatalog={memberCatalogState.selectCatalog}
-          onDeleteCatalog={memberCatalogState.removeCatalog}
           calendarLabel={appCalendarState.label}
           calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
           workspaceBinding={workspaceBinding}
+          workspaceStatusEditor={
+            workspaceStatusEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    statusEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          workspaceColorEditor={
+            workspaceColorEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    colorEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          workspaceMemberEditor={
+            workspaceMemberEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    memberEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          onCreateWorkspaceColorsCatalog={
+            workspaceBinding &&
+            workspaceBinding.document.colors == null &&
+            !workspaceColorsError(workspaceBinding.colors)
+              ? () => handleCreateWorkspaceColorsCatalog()
+              : undefined
+          }
           autoUpdateEnabled={autoUpdateEnabled}
           onAutoUpdateChange={(enabled) => {
             writeAutoUpdateEnabled(enabled);
@@ -3271,8 +5299,103 @@ function App() {
           onSaveBetaInstaller={() => void handleSaveBetaInstaller()}
           betaInstallerStatusLine={betaInstallerStatusLine}
           storeDistribution={storeDistribution}
+          fieldExtensionSettings={fieldExtensionCatalogState.settings}
+          fieldExtensionSelectedLabels={fieldExtensionCatalogState.selectedLabels}
+          fieldExtensionsError={fieldExtensionsCatalogError}
+          onImportFieldExtension={async (contents, overwrite) => {
+            const doc = parseFieldExtensionCatalogText(contents);
+            const current =
+              fieldExtensionCatalogState.settings.selectedCatalogIds;
+            const nextSelected = current.includes(doc.id)
+              ? current
+              : [...current, doc.id];
+            const documents = await readFieldExtensionDocumentsForIds(
+              nextSelected.filter((id) => id !== doc.id),
+            );
+            documents.push(doc);
+            const collision = firstFieldKeyCollision(documents);
+            if (collision != null) {
+              throw new Error(formatFieldKeyCollisionMessage(collision));
+            }
+            await fieldExtensionCatalogState.importCatalog(contents, overwrite);
+          }}
+          onToggleFieldExtension={async (catalogId, selected) => {
+            const current = fieldExtensionCatalogState.settings.selectedCatalogIds;
+            const next = selected
+              ? [...current, catalogId]
+              : current.filter((id) => id !== catalogId);
+            if (selected) {
+              const documents = await readFieldExtensionDocumentsForIds(next);
+              const collision = firstFieldKeyCollision(documents);
+              if (collision != null) {
+                throw new Error(formatFieldKeyCollisionMessage(collision));
+              }
+            }
+            await fieldExtensionCatalogState.setSelectedCatalogIds(next);
+          }}
+          onDeleteFieldExtension={fieldExtensionCatalogState.removeCatalog}
+          workspaceEditableFieldExtensionError={
+            workspaceEditableFieldExtensionErrorMessage
+          }
+          onCreateWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.editableFieldExtension.kind === "unset"
+              ? () => handleCreateWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          onDeleteWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.editableFieldExtension.kind === "loaded"
+              ? () => handleDeleteWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          onClearWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.document.editableFieldExtension != null &&
+            workspaceBinding.editableFieldExtension.kind === "error"
+              ? () => handleClearWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          workspaceFieldExtensionEditor={
+            workspaceFieldExtensionEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    void fieldExtensionEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          fieldExtensionEditor={
+            !workspaceBinding
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    void fieldExtensionEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          onMcpConfigCopied={() => markFirstRunStep("mcp")}
+          onJsonSkillsInstalled={() => {
+            revealPrepareLlmSteps();
+            markFirstRunStep("prepareSchedule");
+          }}
         />
       ) : null}
+      <HierarchyLevelsDialog
+        open={hierarchyLevelsOpen}
+        initialLevels={schedule.levelDefsForEditor()}
+        hadDocumentLevels={hierarchyHadDocumentLevels}
+        snapshot={schedule.getDocumentSnapshot()}
+        onClose={() => {
+          setHierarchyLevelsOpen(false);
+          hierarchyButtonRef.current?.focus();
+        }}
+        onCommit={(levels) => {
+          schedule.commitLevelDefinitions(levels, hierarchyHadDocumentLevels);
+        }}
+      />
       <GuideDialog
         open={guideOpen}
         onClose={() => setGuideOpen(false)}
@@ -3348,20 +5471,40 @@ function App() {
         <ExternalReloadDialog
           assessment={scheduleFile.externalReloadAssessment}
           review={scheduleFile.externalReloadReview}
+          conflictReview={scheduleFile.externalReloadConflictReview}
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
+            connectionAddDialogOpen ||
+            hierarchyLevelsOpen ||
+            fieldExtensionEditorOverlay.open ||
+            statusEditorOverlay.open ||
+            colorEditorOverlay.open ||
+            memberEditorOverlay.open ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
             schedule.addingHierarchyTarget != null ||
+            schedule.outlineHeadingAddOpen ||
             schedule.deletingHierarchyTarget != null
           }
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
-          onReload={scheduleFile.confirmExternalReload}
+          onReload={() => {
+            setHierarchyLevelsOpen(false);
+            setConnectionAddDialogOpen(false);
+            fieldExtensionEditorOverlay.forceClose();
+            colorEditorOverlay.forceClose();
+            memberEditorOverlay.forceClose();
+            scheduleFile.confirmExternalReload();
+          }}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
           onApplyMerge={() => {
             setDetailPanelEditing(false);
+            setConnectionAddDialogOpen(false);
+            setHierarchyLevelsOpen(false);
+            fieldExtensionEditorOverlay.forceClose();
+            colorEditorOverlay.forceClose();
+            memberEditorOverlay.forceClose();
             scheduleFile.confirmBaselineMerge();
           }}
         />
@@ -3375,10 +5518,11 @@ function App() {
       ) : null}
       {exportOpen ? (
         <ExportFormatDialog
+          fieldDefs={editableFieldDefs}
           onCancel={() => setExportOpen(false)}
-          onExport={(format, excelColumns) => {
+          onExport={(format, excelColumns, excelFieldColumns) => {
             setExportOpen(false);
-            void runScheduleExport(format, excelColumns);
+            void runScheduleExport(format, excelColumns, excelFieldColumns);
           }}
         />
       ) : null}

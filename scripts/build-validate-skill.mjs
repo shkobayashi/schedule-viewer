@@ -1,5 +1,10 @@
 import { buildSync } from "esbuild";
 import { copyFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { writeHowToManualBundle } from "./how-to-manual-bundle.mjs";
+
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 buildSync({
   entryPoints: ["scripts/validate-schedule-cli.ts"],
@@ -69,6 +74,42 @@ copyFileSync(
   ".cursor/skills/write-workspace/workspace.schema.json",
 );
 
+buildSync({
+  entryPoints: ["scripts/validate-field-extensions-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-fields/scripts/validate-field-extensions.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/field-extensions.schema.json",
+  ".cursor/skills/write-fields/field-extensions.schema.json",
+);
+
+buildSync({
+  entryPoints: ["scripts/validate-colors-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-colors/scripts/validate-colors.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/colors.schema.json",
+  ".cursor/skills/write-colors/colors.schema.json",
+);
+
+writeHowToManualBundle(repoRoot);
+
 console.log(
-  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, and validate-workspace.bundle.mjs",
+  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, validate-workspace.bundle.mjs, validate-field-extensions.bundle.mjs, validate-colors.bundle.mjs, and how-to manual bundle",
 );

@@ -1,0 +1,262 @@
+{
+  "phase": "after",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "marginPx": 24,
+  "capturedAt": "2026-11-11T07:14:52.990Z",
+  "captures": [
+    {
+      "case": "task-detail",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "751.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-panel"
+        },
+        "name": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "ui-field"
+        },
+        "note": {
+          "height": "95.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "note-textarea ui-field"
+        },
+        "status": {
+          "height": "36.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "ui-field"
+        },
+        "start": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "ui-field"
+        },
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-todo-text ui-field"
+        },
+        "bulkApply": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-task-detail.png",
+      "supplements": [
+        {
+          "case": "task-detail-todo",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-task-detail-todo.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-todo-text",
+            "panelScrollTop": 431,
+            "panelClientHeight": 751,
+            "anchorLabel": "",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 465.390625,
+            "anchorBottom": 501.171875,
+            "panelTop": 107.15625,
+            "panelBottom": 858.625,
+            "disabled": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "bulk-detail",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "751.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-panel detail-panel-bulk"
+        },
+        "name": null,
+        "note": null,
+        "status": null,
+        "start": null,
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": null,
+        "bulkApply": {
+          "height": "24px",
+          "lineHeight": "normal",
+          "fontSize": "13.3333px",
+          "backgroundColor": "rgba(239, 239, 239, 0.3)",
+          "className": ""
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-bulk-detail.png",
+      "supplements": [
+        {
+          "case": "bulk-detail-apply",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-bulk-detail-apply.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-bulk-actions button",
+            "panelScrollTop": 465,
+            "panelClientHeight": 751,
+            "anchorLabel": "2件に適用",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 778.25,
+            "anchorBottom": 802.25,
+            "panelTop": 107.15625,
+            "panelBottom": 858.625,
+            "disabled": false
+          },
+          "draftPreview": "適用する項目: ステータス"
+        }
+      ]
+    },
+    {
+      "case": "task-detail",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "749.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(26, 27, 34)",
+          "className": "detail-panel"
+        },
+        "name": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "ui-field"
+        },
+        "note": {
+          "height": "95.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "note-textarea ui-field"
+        },
+        "status": {
+          "height": "36.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "ui-field"
+        },
+        "start": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "ui-field"
+        },
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": {
+          "height": "35.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "detail-todo-text ui-field"
+        },
+        "bulkApply": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-task-detail.png",
+      "supplements": [
+        {
+          "case": "task-detail-todo",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-task-detail-todo.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-todo-text",
+            "panelScrollTop": 432,
+            "panelClientHeight": 749,
+            "anchorLabel": "",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 466.390625,
+            "anchorBottom": 502.171875,
+            "panelTop": 109.15625,
+            "panelBottom": 858.625,
+            "disabled": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "bulk-detail",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "749.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(26, 27, 34)",
+          "className": "detail-panel detail-panel-bulk"
+        },
+        "name": null,
+        "note": null,
+        "status": null,
+        "start": null,
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": null,
+        "bulkApply": {
+          "height": "24px",
+          "lineHeight": "normal",
+          "fontSize": "13.3333px",
+          "backgroundColor": "rgba(19, 1, 1, 0.3)",
+          "className": ""
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-bulk-detail.png",
+      "supplements": [
+        {
+          "case": "bulk-detail-apply",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-bulk-detail-apply.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-bulk-actions button",
+            "panelScrollTop": 467,
+            "panelClientHeight": 749,
+            "anchorLabel": "2件に適用",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 778.25,
+            "anchorBottom": 802.25,
+            "panelTop": 109.15625,
+            "panelBottom": 858.625,
+            "disabled": false
+          },
+          "draftPreview": "適用する項目: ステータス"
+        }
+      ]
+    }
+  ],
+  "bulkApplyVerification": {
+    "verifiedAt": "2026-11-11T07:15:07.447Z",
+    "surveyDetailStatus": "done",
+    "designDetailStatus": "done"
+  }
+}

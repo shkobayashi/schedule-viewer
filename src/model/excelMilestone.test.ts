@@ -68,7 +68,7 @@ describe("excelMilestone", () => {
     );
     expect(milestoneMarks).toHaveLength(1);
     expect(milestoneMarks[0]?.colIndex).toBe(col);
-    expect(milestoneMarks[0]?.character).toBe("◆ A、B");
+    expect(milestoneMarks[0]?.character).toBe("◆ A、◆ B");
   });
 
   it("keeps same-day milestone names in document order", () => {
@@ -100,6 +100,94 @@ describe("excelMilestone", () => {
       new Set(["mg1"]),
       columns,
     );
-    expect(milestoneMarks[0]?.character).toBe("◆ 先、後");
+    expect(milestoneMarks[0]?.character).toBe("◆ 先、◆ 後");
+  });
+
+  it("uses hollow prefix for tentative milestones", () => {
+    const columns = buildExcelTimeColumns(
+      parseDate("2026-09-01"),
+      parseDate("2026-11-01"),
+      "day",
+      null,
+    );
+    const { milestoneMarks } = excelMilestoneExport(
+      [{ id: "mg1", name: "デモ" }],
+      [
+        {
+          id: "m1",
+          name: "T",
+          date: "2026-10-15",
+          confidence: "tentative",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      columns,
+    );
+    expect(milestoneMarks[0]?.character).toBe("◇ T");
+  });
+
+  it("joins mixed confidence on the same day", () => {
+    const columns = buildExcelTimeColumns(
+      parseDate("2026-09-01"),
+      parseDate("2026-11-01"),
+      "day",
+      null,
+    );
+    const date = "2026-10-15";
+    const { milestoneMarks } = excelMilestoneExport(
+      [{ id: "mg1", name: "デモ" }],
+      [
+        {
+          id: "m1",
+          name: "A",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "m2",
+          name: "B",
+          date,
+          confidence: "tentative",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      columns,
+    );
+    expect(milestoneMarks[0]?.character).toBe("◆ A、◇ B");
+  });
+
+  it("uses filled prefix for two committed on the same day", () => {
+    const columns = buildExcelTimeColumns(
+      parseDate("2026-09-01"),
+      parseDate("2026-11-01"),
+      "day",
+      null,
+    );
+    const date = "2026-10-15";
+    const { milestoneMarks } = excelMilestoneExport(
+      [{ id: "mg1", name: "デモ" }],
+      [
+        {
+          id: "m1",
+          name: "A",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "m2",
+          name: "B",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      columns,
+    );
+    expect(milestoneMarks[0]?.character).toBe("◆ A、◆ B");
   });
 });

@@ -99,7 +99,7 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
       errors++;
     }
     for (const key0 in data2) {
-      if (!(key0 === "id" || key0 === "name")) {
+      if (!(key0 === "id" || key0 === "name" || key0 === "description")) {
         const err2 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err2];
@@ -153,12 +153,34 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
         errors++;
       }
     }
+    if (data2.description !== void 0) {
+      let data22 = data2.description;
+      if (typeof data22 === "string") {
+        if (func1(data22) < 1) {
+          const err7 = { instancePath: instancePath + "/description", schemaPath: "#/properties/description/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          if (vErrors === null) {
+            vErrors = [err7];
+          } else {
+            vErrors.push(err7);
+          }
+          errors++;
+        }
+      } else {
+        const err8 = { instancePath: instancePath + "/description", schemaPath: "#/properties/description/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err7];
+      vErrors = [err9];
     } else {
-      vErrors.push(err7);
+      vErrors.push(err9);
     }
     errors++;
   }
@@ -279,6 +301,10 @@ function validateMembersSemantics(doc) {
     if (idIssue) issues.push(idIssue);
     const nameIssue = nonEmptyName(member.name, "\u30E1\u30F3\u30D0\u30FC\u540D", `${base}/name`);
     if (nameIssue) issues.push(nameIssue);
+    if (member.description !== void 0) {
+      const descIssue = nonEmptyName(member.description, "\u8AAC\u660E", `${base}/description`);
+      if (descIssue) issues.push(descIssue);
+    }
     if (ids.has(member.id)) {
       issues.push({
         path: `${base}/id`,

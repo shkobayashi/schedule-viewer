@@ -175,13 +175,81 @@ npm run dev
 npm run tauri dev
 ```
 
+### 初回起動と同じ状態で Tauri を起動する（開発専用）
+
+繰り返し「初めて起動した直後」を確かめるときは、次を使う。
+
+```bash
+npm run tauri:dev:fresh
+```
+
+中身は `SCHEDULE_VIEWER_FRESH_START=1` を付けた `npm run tauri dev` である（`scripts/tauri-dev-fresh.mjs` 経由。Windows でも同じ）。同じ効果を得るには、環境変数 `SCHEDULE_VIEWER_FRESH_START=1`（または `true`）を付けて `npm run tauri dev` してもよい。
+
+**localStorage** は、Vite 起動時に固定される `import.meta.env` ではなく、**そのとき起動した Tauri プロセス**の環境変数を Rust の `dev_fresh_start_active` で見てから消す。以前の `npm run tauri dev` で Vite が残っていても、`tauri:dev:fresh` のたびに初回ガイド用の記録は消える。
+
+**手順** カードが出ないときは、いったん `tauri dev` を止め（Ctrl+C）、から `npm run tauri:dev:fresh` を実行する。Vite を別ターミナルで `npm run dev` だけ動かしている場合は、1420 を使う Tauri 用の Vite と混ざらないようにする。
+
+**いつ効くか** Rust 側は `debug_assertions` が有効な開発ビルドだけである。`tauri build` の配布用バイナリでは、環境変数を付けてもリセットは走らない。フロント側は Vite の開発モード（`tauri dev` の WebView、`npm run dev`、`dev:manual-screenshot`）だけが対象である。
+
+**消えるもの**（アプリデータと localStorage の所有分だけ。ユーザーがホームやプロジェクトに置いたスケジュール JSON など、app data 外のファイルは触らない）
+
+- 初回ガイド（`schedule-viewer/first-run/*`、チェックリスト 3 項目と閉じた記録）
+- 最近開いたファイル（`recent-files.json`）
+- ウィンドウ復元（`open-windows.json`、未保存控え `schedule-recovery/`、絞り込み `schedule-filters/`、古い `last-schedule.json` / `schedule-recovery.json`）
+- 設定の選択状態（`settings.json`、取り込んだメンバー・ステータス・色・拡張項目・カレンダーのコピー）
+- 表示まわりの localStorage（配色、表示サイズ、左一覧の幅、行密度、追加列、自動更新のオンオフ、Excel 列の選択など、`schedule-viewer/` 接頭辞のキーすべて）
+
+**残るもの**
+
+- ディスク上のスケジュール JSON、設定ファイル、メンバー JSON など（開いていたパスは忘れるが、ファイル自体は削除しない）
+- `~/.cursor/skills/` などへ手で置いたスキル（アプリデータ外）
+
+**テストと撮影** `applyFreshStartForRuntime`（Tauri では `dev_fresh_start_active`）が localStorage のリセット本体である。Vitest は `src/model/devFreshStart.test.ts`、Playwright 系は `clearScheduleViewerLocalStorageEvaluateSource` を `page.evaluate` から呼ぶ（例: `tsx scripts/capture-first-run-impl-screenshots.ts`）。
+
 FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JSON をウィンドウへ落としても、ブラウザがそのファイルを開こうとしないことを見る。ウィンドウや Dock へのドロップは `npm run tauri dev` で手元の OS 上で見る。macOS と Linux の `fileAssociations` は `src-tauri/tauri.macos.conf.json` と `src-tauri/tauri.linux.conf.json` にあり、同じ OS で `npm run tauri build` すると Tauri がマージする。Windows は関連付けを登録しない。インストーラでの関連付けと、動いているあいだに OS がパスを渡さない件は、この Mac では見ない。
 
 ## DevContainer
 
 DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1.98.1 を使う。VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。
 
+## Cursor Cloud Agent
+
+Issue #490 の Cloud Agent 運用（P-AG-03）。
+
+- 作業は `feature-436`（または計画の統合ブランチ）から `cursor/<説明>-5fbc` のようにブランチを切る
+- **マージ済み** pull request の head ブランチへ、同じ PR 用に追加 push しない。続きは新ブランチと新 PR
+- `git commit --amend`、force-push、rebase で共有履歴を書き換えない
+- レビュー指摘は **コミットを分けて** 直す（review-implementation）
+
+索引: [agents-agent-index.md](agents-agent-index.md)、[agents-d0-inventory.md](agents-d0-inventory.md) §3（P-AG-03）。
+
+### beforeShellExecution（Issue #553 項目 6）
+
+リポジトリ直下の [`.cursor/hooks.json`](../.cursor/hooks.json) が `beforeShellExecution` で [`.cursor/hooks/block-history-rewrite.mjs`](../.cursor/hooks/block-history-rewrite.mjs) を呼び出す。`failClosed: true` のため、Node が無い・フックがタイムアウト・異常終了したときもシェルは止まる。公式の入出力は [Cursor Hooks](https://cursor.com/docs/hooks) の `beforeShellExecution` を参照する。
+
+フックは **コマンド文字列を静的解析して** `commit --amend`、force push、rebase、`pull --rebase` など履歴を書き換える git 操作だけを拒否する。サンドボックスや確認の文言では拒否を回避できない。`reset --hard`、`push --delete`、`branch -D` など、この狭い方針の外の危険操作は通す（安全と断言しない）。sudo、alias、xargs、外部スクリプトの中身までは見ない。単一引用符の中身、エスケープした `$`、コメント（`#` 以降、引用符の外で単語境界にあるとき）内の文字列はデータとして扱う。二重引用符の中の ``$()`` とバッククォートは実行される置換として、深さに上限を付けて解析する。引用符の外のバックスラッシュは次の1文字をエスケープする（`git commit \--amend` は拒否、`git\ commit` は `git` 本体ではないため通す）。`bash --rcfile … -c` や `zsh --rcs -c` のように長いシェルオプションを飛ばしたうえで `-c` / `-lc` のスクリプト文字列、`eval` の引数、`env` / `command` / `exec` の内側を同じ上限付きで追う。`env` の `VAR=value`、`-C` / `--chdir`、`--` 以降まで剥がしてから内側の `git` を見る。`exec -l` は値を消費しない。`git -c pull.rebase=merges` や `=interactive` もリベース相当とみなし、リポジトリ設定の読み取りはしない。先頭が丸括弧・波括弧・二重括弧で全体が包まれているときは内側を別コマンド文字列として同じ深さ上限で再帰する。`git` 単体や `--version` / `--help` など既知のグローバルだけで終わる行は許可する。
+
+空の `command` は許可する。不正な JSON、配列の入力、非文字列の `command`、引用符の対応が崩れたコマンドは exit 0 で `permission: deny` を返す（この VM の単体試験のみ。IDE / Cloud Agent での実際の遮断は別途確かめる）。
+
+Cloud Agent は書き込み可能な環境になってからプロジェクトの `hooks.json` を読み込む。読み取り専用の初期ターンではフックは動かない。
+
+拒否時だけ、履歴書き換えフックは transcript 用の1行マーカーを出す。`agent_message` の末尾と標準エラーに同じ行を書き、書き込み可能なら `.cursor/hooks/logs/agent-obs.jsonl` に JSONL で追記する（ディレクトリは gitignore。実行時にだけできる）。許可時は何も出さない。形式の例:
+
+`[agent-obs] hook=block-history-rewrite decision=deny rule=rewrite cmd=git commit --amend`
+
+`rule` は分類理由（`rewrite` / `malformed` など）。`cmd` は短く要約し、トークン様の文字列は伏せる。ログへの追記に失敗しても拒否可否は変わらない。
+
+### postToolUse / Read（Issue #553 相談本文の再読）
+
+[`hooks.json`](../.cursor/hooks.json) の `postToolUse`（`matcher`: `Read`）が [`.cursor/hooks/log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) を呼ぶ。エージェントが Read で [`.cursor/skills/consult/references/session.md`](../.cursor/skills/consult/references/session.md) を読んだ直後、**ツール結果のあと**に `additional_context` として次の1行が会話へ差し込まれる（Cloud Agent の transcript でも grep できる）。Read 自体は変更しない。
+
+`[agent-obs] hook=consult-session-read decision=log path=.cursor/skills/consult/references/session.md`
+
+判別には `postToolUse` 入力の `tool_input.path`（無いとき `tool_input.file_path`）を、`cwd` 基準で絶対パスに直してから使う。それ以外の Read は空の出力（ノイズなし）。書き込み可能なら上記 JSONL にも同じ行を追記するが、失敗しても `additional_context` は返す。相談スタブ（[`.cursor/rules/consult.mdc`](../.cursor/rules/consult.mdc)）が毎ターンの再読を指示しているのに対し、このフックはその Read が実際に起きたことの観測用である。
+
 ## npm スクリプト
+
+リポジトリ直下の `.npmrc` は `legacy-peer-deps=true` である。`madge` が TypeScript 6 を peer として想定していないため、`npm ci` を通すために必要である。
 
 | スクリプト | 内容 |
 | --- | --- |
@@ -189,18 +257,34 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
 | `npm run dev:manual-screenshot` | 操作マニュアル用の画面ショット撮影向けに、Tauri をモックした Vite を起動する |
-| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
-| `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
+| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json`。撮る前に、その JSON の日付を撮影日（`manualScreenshotTodayIso`）基準へ平行移動する |
+| `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。パスの無い `#見出し` は、そのリンクがあるページの見出しと照合する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
-| `npm test` | 検証器を生成してから Vitest を1回実行する |
-| `npm run lint` | ESLint |
+| `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
+| `npm run typecheck` | TypeScript の型検査のみ（`tsc --noEmit`）。Vite の本番ビルドは含まない |
+| `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
+| `npm run test:ci` | CI の frontend と同じ。検証器の生成、`node --test scripts/*.test.mjs`、カバレッジ付き Vitest を各 1 回 |
+| `npm run test:browser-regression` | Playwright でブラウザ回帰を実行する。設定は `e2e/browser-regression/playwright.config.ts`。通常はポート 5173 の `npm run dev`、手動撮影 shim 用の Konva プローブだけポート 5174 の `npm run dev:manual-screenshot` を起動する。失敗時のトレースとスクリーンショットは `test-results/` に出る。レイアウト用の基準画像は `e2e/browser-regression/baselines/` に置く。見直すときは `npx playwright test -c e2e/browser-regression/playwright.config.ts e2e/browser-regression/specs/layout-f2.spec.ts --grep compares --update-snapshots` で `layout-f2-light.png` と `layout-f2-dark.png` だけを更新する。PNG を差し替えただけでは不具合を直したことにしない |
+| `npm run lint` | ESLint。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
+| `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
+| `npm run check:operation-entries` | `docs/operation-entries.md` 主表の列意味とソースカタログの照合（P-CI-06 段階2）。操作 ID のすべてに右クリック用ラベルがあること |
+| `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定か手動のままである。`自動化予定:#` は #541 のみ許可する（冒頭の説明と同じ変更で更新する）。一部手動に `自動:` が無い行は失敗する。`自動:` の試験名は、参照ファイル内のその名前の試験がすべて `#[ignore]` または `test.skip` / `it.skip` / `describe.skip` 内なら失敗する。JS/TS は TypeScript の構文木で `it`/`test` の呼び出しだけを見る（コメント・文字列は除外）。Rust はコメントを除いたうえで `fn` 定義だけを見る。同名の別スイート・別ファイルでは落とさない。`手動のまま:` の理由に名前があるだけでは落とさない。`cfg_attr`・実行時 skip は見ない。構文解析が万能ではない。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
+| `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
+| `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限を超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`）。上限は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。閾値を下回ると失敗する。閾値は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds`（`src/model/**` 含む）。**CI frontend では `test:ci` の中で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
-| `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members`、`write-workspace` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
-| `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z` または `X.Y.Z-beta.N` の形であることを確認する |
-| `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`beta`、`stable` を引数にする |
+| `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members`、`write-workspace`、`write-fields`、`write-colors` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
+| `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z`、`X.Y.Z-alpha.N`、または `X.Y.Z-beta.N` の形であることを確認する |
+| `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`alpha`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
+
+カバレッジの閾値は、テストを足したあとに `npm run test:coverage` で実測し、行・文・分岐・関数のそれぞれを、その実測より約 1 ポイント低い整数へ上げる。数値の正本は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds` である。上げるときは同じ変更でそこを直す。
+
+lint の警告上限の正本は [package.json](../package.json) の `lint`（`--max-warnings`）である。jscpd の重複率の上限の正本は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` である。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
+
+Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。Ubuntu の CI では GUI を要する `tests/mcp_running_app.rs` のため `xvfb` を入れ、`xvfb-run -a cargo test --locked` で走らせる。手元の Linux でも同様に `xvfb-run` を使う。起動中アプリの統合試験は、リポジトリ直下で `TAURI_ENV_PLATFORM` を付けた `npm run dev` がポート 1420 で応答していること、1420 が空いていることを要する。試験用の Vite は `mcp_running_app.rs` が共有で起動し、試験バイナリの終了時に子プロセスごと片付ける。Windows では、GUI を起動する前に `RunningHarness` が利用者向けの名前付きパイプ（`\\.\pipe\{APP_IDENTIFIER}-{SID}`）へ `CreateFileW` で接続できるかだけを見る。接続できたら `schedule_diff` などのツールは送らず、その場で失敗する。手元では schedule-viewer を閉じてから `cargo test --locked --test mcp_running_app` を回す。`mcp_running_app` の第 2 プロセス試験は、ほかに同一ユーザーの `schedule-viewer`（実行ファイル名が `schedule-viewer` または `schedule-viewer.exe`。インストール先のパスは問わない）が動いていると、シグナルやツールを送らずその場で失敗する。許可するのは試験が起動した GUI とその子孫だけ（`pgrep -P` で木ごと列挙）である。Linux は `/proc/<pid>/status` の UID で所有者を区別し、同一 UID のときだけ `/proc/<pid>/exe` を読む。macOS は `proc_pidpath` でパスの basename を見る。他ユーザーのプロセスは無視する。同一ユーザーのプロセスで exe の確認に失敗したときは「ほかにいない」と見なさない。Windows は `tasklist` でイメージ名を列挙する。列挙自体に失敗したときも同様である。他プロセス検出の単体試験は、本物の schedule-viewer ではなく `sleep`（Windows では `timeout`）を `schedule-viewer` の名前でコピーして起動する。`RunningHarness` の破棄では試験が起動した GUI だけを終了させる。`--test-threads=1` で回す。`.cursor/mcp-e2e-run.py` は `cargo test --locked --test mcp_running_app` だけを実行する。
 
 ## ブランチと CI
 
@@ -208,21 +292,107 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop`、`main`、`next` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
+| `develop`、`main`、`next`、`feature-436` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルド、`agentdocs` を分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
+| `develop` または `next` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
 
-`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next` 向けの pull request のときである。
+`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next`、`feature-436` 向けの pull request のときである。
+
+`browser-regression.yml` は、`develop` への push では動かない。夜間の `schedule` は、このファイルが既定ブランチ `develop` にあるとき、その最新コミットで動く。`workflow_dispatch` も、ファイルが `develop` にあるときだけ起動できる。
+
+`browser-regression` ジョブの `timeout-minutes` は 45 である。Playwright の `globalTimeout`（20 分）は `npm run test:browser-regression` のプロセスだけを止める。
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
-- `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
-- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
+- `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。Ubuntu だけ `xvfb-run -a`）が動く
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/how-to/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前。`how-to/manual/` の鮮度と引用検査）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物・`how-to` の `manual/` 6 ファイルと `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
+- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分検査）が動く。`package.json` と `package-lock.json` だけが変わったときはフロントジョブが動き、`manual` は動かない
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
+- `agentdocs` だけが動くのは、変更がフロント・Rust・`manual` のいずれにも当たらないときだけである（例: `AGENTS.md`、`docs/agents-*`、`.cursor/rules/*` のうちスキル配下を除くファイル、`consult` など write / how-to / schedule-talk と重ならない SKILL・`references`、`scripts/check-agent-docs.*`）。`scripts/check-agent-docs.*` は広い `scripts/*` の frontend 枝から除外する
+- `.cursor/skills/write-*` と `.cursor/skills/how-to/` の `SKILL.md` と `references/*.md` は **frontend と agentdocs の両方**が立つ
+- `.cursor/skills/schedule-talk/` の `SKILL.md` と `references/*.md` は **Rust と agentdocs の両方**が立つ（`schedule-talk/*` 全体は Rust 側）
+- 分類の正本は `scripts/ci-changed-path-flags.sh` で、CI の `changes` ジョブが `git diff` をこのスクリプトへ渡す。`node --test scripts/ci-changed-path-flags.test.mjs` は同じスクリプトを実行して旗を固定する
+
+**case の先頭一致:** Bash の `case` は先に当たった枝だけを実行する。広い `scripts/*` や `schedule-talk/*` を先に書くと、狭い `scripts/check-agent-docs.*` や `references/*.md` が同じ枝に入らず `agentdocs` が立たない。`agentdocs` は changed ファイルをもう一度回して先に判定する。
 
 ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+
+### 場面ごとに回す検査
+
+作業中は、この表の場面より多い検査を繰り返さない。秒数を書くときは、測ったコマンドだけを書き、測っていない秒数は未測定と書く。
+
+| 場面 | 回すもの |
+| --- | --- |
+| 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
+| 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
+| `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
+| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
+| リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
+
+`src-tauri/` を変えた作業の途中は、手元の OS で `cd src-tauri && cargo clippy --lib -- -D warnings && cargo test --lib --locked` を足す。`tests/mcp_running_app.rs` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI で回す。
+
+差分が文書だけのときは、作業中も「PR 前の一回」も、フロントエンド向けの検査を理由なく求めない。該当する文書用の checker とリンク検査は、差分に合わせて回す。PR 本文では省略した「PR 前の一回」の項目を not-run と書く。
+
+ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` または `next` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
+
+**触ったテスト**
+
+検証器を先に生成する。`npm test` は `scripts/*.test.mjs` と Vitest を全部回す。絞るときは `npm test` を使わない。
+
+- 未コミットの変更だけ: `node scripts/compile-validators.mjs && npx vitest run --changed`
+- 分岐元からの変更: `node scripts/compile-validators.mjs && npx vitest run --changed origin/feature-436`（分岐元が develop なら `origin/develop`）
+- ファイルを指定: `node scripts/compile-validators.mjs && npx vitest run テストファイルのパス`
+- ソースから関連テスト: `node scripts/compile-validators.mjs && npx vitest related ソースのパス`
+- `scripts/*.test.mjs` を触ったとき: `node --test scripts/そのファイル.test.mjs`
+
+`package.json`、`vitest.config.ts`、`vite.config.ts` が変わるとき、Vitest は全部回す。`src/test/setupDomTests.ts` を変えたときは、dom のテストが全部対象になる。
+
+**PR 前の一回**
+
+次を 1 回だけ実行する。ブラウザ回帰は含めない。差分が文書だけのときは、上の「場面ごとに回す検査」直後の文どおり、フロントエンド向けの番号は手元では必須にせず、PR 本文に not-run と書く。コード変更・CI・リリース前のゲートは変えない。
+
+1. `npm run test:ci`
+2. `npm run lint`
+3. `npm run build`
+4. `npm run check:mcp-tool-names`
+5. `npm run check:operation-entries`
+6. `npm run check:regression-coverage`
+7. `npm run check:madge-circular-baseline`
+8. `npm run check:architecture-warn`
+9. `npm run check:schedule`
+10. `npm run check:calendar`
+11. `npm run check:members`
+12. `node --test scripts/how-to-citations.test.mjs`
+13. `npm run build:validate-skill`
+14. `test -z "$(git status --porcelain .cursor/skills/how-to/manual/)"`
+15. `npm run version:check`
+16. `npm audit --audit-level=high`
+17. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する（`how-to/manual/` の6ファイルを含む）
+
+`src-tauri/` を変えたときは、手元の OS の Clippy と `cargo test --locked` をこの 1 回に足す。
+
+**リリース前に回す検査**
+
+自動は、緊急のリリースでも飛ばさない。
+
+1. 「PR 前の一回」
+2. `npm run test:browser-regression`
+3. `docs/regression.md` の「自動を先に流す」のうち、サンプルを指定する 4 つ。無引数の `npm test` と `npm run test:coverage` は `test:ci` にまとめてあるので、ここでは繰り返さない
+   - `npm run check:schedule -- examples/regression/smoke.schedule.json`
+   - `npm run check:schedule -- examples/regression/long.schedule.json`
+   - `npm run check:schedule -- examples/regression/full.schedule.json`
+   - `npm run check:members -- examples/regression/members.json`
+4. 手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked`
+
+手動の回帰は、緊急のリリースでは飛ばしてよい。
+
+- `docs/regression.md` の「自動を先に流す」のあとに書いてある手作業
+- `docs/test-spec.md` の「リリース前確認」
+
+`check:statuses` と `check:colors` は、CI にも「自動を先に流す」にも無い。この一覧にも足さない。
 
 ### 1.x を出しながら次のメジャーを進める
 
@@ -233,7 +403,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | `develop` | 1.x の統合。安定版はここから `main` へ載せる |
 | `main` | 安定版。push すると安定版の Release が走る |
 | `feature-<Issue番号>` | 1.x は `develop` から、次メジャーは `next` から切る。マージ先は切った元である |
-| `release/X.Y.Z` | その版のベータを出してから消すまでのブランチである。次メジャーの統合には使わない |
+| `release/X.Y.Z` | その版の Pre-release（アルファ・ベータ）を出してから消すまでのブランチである。次メジャーの統合には使わない |
 | `next` | 次メジャーの統合。`main` と `release/**` へはマージしない |
 
 #### `next` を切る
@@ -248,10 +418,10 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 1. 1.x のまま出せる変更は、`develop` から `feature-<Issue番号>` を切り、`develop` へ戻す。安定版とベータは、「`main` に載せる前のバージョン上げ」と「ベータリリース」で出す。
 2. 公開する契約を壊す変更は、`next` から `feature-<Issue番号>` を切り、`next` へ戻す。1.x で開けているスケジュールを拒否するスキーマの変更も、`next` だけに置く。
-3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。
-4. `develop` を `next` へマージして、1.x の修正を届ける。`next` を `develop` へマージするのは、下の出荷が終わったあとだけである。
-5. `next` では版番号を上げない。`develop` をマージしたあとも、`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の番号は 1.x のままにする。`version:check` が受け付けるのは `X.Y.Z` と `X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
-6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の 1.x のままにする。
+3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。`develop` へマージしただけでは `next` には載らない。
+4. 1.x の修正と依存更新を `next` に届けるときは、**出荷済みの安定版を `main` に載せたあと**（または同じ版の `develop` を指しているとき）、`main` または `develop` を `next` へマージする pull request を出す。通常の feature マージと別に、この取り込みを忘れない。取り込まないと、CHANGELOG や `develop` の履歴だけ先行し、`next` のコードが 1.x 安定版から遅れたままになる（#410・#418・#386 は `develop`/`main` にあったが、この取り込みが無かったため `next` に載っていなかった）。`next` を `develop` へマージするのは、下の「次のメジャーを出す」が終わったあとだけである。
+5. 手順 4 のマージで `next` に載せた版は、**いま出荷した安定版の `X.Y.Z` に揃える**。`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の 5 ファイルを、その版に書き換えてから pull request に含める。手元では [scripts/project-version-files.ts](../scripts/project-version-files.ts) の `writeProjectVersion`（`npm run version:bump` は使わず、出荷版の番号をそのまま指定する）のあと `npm run version:check` する。`plugins.updater.endpoints` は 1.x メジャー用の `updater-1` のままである。`next` 上の次メジャー開発のあいだ、版番号を古い 1.x のままにしない。番号は「コードが追いついている最新の 1.x 安定版」を示す。`version:check` が受け付けるのは `X.Y.Z`、`X.Y.Z-alpha.N`、`X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
+6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の出荷済み安定版に揃えた値を維持する。
 
 #### 次のメジャーを出す
 
@@ -260,7 +430,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 1. `develop` を `next` へマージする。
 2. 確認先がまだ `releases/latest` の版があるときは、2.0.0 を `main` に載せる前に、今のメジャーの安定版として `updater-1` を配る。確認先が `updater-1` の版は、2.0 へ自動では進まない。
 3. `next` から `release/2.0.0` を切る。
-4. 「ベータリリース」の手順 2 を行う。版が 1.x のままなら、`major` のあと `beta` で `2.0.0-beta.1` にする。続けて「ベータリリース」の手順 3、4、5 を、この `release/2.0.0` に対して行う。ベータのあいだに入れた修正は、同じ内容を `next` にも入れる。このベータに、1.x 側で別途進めた機能は混ぜない。
+4. 「アルファリリース」の手順 2 を行う。版が 1.x のままなら、`major` のあと `alpha` で `2.0.0-alpha.1` にする。続けて「アルファリリース」の手順 3、4、5 を、この `release/2.0.0` に対して行う。アルファのあいだに入れた修正は、同じ内容を `next` にも入れる。このアルファに、1.x 側で別途進めた機能は混ぜない。機能が固まったら「アルファリリース」の手順 6 からベータへ進み、以降は「ベータリリース」の手順 5 以降で安定版を出す。
 5. 「ベータリリース」の手順 6 のとおり、`release/2.0.0` を `main` へマージする。この push が安定版になる。操作マニュアルの Pages は、この時点の `main` を公開する。Windows の安定版は Store の同じ製品なので、Store の利用者には 2.0 が届く。
 6. `release/2.0.0` を `next` へマージしてから、`next` を `develop` へマージする。`develop` は 2.x の統合になる。そのあと `release/2.0.0` を消す。「ベータリリース」の手順 1 と 7 は行わない。
 
@@ -517,7 +687,7 @@ gh secret list
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は `tauri build --bundles app,dmg` で Apple Silicon の dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` と `.sig` を載せる。`dmg` だけでは更新用の `.app.tar.gz` は出ない。ベータの `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は `tauri build --bundles app,dmg` で Apple Silicon の dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` と `.sig` を載せる。`dmg` だけでは更新用の `.app.tar.gz` は出ない。Pre-release の `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。Pre-release でもその版の Release に `latest.json` と `SHA256SUMS` を添付するが、GitHub の Latest は付けず、同じメジャー用 `updater-X` の `latest.json` も更新しない。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、[scripts/publish-updater-channel.ts](../scripts/publish-updater-channel.ts) で `updater-X` を更新し、より大きいメジャーが無いときだけ [scripts/finalize-stable-github-release-latest.ts](../scripts/finalize-stable-github-release-latest.ts) で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
 
 デスクトップ版の自動更新は、入っている版のメジャー用 `updater-X` の `latest.json` を見る。確認先の URL は `tauri.conf.json` にビルドごとに入る。この確認先を含む版を入れたあとから効く。それより前の版は `releases/latest` を見るため、次のメジャーへ自動で進み得る。次のメジャーを出す前に、今のメジャーの安定版として `updater-X` を配る。
 
@@ -527,7 +697,7 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 ベータの Windows NSIS を出す変更を `release/**` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。安定版を `main` に載せるときは、「Microsoft Store への自動提出」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
-実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
+実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「アルファリリース」または「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。版は `X.Y.Z` である（`-beta.N` は付けない）。
 
@@ -539,15 +709,26 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、対応する Issue がある項目の末尾に `(#番号)` を書く。番号が複数あるときは `(#155) (#156)` のように並べる。対応する Issue が無い項目は番号を書かない。`[Unreleased]` の項目には書かなくてよい。
 
-Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。番号が無い項目があっても本文は作り、番号がある項目だけ GitHub のリンクにする。Pre-release では CHANGELOG を読まず、[scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。番号が無い項目があっても本文は作り、番号がある項目だけ GitHub のリンクにする。Pre-release では CHANGELOG を読まず、アルファは [scripts/release-body-alpha.md](../scripts/release-body-alpha.md)、ベータは [scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+
+### アルファリリース
+
+機能がまだ増える段階の確認用である。同じ `release/X.Y.Z` ブランチで **アルファ → ベータ → 安定版** の順に進める。版の順序は semver 上 `alpha.N` ＜ `beta.N` ＜ 安定版である。
+
+1. 1.x は `develop` から、次メジャーは `next` から `release/X.Y.Z` を切る。最初の 2.0 アルファの例: 作業ブランチを `next` にマージしたあと、`next` から `release/2.0.0` を切る
+2. 今の番号が出したい安定版と同じなら `npm run version:bump -- alpha` だけで `X.Y.Z-alpha.1` にする。まだ 1.x のままなら、先に `npm run version:bump -- major`（または `minor`、`patch`）してから `alpha` を実行する
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、Windows NSIS が Pre-release として出る。タグは `vX.Y.Z-alpha.N` である。Microsoft Store への MSIX 提出は行わない。GitHub の Latest も付けない。利用者は Release ページからインストーラを取る。Windows と Ubuntu では、設定の「更新」から、入っている版より新しい公開 Pre-release（アルファまたはベータ）の、この OS 用インストーラを別名保存できる
+4. アルファのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- alpha` で `N` を増やして push する。`develop` や `next` で進めた別の機能は、そのアルファに混ぜない。同じ修正は `next` にも入れる
+5. 機能追加を一段落させたら、次のベータへ進む。`npm run version:bump -- beta` を実行する。アルファからは `X.Y.Z-beta.1` になる（`alpha.N` の続きにはしない）
+6. 以降は「ベータリリース」の手順 3 から 7 まで行う。`stable` はベータからだけ実行できる
 
 ### ベータリリース
 
-1.x の統合用ブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。次メジャーのベータは、「1.x を出しながら次のメジャーを進める」の出荷の手順で切る。
+1.x の統合用ブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。次メジャーは「1.x を出しながら次のメジャーを進める」の出荷の手順で切る。2.0 以降で機能がまだ増える段階は、先に「アルファリリース」を行う。
 
-1. 1.x は `develop` から `release/X.Y.Z` を切る。次メジャーは、出荷の手順で `next` から切る
-2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
-3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb と NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。ベータを使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開ベータの、この OS 用インストーラを別名保存できる
+1. 1.x は `develop` から `release/X.Y.Z` を切る。次メジャーは、出荷の手順で `next` から切る（アルファを省略してベータから始めてもよい）
+2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。アルファから進むときも手順 2 は同じ `beta` である。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。Pre-release を使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開 Pre-release の、この OS 用インストーラを別名保存できる
 4. ベータのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- beta` で `N` を増やして push する。`develop` で進めた別の機能は、そのベータに混ぜない
 5. 確認が終わったら `npm run version:bump -- stable` で接尾辞を外し、[CHANGELOG.md](../CHANGELOG.md) の版の節を今の手順で書く。この push では Release ワークフローが失敗する（`release/X.Y.Z` に安定版の番号は載せない）
 6. `release/X.Y.Z` を `main` へマージする。`main` への push が安定版になり、Latest と自動更新の対象になる
@@ -555,15 +736,15 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 
 次の push は検査で失敗し、Release は作られない。
 
-- 版番号に `-beta.N` がある `main`
-- 版番号に `-beta.N` が無い `release/X.Y.Z`（手順 5 の push）
+- 版番号に `-alpha.N` または `-beta.N` がある `main`
+- 版番号に接尾辞が無い `release/X.Y.Z`（ベータ手順 5 の push）
 - ブランチ名が `release/X.Y.Z` ではない（例: `release/1.5.0-beta.1`）
 - ブランチの番号と版から接尾辞を外した番号が違う
 - 同じタグが別のコミットを指している版を、もう一度新規に作ろうとしたとき
 
-ベータを手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Ubuntu では deb の入れ直しで進む。Windows の GitHub 版（入っている NSIS とベータ）は、安定版へは Microsoft Store から入れ直す。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
+Pre-release を手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `alpha.N` や `beta.N` は自動では入らない。Pre-release の版は `updater-X` を更新しないため、自動更新で Pre-release へ進むことはない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上は Pre-release より新しい版として入れ直しが始まる。Ubuntu では deb の入れ直しで進む。Windows の GitHub 版（入っている NSIS と Pre-release）は、安定版へは Microsoft Store から入れ直す。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
 
-Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、ベータの deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外してから安定版を入れる。
+Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-alpha.N` と `X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、Pre-release の deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先に Pre-release の deb を外してから安定版を入れる。
 
 ### Release 後に証明書を入れる（ベータの NSIS）
 
@@ -609,7 +790,7 @@ npm run tauri build
 
 成果物は `src-tauri/target/release/bundle/` に出る。ファイル名に入るバージョンは [`npm run version:check`](#main-に載せる前のバージョン上げ) で揃えている番号である。初回は依存のコンパイルで時間がかかる。
 
-配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-workspace/` が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
+配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/schedule-talk/`、`.cursor/skills/how-to/`（`manual/` に画像を除いたマニュアル6ファイル）が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
 
 ### Ubuntu
 
@@ -671,7 +852,7 @@ MSI の作成で `failed to run light.exe` と出たときは、Windows のオ�
 
 ### Microsoft Store 用 MSIX
 
-Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`json-skills/write-workspace/SKILL.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
+Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`json-skills/write-workspace/SKILL.md`、`json-skills/write-fields/SKILL.md`、`json-skills/write-colors/SKILL.md`、`json-skills/schedule-talk/SKILL.md`、`json-skills/how-to/SKILL.md`、`json-skills/how-to/manual/user-manual.md`、`json-skills/how-to/manual/getting-started.md`、`json-skills/how-to/manual/find-by-intent.md`、`json-skills/how-to/manual/tutorial.md`、`json-skills/how-to/manual/features.md`、`json-skills/how-to/manual/privacy.md`、`json-skills/schedule-talk/references/point-by-appearance.md`、`json-skills/schedule-talk/references/screen-judgment.md`、`json-skills/schedule-talk/references/consultation-flow.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
 
 `Square44x44Logo.png` だけを置くと、Windows はタスクバーでロゴを色付きの板の上に縮小して描く。板の色は `#0078D4` で、角丸の外に出る。スクリプトは `icon.png` から、16、20、24、30、32、36、40、48、60、64、72、80、96、256 の各辺について、`Square44x44Logo.targetsize-<px>.png` と、同じ絵の `_altform-unplated`、`_altform-lightunplated` を作る。四隅は透明である。明るいテーマのタスクバーは `lightunplated`、暗いテーマは `unplated` を使う。続けて Windows SDK の `makepri.exe` で `resources.pri` を作り、これらの名前をパッケージのリソースに載せる。ファイルを置いただけではタスクバーは板のままである。`makepri.exe` が無いとき、または `resources.pri` に 24px、暗いテーマ用のプレートなし、明るいテーマ用のプレートなしのどれかが無いときは、MakeAppx の前に失敗する。`BackgroundColor` は `transparent` のままである。`makeappx.exe` と `makepri.exe` は Windows SDK の x64 から、新しいものを使う。
 
@@ -709,9 +890,9 @@ Microsoft Store Developer CLI は、Partner Center で一度掲載したアプ�
 
 スケジュール JSON の形を変えるときは [.cursor/skills/update-schedule-schema/SKILL.md](../.cursor/skills/update-schedule-schema/SKILL.md) に従う。スキーマの正本、型、意味規則（スキーマでは表せない検証）、サンプル、`write-schedule` スキルを同じ変更で揃える。
 
-カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json`、アプリの検証、`.cursor/skills/write-members/` を揃える。
+カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json`、アプリの検証、`.cursor/skills/write-members/` を揃える。色の一覧 JSON も同様に `docs/colors.schema.json`、アプリの検証、`.cursor/skills/write-colors/` を揃える。
 
-検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。CI のフロントジョブは、生成後の `src/model/generated/` とスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
+検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。`src/model/` を変えて検証 CLI がそれを取り込むときも、スキーマを変えていなくても同じコマンドで bundle を作り直す。作り直したファイルをコミットしないと、CI のフロントジョブが落ちる。CI は、生成後の `src/model/generated/` とスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
 
 ## ドキュメントの更新ルール
 
@@ -720,7 +901,8 @@ Microsoft Store Developer CLI は、Partner Center で一度掲載したアプ�
 | 変えたもの | 直す文書 |
 | --- | --- |
 | 画面の操作や見た目 | [外部仕様](external-spec.md) と [操作マニュアル](user-manual.md) |
-| スケジュール、メンバー、カレンダーの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule`、`write-members`、`write-calendar`） |
+| 機能 ID の増減、または機能チェックリストの行の境 | [機能チェックリスト](feature-checklist.md) |
+| スケジュール、メンバー、ステータス一覧、カレンダー、色の一覧、設定ファイルの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule`、`write-members`、`write-calendar`、`write-colors`、`write-workspace`） |
 | Tauri コマンド、状態の持ち方、ディレクトリ構成 | [内部仕様](internal-spec.md) |
 | 自動テストや手動で確かめる手順 | [テスト仕様](test-spec.md) |
 | 開発環境、起動、CI、リリース | この文書 |

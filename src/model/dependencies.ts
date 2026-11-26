@@ -4,16 +4,12 @@ import {
   validatePredecessorRefs,
   type ValidationIssue,
 } from "./scheduleSemantics";
-import { forEachTask, mapTasks } from "./tasks";
-import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task } from "./types";
+import { forEachTask, mapTasks } from "./taskTraversal";
+import { type TaskRef } from "./taskRef";
+import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task, type TaskConnection } from "./types";
 import { formatValidationErrors } from "./validateSchedule";
 
-export type TaskRef = {
-  id: ScheduleId;
-  name: string;
-  category: string;
-  group: string;
-};
+export type { TaskRef } from "./taskRef";
 
 export type DependencyLink = {
   fromId: ScheduleId;
@@ -52,11 +48,34 @@ export function dependencyCount(categories: Category[], taskId: ScheduleId): num
   return count;
 }
 
+export function dependencyCountFromTasks(
+  tasks: readonly Task[],
+  taskId: ScheduleId,
+): number {
+  let count = 0;
+  for (const task of tasks) {
+    if (task.id === taskId) count += task.predecessors.length;
+    else if (task.predecessors.includes(taskId)) count += 1;
+  }
+  return count;
+}
+
 export function successorIds(categories: Category[], taskId: ScheduleId): ScheduleId[] {
   const ids: ScheduleId[] = [];
   forEachTask(categories, (task) => {
     if (task.predecessors.includes(taskId)) ids.push(task.id);
   });
+  return ids;
+}
+
+export function successorIdsFromTasks(
+  tasks: readonly Task[],
+  taskId: ScheduleId,
+): ScheduleId[] {
+  const ids: ScheduleId[] = [];
+  for (const task of tasks) {
+    if (task.predecessors.includes(taskId)) ids.push(task.id);
+  }
   return ids;
 }
 
@@ -72,14 +91,14 @@ function tasksById(categories: Category[]): Map<ScheduleId, Task> {
  * 起点から predecessors を遡った先行と、後続を末端まで辿ったタスク。
  * 起点を通らない枝は含めない。起点が無ければ null。
  */
-export function lineageTaskIds(
-  categories: Category[],
+export function lineageTaskIdsFromTasks(
+  tasks: readonly Task[],
   rootId: ScheduleId,
 ): Set<ScheduleId> | null {
   const predecessors = new Map<ScheduleId, ScheduleId[]>();
   const successors = new Map<ScheduleId, ScheduleId[]>();
   let rootExists = false;
-  forEachTask(categories, (task) => {
+  for (const task of tasks) {
     if (task.id === rootId) rootExists = true;
     predecessors.set(task.id, task.predecessors);
     for (const predId of task.predecessors) {
@@ -87,7 +106,7 @@ export function lineageTaskIds(
       if (next) next.push(task.id);
       else successors.set(predId, [task.id]);
     }
-  });
+  }
   if (!rootExists) return null;
 
   const ids = new Set<ScheduleId>([rootId]);
@@ -110,11 +129,114 @@ export function lineageTaskIds(
   return ids;
 }
 
+function dependencyReachFromTask(
+  predecessors: Map<ScheduleId, ScheduleId[]>,
+  successors: Map<ScheduleId, ScheduleId[]>,
+  startId: ScheduleId,
+): Set<ScheduleId> | null {
+  if (!predecessors.has(startId)) return null;
+  const ids = new Set<ScheduleId>([startId]);
+  const walkFrom = (
+    root: ScheduleId,
+    nextOf: (id: ScheduleId) => ScheduleId[] | undefined,
+  ) => {
+    const stack = [root];
+    const seen = new Set<ScheduleId>([root]);
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (id == null) continue;
+      for (const other of nextOf(id) ?? []) {
+        if (seen.has(other) || !predecessors.has(other)) continue;
+        seen.add(other);
+        ids.add(other);
+        stack.push(other);
+      }
+    }
+  };
+  walkFrom(startId, (id) => predecessors.get(id));
+  walkFrom(startId, (id) => successors.get(id));
+  return ids;
+}
+
+/** 起点の前後系統に、繋がりの相手とその前後を届くところまで足す。 */
+export function lineageTaskIdsFromTasksWithConnections(
+  tasks: readonly Task[],
+  connections: readonly TaskConnection[] | undefined,
+  rootId: ScheduleId,
+): Set<ScheduleId> | null {
+  const base = lineageTaskIdsFromTasks(tasks, rootId);
+  if (!base || connections == null || connections.length === 0) return base;
+
+  const predecessors = new Map<ScheduleId, ScheduleId[]>();
+  const successors = new Map<ScheduleId, ScheduleId[]>();
+  for (const task of tasks) {
+    predecessors.set(task.id, task.predecessors);
+    for (const predId of task.predecessors) {
+      const next = successors.get(predId);
+      if (next) next.push(task.id);
+      else successors.set(predId, [task.id]);
+    }
+  }
+
+  const partnersByTask = new Map<ScheduleId, ScheduleId[]>();
+  for (const connection of connections) {
+    const [a, b] = connection.taskIds;
+    const listA = partnersByTask.get(a);
+    if (listA) listA.push(b);
+    else partnersByTask.set(a, [b]);
+    const listB = partnersByTask.get(b);
+    if (listB) listB.push(a);
+    else partnersByTask.set(b, [a]);
+  }
+
+  const ids = new Set(base);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const pending: ScheduleId[] = [];
+    for (const id of ids) {
+      for (const partner of partnersByTask.get(id) ?? []) {
+        if (!ids.has(partner)) pending.push(partner);
+      }
+    }
+    for (const partner of pending) {
+      ids.add(partner);
+      changed = true;
+      const reach = dependencyReachFromTask(predecessors, successors, partner);
+      if (!reach) continue;
+      for (const reached of reach) {
+        if (!ids.has(reached)) {
+          ids.add(reached);
+          changed = true;
+        }
+      }
+    }
+  }
+  return ids;
+}
+
+export function lineageTaskIds(
+  categories: Category[],
+  rootId: ScheduleId,
+): Set<ScheduleId> | null {
+  const tasks: Task[] = [];
+  forEachTask(categories, (task) => {
+    tasks.push(task);
+  });
+  return lineageTaskIdsFromTasks(tasks, rootId);
+}
+
 /** 破綻した線の先行または後続になっているタスク。 */
 export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
-  const byId = tasksById(categories);
+  return brokenLinkTaskIdsFromTasks([...tasksById(categories).values()]);
+}
+
+export function brokenLinkTaskIdsFromTasks(
+  tasks: readonly Task[],
+): Set<ScheduleId> {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const ids = new Set<ScheduleId>();
-  for (const task of byId.values()) {
+  for (const task of tasks) {
     for (const predecessorId of task.predecessors) {
       const predecessor = byId.get(predecessorId);
       if (!predecessor || !isBrokenLink(predecessor, task)) continue;
@@ -126,14 +248,14 @@ export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
 }
 
 /** フィルタ後の行に先行・後続の両方がいるリンクだけ返す。 */
-export function visibleLinks(
-  categories: Category[],
+export function visibleLinksFromTasks(
+  tasks: readonly Task[],
   visibleIds: ReadonlySet<ScheduleId>,
 ): DependencyLink[] {
-  const byId = tasksById(categories);
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const links: DependencyLink[] = [];
-  forEachTask(categories, (task) => {
-    if (!visibleIds.has(task.id)) return;
+  for (const task of tasks) {
+    if (!visibleIds.has(task.id)) continue;
     for (const predecessorId of task.predecessors) {
       if (!visibleIds.has(predecessorId)) continue;
       const predecessor = byId.get(predecessorId);
@@ -143,8 +265,20 @@ export function visibleLinks(
         broken: predecessor ? isBrokenLink(predecessor, task) : false,
       });
     }
-  });
+  }
   return links;
+}
+
+/** フィルタ後の行に先行・後続の両方がいるリンクだけ返す。 */
+export function visibleLinks(
+  categories: Category[],
+  visibleIds: ReadonlySet<ScheduleId>,
+): DependencyLink[] {
+  const tasks: Task[] = [];
+  forEachTask(categories, (task) => {
+    tasks.push(task);
+  });
+  return visibleLinksFromTasks(tasks, visibleIds);
 }
 
 /** 矢印の頭の長さ。画面の Arrow と書き出しの marker と揃える。 */
@@ -205,6 +339,8 @@ export type LinkPolyline = {
   fromId: ScheduleId;
   toId: ScheduleId;
   points: number[];
+  /** 省略時は終わってから始まる前後の線。 */
+  kind?: "predecessor" | "connection";
 };
 
 function pointToSegmentDistance(

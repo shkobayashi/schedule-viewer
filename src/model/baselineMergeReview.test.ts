@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { collectBaselineClassificationLines } from "./baselineDiffs";
-import { buildBaselineMergeReview } from "./baselineMergeReview";
+import { buildBaselineMergeReview, buildBaselineMergeConflictReview } from "./baselineMergeReview";
 import type { Category, ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
@@ -13,7 +14,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-04-01",
     end: "2026-04-10",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -41,9 +42,10 @@ function review(
   baseline: ScheduleDocument,
   screen: ScheduleDocument,
   file: ScheduleDocument,
+  fields: import("./types").ScheduleFieldDef[] = [],
 ) {
   const lines = collectBaselineClassificationLines(baseline, screen, file);
-  return buildBaselineMergeReview(baseline, screen, file, lines);
+  return buildBaselineMergeReview(baseline, screen, file, lines, fields);
 }
 
 describe("buildBaselineMergeReview", () => {
@@ -106,6 +108,81 @@ describe("buildBaselineMergeReview", () => {
     }
   });
 
+  it("orders extension fields by definition in change blocks", () => {
+    const fields = [
+      { key: "z_field", name: "Z", type: "number" as const },
+      { key: "a_field", name: "A", type: "text" as const },
+    ];
+    const baseline = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 1, a_field: "x" },
+        }),
+      ]),
+    );
+    const screen = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 2, a_field: "x" },
+        }),
+      ]),
+    );
+    const file = baseline;
+    const view = review(baseline, screen, file, fields);
+    const block = view.screen?.blocks[0];
+    expect(block?.kind).toBe("change");
+    if (block?.kind === "change") {
+      const keys = block.fields.map((field) => field.label);
+      expect(keys).toEqual(["z_field"]);
+    }
+  });
+
+  it("orders extension fields by definition under conflict headlines", () => {
+    const fields = [
+      { key: "z_field", name: "Z", type: "number" as const },
+      { key: "a_field", name: "A", type: "text" as const },
+    ];
+    const baseline = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 1, a_field: "x" },
+        }),
+      ]),
+    );
+    const screen = baseline;
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: "1", a_field: "y" },
+        }),
+      ]),
+    );
+    const conflictLines = collectBaselineClassificationLines(
+      baseline,
+      screen,
+      file,
+    ).filter((line) => line.label === "異なる");
+    expect(conflictLines.length).toBeGreaterThan(0);
+    const items = buildBaselineMergeConflictReview(
+      screen,
+      file,
+      conflictLines,
+      fields,
+    );
+    expect(items[0]?.fields.map((field) => field.label)).toEqual([
+      "z_field",
+      "a_field",
+    ]);
+  });
+
   it("deduplicates plain location subheadings within a section", () => {
     const t1 = task({ id: TASK_A, name: "要件整理" });
     const t2 = task({ id: TASK_B, name: "基本設計" });
@@ -157,7 +234,7 @@ describe("buildBaselineMergeReview", () => {
         task({
           id: TASK_A,
           name: "基本設計",
-          assigneeId: null,
+          assigneeIds: [],
           status: "not-started",
         }),
       ]),
@@ -167,7 +244,7 @@ describe("buildBaselineMergeReview", () => {
         task({
           id: TASK_A,
           name: "基本設計",
-          assigneeId: "member-1",
+          assigneeIds: ["member-1"],
           status: "in-progress",
         }),
       ]),
@@ -184,5 +261,67 @@ describe("buildBaselineMergeReview", () => {
     }
     expect(block?.visibleHeadline).not.toMatch(/[0-9a-f-]{36}/i);
     expect(block?.accessibleHeadline).toContain(TASK_A);
+  });
+});
+
+const OUTLINE_TASK_A = "e2000001-0000-4000-8000-000000000001";
+
+function outlineReviewDoc(mutateTask?: (task: Task) => Task): ScheduleDocument {
+  const cloned = JSON.parse(JSON.stringify(levels2)) as ScheduleDocument;
+  cloned.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+  cloned.categories = [];
+  if (mutateTask && cloned.outline) {
+    const walk = (nodes: ScheduleDocument["outline"]) => {
+      if (!nodes) return;
+      for (const node of nodes) {
+        if ("start" in node && "end" in node && node.id === OUTLINE_TASK_A) {
+          Object.assign(node, mutateTask(node as Task));
+        } else if ("children" in node) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(cloned.outline);
+  }
+  return cloned;
+}
+
+describe("buildBaselineMergeReview outline storage", () => {
+  it("shows todo fields for screen-only outline change", () => {
+    const baseline = outlineReviewDoc();
+    const screen = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "項目", done: false }],
+      progress: 0,
+    }));
+    const file = baseline;
+    const view = review(baseline, screen, file);
+    expect(view.screen?.count).toBe(1);
+    const block = view.screen?.blocks[0];
+    expect(block?.kind).toBe("change");
+    if (block?.kind === "change") {
+      const todoField = block.fields.find((field) => field.label === "TODO");
+      expect(todoField?.visible).toContain("[ ] 項目");
+    }
+  });
+
+  it("shows conflicting todo values in screen and file sections", () => {
+    const baseline = outlineReviewDoc();
+    const screen = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "画面側", done: false }],
+      progress: 0,
+    }));
+    const file = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "ファイル側", done: false }],
+      progress: 0,
+    }));
+    const lines = collectBaselineClassificationLines(baseline, screen, file);
+    const conflict = lines.find((line) => line.label === "異なる");
+    expect(conflict?.headline).toContain("調査A");
+    const view = review(baseline, screen, file);
+    expect(view.screen).toBeUndefined();
+    expect(view.file).toBeUndefined();
   });
 });

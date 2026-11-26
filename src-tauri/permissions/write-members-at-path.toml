@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-write-members-at-path"
+description = "Allows overwriting a workspace-bound member catalog file."
+commands.allow = ["write_members_at_path"]

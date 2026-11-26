@@ -6,6 +6,7 @@ import {
   migrateScheduleV4ToV5,
   migrateScheduleV5ToV6,
   migrateScheduleV6ToV7,
+  migrateScheduleV7ToV8,
 } from "./scheduleMigrate";
 import {
   validateDependencyCycles,
@@ -13,6 +14,10 @@ import {
   validateScheduleSemantics,
   type ValidationIssue,
 } from "./scheduleSemantics";
+import { validateConnections } from "./connections";
+import { normalizeScheduleFieldsForValidation } from "./taskFields";
+import { normalizeAssigneesInDocument, scheduleInputForSchemaValidation, validateAssigneeIdInputSemantics } from "./assigneeIds";
+import { normalizeScheduleDocument } from "./taskTodos";
 import type { ScheduleDocument } from "./types";
 import {
   formatAjvErrors,
@@ -23,6 +28,26 @@ import {
 export type ValidateScheduleResult =
   | { ok: true; document: ScheduleDocument }
   | { ok: false; errors: ValidationIssue[] };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** 空や空白だけの `instruction` を外してからスキーマ検証する。 */
+function normalizeScheduleLevelsInputForSchema(data: unknown): unknown {
+  if (!isRecord(data) || !Array.isArray(data.levels)) return data;
+  const levels = data.levels.map((entry) => {
+    if (!isRecord(entry) || !("instruction" in entry)) return entry;
+    const instruction = entry.instruction;
+    if (typeof instruction !== "string" || instruction.trim().length > 0) {
+      return entry;
+    }
+    const { instruction: _removed, ...rest } = entry;
+    void _removed;
+    return rest;
+  });
+  return { ...data, levels };
+}
 
 export function validateSchedule(data: unknown): ValidateScheduleResult {
   const afterV1 = migrateScheduleToV2(data);
@@ -38,32 +63,57 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
         {
           path: "/schemaVersion",
           message:
-            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 7 に更新してください。",
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 8 に更新してください。",
         },
       ],
     };
   }
 
-  const migrated = migrateScheduleV6ToV7(
-    migrateScheduleV5ToV6(
-      fillMissingMilestoneConfidence(
-        migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1)),
+  const migrated = migrateScheduleV7ToV8(
+    migrateScheduleV6ToV7(
+      migrateScheduleV5ToV6(
+        fillMissingMilestoneConfidence(
+          migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1)),
+        ),
       ),
     ),
   );
 
-  if (!validateSchema(migrated)) {
+  const forSchema = normalizeScheduleFieldsForValidation(
+    normalizeScheduleLevelsInputForSchema(migrated) as Record<string, unknown>,
+  );
+
+  const assigneeInputIssues = validateAssigneeIdInputSemantics(forSchema);
+  if (assigneeInputIssues.length > 0) {
     return {
       ok: false,
-      errors: formatAjvErrors(migrated, validateSchema.errors),
+      errors: assigneeInputIssues.map((issue) => ({
+        ...issue,
+        path: humanizeInstancePath(migrated, issue.path),
+      })),
     };
   }
 
-  const document = migrated as ScheduleDocument;
+  const forSchemaAssignees = scheduleInputForSchemaValidation(forSchema);
+
+  if (!validateSchema(forSchemaAssignees)) {
+    return {
+      ok: false,
+      errors: formatAjvErrors(forSchemaAssignees, validateSchema.errors),
+    };
+  }
+
+  const raw = forSchemaAssignees as ScheduleDocument;
+  const withCategories: ScheduleDocument = {
+    ...raw,
+    categories: raw.categories ?? [],
+  };
+  const document = normalizeAssigneesInDocument(withCategories);
   const errors = [
     ...validateScheduleSemantics(document),
     ...validatePredecessorRefs(document),
     ...validateDependencyCycles(document),
+    ...validateConnections(document),
   ];
   if (errors.length > 0) {
     return {
@@ -74,7 +124,7 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
       })),
     };
   }
-  return { ok: true, document };
+  return { ok: true, document: normalizeScheduleDocument(document) };
 }
 
 export function formatValidationErrors(errors: ValidationIssue[]): string {

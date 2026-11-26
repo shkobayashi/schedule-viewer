@@ -5,7 +5,10 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
+  ScheduleLevelDef,
+  TaskConnection,
 } from "../model/types";
 import { errorMessage } from "../model/errors";
 import {
@@ -22,8 +25,12 @@ import {
 } from "../model/scheduleFile";
 import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalReload";
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
-import { useScheduleSave } from "./scheduleFile/useScheduleSave";
+import {
+  SCHEDULE_SAVE_ERROR_DIALOG_TITLE,
+  useScheduleSave,
+} from "./scheduleFile/useScheduleSave";
 import { useScheduleFilterPersistence } from "./scheduleFile/useScheduleFilterPersistence";
+import type { ApplyOpenedFileOptions } from "./scheduleFile/applyOpenedFileOptions";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
 import type { ScheduleFilterViewState } from "../model/scheduleFilterPersistence";
 import { releaseScheduleFilterViaTauri } from "../model/scheduleFilterFile";
@@ -58,6 +65,8 @@ import {
 import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
 import type { RecentFilesStore } from "../model/recentFiles";
 
+export type { ApplyOpenedFileOptions } from "./scheduleFile/applyOpenedFileOptions";
+
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
 type UseScheduleFileOptions = {
@@ -65,6 +74,9 @@ type UseScheduleFileOptions = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  levels?: ScheduleLevelDef[];
+  outline?: OutlineRoot;
+  connections?: TaskConnection[] | null;
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -78,16 +90,14 @@ type UseScheduleFileOptions = {
   getFilterViewState: () => ScheduleFilterViewState;
   knownMemberIds: ReadonlySet<string>;
   memberCatalogSettled: boolean;
+  fieldExtensionCatalogSettled: boolean;
+  extraFieldDefs?: import("../model/types").ScheduleFieldDef[];
   sidebarReorderDragging: boolean;
   getCanonicalJson?: () => string;
   getDocumentTitle?: () => string;
   onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
   onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
-};
-
-export type ApplyOpenedFileOptions = {
-  restoreFilters?: boolean;
-  recordRecent?: boolean;
+  onScheduleSaved?: () => void;
 };
 
 export function useScheduleFile({
@@ -95,6 +105,9 @@ export function useScheduleFile({
   categories,
   milestoneGroups,
   milestones,
+  levels,
+  outline,
+  connections,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -106,11 +119,14 @@ export function useScheduleFile({
   getFilterViewState,
   knownMemberIds,
   memberCatalogSettled,
+  fieldExtensionCatalogSettled,
+  extraFieldDefs = [],
   sidebarReorderDragging,
   getCanonicalJson,
   getDocumentTitle,
   onRecentFilesStoreUpdated,
   onWorkspaceBindingChange,
+  onScheduleSaved,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -139,11 +155,31 @@ export function useScheduleFile({
   const clearExternalReloadPromptRef = useRef<() => void>(() => {});
   const clearInvalidDiskHashRef = useRef<() => void>(() => {});
 
-  const currentJson = useMemo(
-    () =>
-      serializeScheduleDocument(title, categories, milestoneGroups, milestones),
-    [categories, milestoneGroups, milestones, title],
-  );
+  const currentJson = useMemo(() => {
+    if (getCanonicalJson) {
+      return getCanonicalJson();
+    }
+    return serializeScheduleDocument(
+      title,
+      categories,
+      milestoneGroups,
+      milestones,
+      levels,
+      outline,
+      extraFieldDefs.length > 0 ? [...extraFieldDefs] : undefined,
+      connections,
+    );
+  }, [
+    categories,
+    connections,
+    extraFieldDefs,
+    getCanonicalJson,
+    levels,
+    milestoneGroups,
+    milestones,
+    outline,
+    title,
+  ]);
 
   const isDirty = currentJson !== baselineJson;
   const isDirtyRef = useRef(isDirty);
@@ -168,14 +204,16 @@ export function useScheduleFile({
       milestones,
       milestoneGroups,
       knownMemberIds,
+      fields: extraFieldDefs,
     }),
-    [categories, knownMemberIds, milestoneGroups, milestones],
+    [categories, extraFieldDefs, knownMemberIds, milestoneGroups, milestones],
   );
 
   const filterPersistence = useScheduleFilterPersistence({
     filePath,
     startupSettled,
     memberCatalogSettled,
+    fieldExtensionCatalogSettled,
     pruneContext,
     getFilterViewState: () => getFilterViewStateRef.current(),
     setFilterViewState,
@@ -189,6 +227,11 @@ export function useScheduleFile({
   flushFilterOnCloseRef.current = filterPersistence.flushFilterOnClose;
   const syncLiveFilterRef = useRef(filterPersistence.syncLiveFilter);
   syncLiveFilterRef.current = filterPersistence.syncLiveFilter;
+
+  const reportSaveError = useCallback((message: string) => {
+    setErrorDialogTitle(SCHEDULE_SAVE_ERROR_DIALOG_TITLE);
+    setErrorMessageText(message);
+  }, []);
 
   const { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery } =
     useScheduleRecoveryDraft({
@@ -221,11 +264,36 @@ export function useScheduleFile({
     baselineJsonRef,
     fileBusyRef,
     setFileBusy,
-    setErrorMessageText,
+    reportSaveError,
     clearRecoveryDraft,
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,
+    extraFieldDefs,
+    onScheduleSavePathChanged: (previousPath, newPath) => {
+      if (previousPath !== newPath) {
+        onWorkspaceBindingChange?.(null);
+      }
+    },
+    onScheduleSaved,
   });
+
+  const markSavedAtPath = useCallback(
+    (canonicalJson: string, path: string) => {
+      const previousPath = filePathRef.current;
+      setFilePath(path);
+      setBrowserFileLabel(null);
+      setBaselineJson(canonicalJson);
+      baselineJsonRef.current = canonicalJson;
+      clearExternalReloadPromptRef.current();
+      clearInvalidDiskHashRef.current();
+      void clearRecoveryDraft();
+      if (previousPath !== path) {
+        onWorkspaceBindingChange?.(null);
+      }
+    },
+    [clearRecoveryDraft, onWorkspaceBindingChange],
+  );
+
   const externalChangeOpenRef = useRef(externalChangeOpen);
   externalChangeOpenRef.current = externalChangeOpen;
 
@@ -260,8 +328,10 @@ export function useScheduleFile({
     confirmBaselineMerge,
     buildExternalReloadAssessment,
     buildExternalReloadReview,
+    buildExternalReloadConflictReview,
     onHistoryUndoApplied,
     onHistoryRedoApplied,
+    completeReplaceDuringConflictReload,
   } = useScheduleExternalReload({
     filePath,
     reloadDocumentFromDisk,
@@ -278,6 +348,7 @@ export function useScheduleFile({
     clearRecoveryDraft,
     requestMissingFileOpenRef,
     notifyPeersRef,
+    scheduleFieldDefs: extraFieldDefs,
   });
 
   const externalReloadAssessment = externalReloadOpen
@@ -285,6 +356,9 @@ export function useScheduleFile({
     : null;
   const externalReloadReview = externalReloadOpen
     ? buildExternalReloadReview()
+    : null;
+  const externalReloadConflictReview = externalReloadOpen
+    ? buildExternalReloadConflictReview()
     : null;
   clearExternalReloadPromptRef.current = clearExternalReloadPrompt;
   clearInvalidDiskHashRef.current = clearInvalidDiskHash;
@@ -339,9 +413,6 @@ export function useScheduleFile({
       resetPollTracking();
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
-      if (isTauri()) {
-        setStartupContentReady(true);
-      }
       if (isTauri() && previousPath && previousPath !== pick.path) {
         void releaseScheduleRecoveryViaTauri(previousPath).catch((error) => {
           setErrorMessageText(
@@ -371,7 +442,6 @@ export function useScheduleFile({
       onRecentFilesStoreUpdated,
       replaceDocument,
       resetPollTracking,
-      setStartupContentReady,
     ],
   );
 
@@ -576,6 +646,39 @@ export function useScheduleFile({
     try {
       const pick = await openScheduleViaTauri(initialDirectory);
       if (!pick?.path) return;
+      let data: unknown;
+      try {
+        data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
+      } catch {
+        setErrorMessageText("JSON の形式が正しくありません。");
+        return;
+      }
+      const kind = classifyOpenedJson(data);
+      if (kind === "workspace") {
+        const opened = await openWorkspaceFromFile(pick.path, pick.contents);
+        if (!opened.ok) {
+          setErrorMessageText(opened.message);
+          return;
+        }
+        const parsed = parseScheduleText(opened.scheduleContents);
+        if (!parsed.ok) {
+          setErrorMessageText(parsed.message);
+          return;
+        }
+        await createScheduleWindowViaTauri(
+          opened.schedulePath,
+          opened.scheduleContents,
+          pick.path,
+        );
+        void recordRecentWorkspaceViaTauri(pick.path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
+          .catch(() => {});
+        return;
+      }
+      if (kind === "unsupported") {
+        setErrorMessageText("スケジュールの JSON を1つだけ開いてください。");
+        return;
+      }
       const parsed = parseScheduleText(pick.contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -589,7 +692,7 @@ export function useScheduleFile({
     } finally {
       setFileBusy(false);
     }
-  }, [fileBusy]);
+  }, [fileBusy, onRecentFilesStoreUpdated]);
 
   const requestOpenInNewWindow = useCallback(() => {
     if (fileBusyRef.current || !isTauri()) return;
@@ -724,6 +827,9 @@ export function useScheduleFile({
           opened.scheduleContents,
           path,
         );
+        void recordRecentWorkspaceViaTauri(path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
+          .catch(() => {});
         return;
       }
       const parsed = parseScheduleText(contents);
@@ -733,7 +839,7 @@ export function useScheduleFile({
       }
       await createScheduleWindowViaTauri(path, contents);
     },
-    [],
+    [onRecentFilesStoreUpdated],
   );
 
   const startup = useScheduleStartupRecovery({
@@ -1109,6 +1215,8 @@ export function useScheduleFile({
 
   return {
     filePath,
+    getFilePath: () => filePathRef.current,
+    getIsDirty: () => isDirtyRef.current,
     displayFileName,
     saveStatusLabel,
     statusLabel,
@@ -1117,6 +1225,7 @@ export function useScheduleFile({
     diskUpdatedAgain,
     externalReloadAssessment,
     externalReloadReview,
+    externalReloadConflictReview,
     showDeferredReload,
     isDirty,
     fileBusy,
@@ -1159,11 +1268,14 @@ export function useScheduleFile({
     confirmBaselineMerge,
     onHistoryUndoApplied,
     onHistoryRedoApplied,
+    completeReplaceDuringConflictReload,
     dismissError,
     showError,
     handleWorkspaceBindingReload,
     currentJson,
     baselineJson,
     peerNotice,
+    markSavedAtPath,
+    applyOpenedFile,
   };
 }

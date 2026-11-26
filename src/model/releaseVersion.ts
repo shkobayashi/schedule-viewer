@@ -1,6 +1,13 @@
 export type ParsedReleaseVersion =
   | { kind: "stable"; major: number; minor: number; patch: number }
   | {
+      kind: "alpha";
+      major: number;
+      minor: number;
+      patch: number;
+      alpha: number;
+    }
+  | {
       kind: "beta";
       major: number;
       minor: number;
@@ -9,6 +16,7 @@ export type ParsedReleaseVersion =
     };
 
 const STABLE_RE = /^(\d+)\.(\d+)\.(\d+)$/;
+const ALPHA_RE = /^(\d+)\.(\d+)\.(\d+)-alpha\.(\d+)$/;
 const BETA_RE = /^(\d+)\.(\d+)\.(\d+)-beta\.(\d+)$/;
 
 function parseVersionComponent(raw: string): number | null {
@@ -19,7 +27,7 @@ function parseVersionComponent(raw: string): number | null {
   return value;
 }
 
-function parseBetaNumber(raw: string): number | null {
+function parsePrereleaseNumber(raw: string): number | null {
   const value = parseVersionComponent(raw);
   if (value === null || value < 1) return null;
   return value;
@@ -36,12 +44,28 @@ export function parseReleaseVersion(
     if (major === null || minor === null || patch === null) return null;
     return { kind: "stable", major, minor, patch };
   }
+  const alpha = ALPHA_RE.exec(version);
+  if (alpha) {
+    const major = parseVersionComponent(alpha[1]);
+    const minor = parseVersionComponent(alpha[2]);
+    const patch = parseVersionComponent(alpha[3]);
+    const alphaNum = parsePrereleaseNumber(alpha[4]);
+    if (
+      major === null ||
+      minor === null ||
+      patch === null ||
+      alphaNum === null
+    ) {
+      return null;
+    }
+    return { kind: "alpha", major, minor, patch, alpha: alphaNum };
+  }
   const beta = BETA_RE.exec(version);
   if (beta) {
     const major = parseVersionComponent(beta[1]);
     const minor = parseVersionComponent(beta[2]);
     const patch = parseVersionComponent(beta[3]);
-    const betaNum = parseBetaNumber(beta[4]);
+    const betaNum = parsePrereleaseNumber(beta[4]);
     if (
       major === null ||
       minor === null ||
@@ -95,6 +119,18 @@ export function updaterEndpointForVersion(
   return `https://github.com/${repo}/releases/download/${tag}/latest.json`;
 }
 
+function prereleaseRank(parsed: ParsedReleaseVersion): number {
+  if (parsed.kind === "stable") return 2;
+  if (parsed.kind === "beta") return 1;
+  return 0;
+}
+
+function prereleaseNumber(parsed: ParsedReleaseVersion): number | null {
+  if (parsed.kind === "alpha") return parsed.alpha;
+  if (parsed.kind === "beta") return parsed.beta;
+  return null;
+}
+
 /** Negative if a is older than b, positive if newer, zero if equal. */
 export function compareReleaseVersions(a: string, b: string): number | null {
   const left = parseReleaseVersion(a);
@@ -109,13 +145,19 @@ export function compareReleaseVersions(a: string, b: string): number | null {
   if (left.patch !== right.patch) {
     return left.patch < right.patch ? -1 : 1;
   }
-  const leftBeta = left.kind === "beta" ? left.beta : null;
-  const rightBeta = right.kind === "beta" ? right.beta : null;
-  if (leftBeta === null && rightBeta === null) return 0;
-  if (leftBeta !== null && rightBeta === null) return -1;
-  if (leftBeta === null && rightBeta !== null) return 1;
-  if (leftBeta! < rightBeta!) return -1;
-  if (leftBeta! > rightBeta!) return 1;
+  const leftRank = prereleaseRank(left);
+  const rightRank = prereleaseRank(right);
+  if (leftRank !== rightRank) {
+    return leftRank < rightRank ? -1 : 1;
+  }
+  const leftNum = prereleaseNumber(left);
+  const rightNum = prereleaseNumber(right);
+  if (leftNum === null && rightNum === null) return 0;
+  if (leftNum !== null && rightNum !== null) {
+    if (leftNum < rightNum) return -1;
+    if (leftNum > rightNum) return 1;
+    return 0;
+  }
   return 0;
 }
 
@@ -183,12 +225,26 @@ export function bumpPatch(version: string): string {
   });
 }
 
-export function bumpBeta(version: string): string {
+export function bumpAlpha(version: string): string {
   const parsed = parseReleaseVersion(version);
   if (!parsed) {
     throw new Error("invalid version");
   }
   if (parsed.kind === "stable") {
+    return `${formatStableVersion(parsed)}-alpha.1`;
+  }
+  if (parsed.kind === "alpha") {
+    return `${formatStableVersion(parsed)}-alpha.${parsed.alpha + 1}`;
+  }
+  throw new Error("alpha bump requires a stable or alpha version");
+}
+
+export function bumpBeta(version: string): string {
+  const parsed = parseReleaseVersion(version);
+  if (!parsed) {
+    throw new Error("invalid version");
+  }
+  if (parsed.kind === "stable" || parsed.kind === "alpha") {
     return `${formatStableVersion(parsed)}-beta.1`;
   }
   return `${formatStableVersion(parsed)}-beta.${parsed.beta + 1}`;
@@ -252,18 +308,18 @@ export function evaluateReleasePush(input: {
   const tag = releaseTagForVersion(input.version);
 
   if (branchInfo.kind === "main") {
-    if (parsed.kind === "beta") {
+    if (parsed.kind !== "stable") {
       return {
         ok: false,
-        message: "main must not carry a beta version suffix",
+        message: "main must not carry a prerelease version suffix",
       };
     }
   } else {
-    if (parsed.kind !== "beta") {
+    if (parsed.kind !== "alpha" && parsed.kind !== "beta") {
       return {
         ok: false,
         message:
-          "release/* must use X.Y.Z-beta.N; remove the beta suffix on main instead",
+          "release/* must use X.Y.Z-alpha.N or X.Y.Z-beta.N; remove the suffix on main instead",
       };
     }
     if (branchInfo.releaseBase !== base) {
@@ -283,7 +339,7 @@ export function evaluateReleasePush(input: {
 
   return {
     ok: true,
-    prerelease: parsed.kind === "beta",
+    prerelease: parsed.kind === "alpha" || parsed.kind === "beta",
     tag,
   };
 }

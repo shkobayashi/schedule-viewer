@@ -1,0 +1,175 @@
+{
+  "phase": "before",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "marginPx": 24,
+  "capturedAt": "2026-11-11T07:01:44.396Z",
+  "captures": [
+    {
+      "case": "task-detail",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "751.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-panel"
+        },
+        "name": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": ""
+        },
+        "note": {
+          "height": "95.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "note-textarea"
+        },
+        "status": {
+          "height": "32.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": ""
+        },
+        "start": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": ""
+        },
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-todo-text"
+        },
+        "bulkApply": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-before-light-task-detail.png"
+    },
+    {
+      "case": "bulk-detail",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "751.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "className": "detail-panel detail-panel-bulk"
+        },
+        "name": null,
+        "note": null,
+        "status": null,
+        "start": null,
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": null,
+        "bulkApply": {
+          "height": "24px",
+          "lineHeight": "normal",
+          "fontSize": "13.3333px",
+          "backgroundColor": "rgba(239, 239, 239, 0.3)",
+          "className": ""
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-before-light-bulk-detail.png"
+    },
+    {
+      "case": "task-detail",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "749.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(26, 27, 34)",
+          "className": "detail-panel"
+        },
+        "name": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": ""
+        },
+        "note": {
+          "height": "95.7812px",
+          "lineHeight": "20.01px",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(59, 59, 59)",
+          "className": "note-textarea"
+        },
+        "status": {
+          "height": "32.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": ""
+        },
+        "start": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": ""
+        },
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": {
+          "height": "30.7812px",
+          "lineHeight": "normal",
+          "fontSize": "13.8px",
+          "backgroundColor": "rgb(35, 36, 44)",
+          "className": "detail-todo-text"
+        },
+        "bulkApply": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-before-dark-task-detail.png"
+    },
+    {
+      "case": "bulk-detail",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "panel": {
+          "height": "749.469px",
+          "lineHeight": "normal",
+          "fontSize": "14.95px",
+          "backgroundColor": "rgb(26, 27, 34)",
+          "className": "detail-panel detail-panel-bulk"
+        },
+        "name": null,
+        "note": null,
+        "status": null,
+        "start": null,
+        "progressRange": null,
+        "progressNum": null,
+        "todoText": null,
+        "bulkApply": {
+          "height": "24px",
+          "lineHeight": "normal",
+          "fontSize": "13.3333px",
+          "backgroundColor": "rgba(19, 1, 1, 0.3)",
+          "className": ""
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-before-dark-bulk-detail.png"
+    }
+  ]
+}

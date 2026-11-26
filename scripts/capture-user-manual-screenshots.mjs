@@ -8,6 +8,10 @@ import { chromium } from "playwright";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "docs", "user-manual", "images");
 const colorsSchedule = path.join(root, "examples", "manual-colors.schedule.json");
+/** 見本 JSON を平行移動するときの基準日（撮影日と揃える）。 */
+const manualScreenshotTodayIso = "2026-11-05";
+/** 「今日」のあとチャートをドラッグし、今日の線が左端に張り付かないようにする。 */
+const chartPanAfterTodayPx = 360;
 const portBrowser = 5173;
 const portDesktop = 5174;
 const SIDEBAR_WIDTH_LS_KEY = "schedule-viewer/sidebar-width";
@@ -64,6 +68,11 @@ function startVite(mode, port) {
 }
 
 async function dismissBlockingUi(page) {
+  const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");
+  if (await firstRunClose.isVisible().catch(() => false)) {
+    await firstRunClose.click();
+    await page.waitForTimeout(200);
+  }
   const closeGuide = page.getByRole("button", { name: "閉じる" });
   if (await closeGuide.isVisible().catch(() => false)) {
     await closeGuide.click();
@@ -122,12 +131,45 @@ async function openColorsScheduleBrowser(page) {
   await page.waitForTimeout(800);
 }
 
+async function setManualScreenshotToday(page) {
+  await page.evaluate((today) => {
+    window.__manualScreenshotSetToday?.(today);
+  }, manualScreenshotTodayIso);
+  await page.waitForTimeout(150);
+}
+
+async function alignChartViewForCapture(page) {
+  const hasHook = await page.evaluate(
+    () => typeof window.__manualScreenshotScrollToToday === "function",
+  );
+  if (hasHook) {
+    await setManualScreenshotToday(page);
+    await page.evaluate(() => window.__manualScreenshotScrollToToday?.());
+  } else {
+    await page.getByRole("button", { name: "今日", exact: true }).click();
+  }
+  await page.waitForTimeout(400);
+  const body = page.locator(".timeline-body");
+  await body.waitFor({ state: "visible", timeout: 60_000 });
+  const box = await body.boundingBox();
+  if (!box) return;
+  const cx = box.x + box.width * 0.55;
+  const cy = box.y + Math.min(box.height * 0.35, 140);
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + chartPanAfterTodayPx, cy, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+}
+
 async function captureBrowserShots(page) {
   await page.goto(`http://localhost:${portBrowser}/`, { waitUntil: "networkidle" });
   await page.setViewportSize({ width: 1440, height: 900 });
   await dismissBlockingUi(page);
   await page.waitForSelector(".toolbar-title-text");
-  await page.waitForTimeout(800);
+  await openColorsScheduleBrowser(page);
+  await expandAllSidebarRows(page);
+  await alignChartViewForCapture(page);
 
   await page.screenshot({
     path: path.join(outDir, "ui-overview.png"),
@@ -148,6 +190,8 @@ async function captureBrowserShots(page) {
   await dismissBlockingUi(page);
   await page.waitForSelector(".toolbar-title-text");
   await openColorsScheduleBrowser(page);
+  await expandAllSidebarRows(page);
+  await alignChartViewForCapture(page);
   await page.screenshot({
     path: path.join(outDir, "ui-colors.png"),
     fullPage: false,
@@ -155,9 +199,15 @@ async function captureBrowserShots(page) {
 
   await page.getByText("進行中（青）", { exact: true }).click();
   await page.waitForSelector('[aria-label="タスクの詳細"]');
+  await page.getByRole("button", { name: "TODOを追加" }).click();
+  await page.getByLabel("新しいTODOの文").fill("設計レビュー");
+  await page.getByLabel("新しいTODOの文").press("Enter");
+  await page.getByRole("button", { name: "TODOを追加" }).click();
+  await page.getByLabel("新しいTODOの文").fill("結合テスト");
+  await page.getByLabel("新しいTODOの文").press("Enter");
   const detail = page.locator('[aria-label="タスクの詳細"]');
   await detail.evaluate((el) => {
-    el.scrollTop = 280;
+    el.scrollTop = 400;
   });
   await page.waitForTimeout(400);
   await page.setViewportSize({ width: 1440, height: 1080 });
@@ -169,9 +219,10 @@ async function captureBrowserShots(page) {
 }
 
 async function openSettings(page) {
-  await page.getByRole("button", { name: "メニュー" }).click();
-  await page.getByRole("menuitem", { name: "設定" }).click();
-  await page.waitForSelector(".settings-nav");
+  await page.keyboard.press("Control+,");
+  await page.waitForSelector(".settings-dialog .settings-nav", {
+    timeout: 60_000,
+  });
   await page.locator(".settings-nav").evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -203,6 +254,7 @@ async function closeSettings(page) {
 
 async function captureDesktopChromeShots(page) {
   await page.goto(`http://localhost:${portDesktop}/`, { waitUntil: "networkidle" });
+  await setManualScreenshotToday(page);
   await page.setViewportSize({ width: 1440, height: 1100 });
   await dismissBlockingUi(page);
   await page.waitForSelector(".toolbar-title-text");
@@ -223,6 +275,7 @@ async function captureDesktopChromeShots(page) {
   for (const name of [
     "表示",
     "メンバー",
+    "ステータス",
     "稼働日",
     "更新",
     "画面の状態を渡す",
@@ -245,6 +298,7 @@ async function captureDesktopChromeShots(page) {
   });
   await page.waitForTimeout(800);
   await expandAllSidebarRows(page);
+  await alignChartViewForCapture(page);
 
   const progressTask = page.getByText("進行中（青）", { exact: true });
   if ((await progressTask.count()) === 0) {
@@ -278,6 +332,7 @@ async function captureDesktopChromeShots(page) {
     hasText: "操作マニュアル用の見本",
   });
   await expandAllSidebarRows(page);
+  await alignChartViewForCapture(page);
   await page.waitForTimeout(400);
 
   await page.getByRole("button", { name: "メニュー" }).click();
@@ -320,9 +375,7 @@ async function captureDesktopChromeShots(page) {
   await page.getByRole("button", { name: "キャンセル" }).click();
   await page.waitForTimeout(300);
 
-  await page
-    .getByRole("button", { name: "追加 ⌘+Enter / Insert" })
-    .click();
+  await page.locator(".add-split > button.toolbar-btn-primary").first().click();
   await page.getByRole("heading", { name: "タスク追加" }).waitFor();
   await page.waitForTimeout(300);
   await page.screenshot({
@@ -332,6 +385,7 @@ async function captureDesktopChromeShots(page) {
   await page.getByRole("button", { name: "キャンセル" }).click();
   await page.waitForTimeout(300);
 
+  await alignChartViewForCapture(page);
   await openSettings(page);
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.waitForTimeout(200);
@@ -341,6 +395,23 @@ async function captureDesktopChromeShots(page) {
     path: path.join(outDir, "ui-settings-members.png"),
     fullPage: false,
   });
+  await clickSettingsNav(page, "ステータス");
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, "ui-settings-statuses.png"),
+    fullPage: false,
+  });
+  await page.getByRole("button", { name: "項目を編集…" }).click();
+  await page.getByRole("heading", { name: "ステータス一覧の項目を編集" }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 1680 });
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, "ui-status-editor.png"),
+    fullPage: false,
+  });
+  await page.getByRole("button", { name: "閉じる" }).click();
+  await page.waitForTimeout(300);
+  await openSettings(page);
   await clickSettingsNav(page, "稼働日");
   await page.waitForTimeout(400);
   await page.screenshot({
@@ -428,11 +499,15 @@ async function main() {
     desktopServer.kill("SIGTERM");
   }
 
-  await browser.close();
+  await browser.close().catch(() => {});
   console.log(`Wrote screenshots to ${outDir}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

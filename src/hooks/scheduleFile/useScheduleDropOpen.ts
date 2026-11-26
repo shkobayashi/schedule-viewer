@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
+import { shouldAttachDesktopFileBridge } from "./browserFileBridge";
 import { isTauri } from "../../model/scheduleFile";
 import {
   canAcceptScheduleDrop,
@@ -179,7 +180,7 @@ export function useScheduleDropOpen({
   }, []);
 
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!shouldAttachDesktopFileBridge(isTauri())) return;
     let unlistenDrop: (() => void) | undefined;
     let unlistenExternal: (() => void) | undefined;
     let unlistenTarget: (() => void) | undefined;

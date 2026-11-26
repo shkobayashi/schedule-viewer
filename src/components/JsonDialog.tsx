@@ -15,11 +15,6 @@ export function JsonDialog({ json, open, onClose }: JsonDialogProps) {
       className="modal wide"
     >
       <textarea className="json-textarea" readOnly value={json} />
-      <div className="modal-actions">
-        <button type="button" className="btn" onClick={onClose}>
-          閉じる
-        </button>
-      </div>
     </ModalDialog>
   );
 }

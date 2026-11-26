@@ -1,0 +1,689 @@
+/**
+ * P-CI-06 段階2: `docs/operation-entries.md` 照合用のソース由来カタログ。
+ * アプリの副作用なく、import 可能なデータだけを集める。
+ */
+import { readFileSync } from "node:fs";
+import { HAMBURGER_MENU_TAIL_ROWS, SHARED_FILE_MENU_ROWS } from "../src/model/appMenuStructure.ts";
+import { buildCommandPaletteItems, type CommandPaletteContext } from "../src/model/commandPalette.ts";
+import { commandPaletteCommandShortcut } from "../src/model/commandPaletteShortcuts.ts";
+import type { CommandPaletteCommandId } from "../src/model/commandPalette.ts";
+import { GUIDE_SECTIONS } from "../src/model/guideContent.ts";
+import {
+  MCP_ALL_TOOL_NAMES,
+  MCP_READ_TOOL_NAMES,
+  MCP_WINDOW_TARGET_TOOL_NAMES,
+  mcpToolRejectsWindowArgument,
+} from "../src/model/mcpToolNames.ts";
+import { recentMenuCommandPalettePrefix } from "../src/model/recentFilesMenu.ts";
+import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../src/model/operationLabels.ts";
+import { lineagePaletteLabel } from "../src/model/operationLabels.ts";
+import { recentFileCommandPaletteLabel } from "../src/model/recentFiles.ts";
+import {
+  chartScrollShortcutHint,
+  commandPaletteShortcutHint,
+  confidenceToggleShortcutHint,
+  diffCopyShortcutHint,
+  displayScaleShortcutHint,
+  matchDisplayScale,
+  fileShortcutHint,
+  filterPanelShortcutHint,
+  findShortcutHint,
+  goTodayShortcutHint,
+  lineageToggleShortcutHint,
+  redoShortcutHint,
+  reorderTaskShortcutHint,
+  settingsShortcutHint,
+  shortcutReferenceRows,
+  undoShortcutHint,
+  viewTierShortcutHint,
+} from "../src/model/shortcuts.ts";
+import {
+  CONTEXT_MENU_FIXED_LABEL,
+  contextMenuLabel,
+} from "../src/operations/operationLabelLink.ts";
+import { OPERATION_ID } from "../src/operations/operationIds.ts";
+
+const MCP_FILE_ACTIONS = [
+  "open",
+  "save",
+  "saveAs",
+  "export",
+  "exportWorkspace",
+] as const;
+
+const MCP_HISTORY_ACTIONS = ["undo", "redo"] as const;
+
+function parseMacOSPredefinedMenuIds(): string[] {
+  const text = readFileSync("src/hooks/useMacOSAppMenu.ts", "utf8");
+  const ids = new Set<string>();
+  for (const match of text.matchAll(
+    /PredefinedMenuItem\.new\(\{\s*item:\s*"([^"]+)"/g,
+  )) {
+    ids.add(match[1]);
+  }
+  return [...ids].sort();
+}
+
+const PALETTE_TEMPLATE_IDS = [
+  "open",
+  "clearRecentHistory",
+  "openNewWindow",
+  "save",
+  "saveAs",
+  "find",
+  "toggleFilterPanel",
+  "editTitle",
+  "showDiff",
+  "copyDiff",
+  "showJson",
+  "export",
+  "settings",
+  "checkForUpdates",
+  "guide",
+  "shortcuts",
+  "goToday",
+  "tierDay",
+  "tierWeek",
+  "tierMonth",
+  "fit",
+  "undo",
+  "redo",
+  "displayScaleIn",
+  "displayScaleOut",
+  "editTask",
+  "deleteTask",
+  "link",
+  "note",
+  "lineage",
+  "addTask",
+  "addMilestone",
+  "duplicateTask",
+] as const satisfies readonly CommandPaletteCommandId[];
+
+function defaultPaletteContext(
+  overrides: Partial<CommandPaletteContext> = {},
+): CommandPaletteContext {
+  return {
+    fileBusy: false,
+    isTauriDesktop: true,
+    recentFilesStore: {
+      schedules: ["/tmp/sample/project/schedule.json"],
+      workspaces: [],
+    },
+    storeDistribution: false,
+    canUndo: true,
+    canRedo: true,
+    selectedTaskId: "t1",
+    selectedTaskCount: 1,
+    linkSourceId: null,
+    lineageActive: false,
+    ...overrides,
+  };
+}
+
+function collectPaletteLabels(): {
+  staticLabels: string[];
+  labelsByCommandId: Record<string, string[]>;
+  conditionalCommands: Array<{
+    id: string;
+    requiresTauri?: boolean;
+    forbidsStore?: boolean;
+    requiresRecent?: boolean;
+  }>;
+} {
+  const labelsByCommandId: Record<string, Set<string>> = {};
+  const staticLabels = new Set<string>();
+
+  const contexts: CommandPaletteContext[] = [
+    defaultPaletteContext(),
+    defaultPaletteContext({ lineageActive: true }),
+    defaultPaletteContext({ isTauriDesktop: false }),
+    defaultPaletteContext({ storeDistribution: true }),
+    defaultPaletteContext({ recentFilesStore: { schedules: [], workspaces: [] } }),
+    defaultPaletteContext({ fileBusy: true }),
+    defaultPaletteContext({ selectedTaskId: null, selectedTaskCount: 0 }),
+    defaultPaletteContext({ linkSourceId: "t1", selectedTaskId: null }),
+  ];
+
+  for (const ctx of contexts) {
+    for (const item of buildCommandPaletteItems(ctx)) {
+      if (item.kind === "openRecent") {
+        staticLabels.add(item.label);
+        continue;
+      }
+      const set = labelsByCommandId[item.id] ?? new Set<string>();
+      set.add(item.label);
+      labelsByCommandId[item.id] = set;
+      staticLabels.add(item.label);
+    }
+  }
+
+  const samplePrefix = recentMenuCommandPalettePrefix("schedule");
+  const openRecentLabel = recentFileCommandPaletteLabel(
+    `${samplePrefix}schedule.json`,
+  );
+  staticLabels.add(openRecentLabel);
+  staticLabels.add(OPERATION_FORMAL.clearRecentHistory);
+
+  return {
+    staticLabels: [...staticLabels].sort(),
+    labelsByCommandId: Object.fromEntries(
+      Object.entries(labelsByCommandId).map(([id, set]) => [id, [...set].sort()]),
+    ),
+    conditionalCommands: [
+      { id: "openNewWindow", requiresTauri: true },
+      { id: "checkForUpdates", requiresTauri: true, forbidsStore: true },
+      { id: "clearRecentHistory", requiresRecent: true, requiresTauri: true },
+    ],
+  };
+}
+
+function collectContextMenuOutputs(): {
+  fixedLabels: Record<string, string>;
+  allOutputs: string[];
+  templates: string[];
+} {
+  const allOutputs = new Set<string>();
+  const ids = Object.values(OPERATION_ID);
+  const contexts = [
+    {},
+    { tentative: true },
+    { tentative: false },
+    { lineageActive: true },
+    { lineageActive: false },
+    { levelName: "段", childName: "子" },
+  ];
+  for (const id of ids) {
+    for (const ctx of contexts) {
+      try {
+        allOutputs.add(contextMenuLabel(id, ctx));
+      } catch {
+        // unmapped ids are not context menu operations
+      }
+    }
+  }
+  for (const label of Object.values(CONTEXT_MENU_FIXED_LABEL)) {
+    if (label) allOutputs.add(label);
+  }
+  allOutputs.add(lineagePaletteLabel(false));
+  allOutputs.add(lineagePaletteLabel(true));
+  allOutputs.add("確定にする");
+  allOutputs.add("未確定にする");
+
+  return {
+    fixedLabels: { ...CONTEXT_MENU_FIXED_LABEL } as Record<string, string>,
+    allOutputs: [...allOutputs].sort(),
+    templates: [
+      "下に${levelName}を追加",
+      "${childName}を追加",
+      `下に${"段"}を追加`,
+      `${"子"}を追加`,
+    ],
+    templateLiterals: ["下に${levelName}を追加", "${childName}を追加"],
+  };
+}
+
+type ShortcutProbeEvent = {
+  key: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  shiftKey?: boolean;
+};
+
+function formatDisplayScaleKey(key: string, commandKey: boolean): string | null {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  if (key === "+") return `${mod}+`;
+  if (key === "=") return `${mod}=`;
+  if (key === "-") return `${mod}-`;
+  return null;
+}
+
+function deriveDisplayScaleShortcuts(): {
+  enlarge: { mac: string[]; win: string[] };
+  reduce: { mac: string[]; win: string[] };
+} {
+  const enlarge = { mac: [] as string[], win: [] as string[] };
+  const reduce = { mac: [] as string[], win: [] as string[] };
+  const candidates = ["+", "=", "-"] as const;
+  for (const key of candidates) {
+    for (const commandKey of [true, false] as const) {
+      const event: ShortcutProbeEvent = {
+        key,
+        ctrlKey: !commandKey,
+        metaKey: commandKey,
+        altKey: false,
+        shiftKey: false,
+      };
+      const direction = matchDisplayScale(event);
+      const label = formatDisplayScaleKey(key, commandKey);
+      if (!direction || !label) continue;
+      const bucket = direction === "in" ? enlarge : reduce;
+      const side = commandKey ? bucket.mac : bucket.win;
+      if (!side.includes(label)) side.push(label);
+    }
+  }
+  const macReduceHint = displayScaleShortcutHint(true).split(" / ")[1];
+  const winReduceParts = displayScaleShortcutHint(false).split(" / ");
+  const winReduceHint = winReduceParts[winReduceParts.length - 1];
+  if (macReduceHint && !reduce.mac.includes(macReduceHint)) {
+    reduce.mac.push(macReduceHint);
+  }
+  if (winReduceHint && !reduce.win.includes(winReduceHint)) {
+    reduce.win.push(winReduceHint);
+  }
+  return { enlarge, reduce };
+}
+
+export type ToolbarOperationSpec = {
+  /** Primary visible label must equal this OPERATION_FORMAL entry (wrong formal rejected). */
+  ownerFormal?: keyof typeof OPERATION_FORMAL;
+  toolbarShortKeys?: (keyof typeof TOOLBAR_SHORT)[];
+  /** Static backtick literals required in the markdown cell. */
+  backtickStatic?: string[];
+  /** Slash-separated visible literals (toolbar search toggle). */
+  slashLiterals?: string[];
+  /** Placeholder strings cited in backticks in the doc. */
+  placeholderLiterals?: string[];
+  /** Backtick citation identifiers (not display labels) allowed in this row only. */
+  citationBackticks?: string[];
+  /** Keywords outside notes (e.g. placeholder, メニュー). */
+  cellKeywords?: string[];
+  /** Plain note metadata segments (split on 。 inside notes). */
+  noteMetadata?: string[];
+  /** Visible connectors allowed on this row (e.g. または, 追加メニュー). */
+  structuralText?: string[];
+  /** Runtime suffix only (listed in unverified, static prefix validated). */
+  dynamicUnverified?: Array<"lineageName" | "linkSourceName" | "filterCount">;
+  /** Toolbar column may be empty in doc. */
+  optional?: boolean;
+};
+
+function requireExtracted(value: string | undefined, field: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(
+      `operationEntryCatalog: 「${field}」をソースから抽出できない`,
+    );
+  }
+  return trimmed;
+}
+
+export function parseToolbarUiSourceFromText(
+  toolbar: string,
+  statusBar: string,
+  app: string,
+) {
+  const searchMatch = toolbar.match(
+    /searchField === "name" \? "([^"]+)" : "([^"]+)"/,
+  );
+  const externalReloadLabel = requireExtracted(
+    statusBar.match(/className="status-bar-action"[^>]*>\s*([^<]+?)\s*</)?.[1],
+    "StatusBar.tsx deferred reload button",
+  );
+  const explanationDismissLabel = requireExtracted(
+    app.match(
+      /className="explanation-banner-dismiss"[\s\S]*?>\s*\n\s*([^<\n]+?)\s*\n/,
+    )?.[1],
+    "App.tsx explanation-banner-dismiss",
+  );
+  const linkNamedTemplate = requireExtracted(
+    toolbar.match(/linkSourceName \? `([^`]+)` : OPERATION_FORMAL\.link/)?.[1],
+    "Toolbar.tsx linkSourceName template",
+  );
+
+  return {
+    searchNameOption: requireExtracted(
+      toolbar.match(/value="name">([^<]+)</)?.[1],
+      "Toolbar.tsx search option name",
+    ),
+    searchNoteOption: requireExtracted(
+      toolbar.match(/value="note">([^<]+)</)?.[1],
+      "Toolbar.tsx search option note",
+    ),
+    searchNamePlaceholder: requireExtracted(
+      searchMatch?.[1],
+      "Toolbar.tsx search placeholder (name)",
+    ),
+    searchNotePlaceholder: requireExtracted(
+      searchMatch?.[2],
+      "Toolbar.tsx search placeholder (note)",
+    ),
+    externalReloadLabel,
+    explanationDismissLabel,
+    linkNamedTemplate,
+  };
+}
+
+function parseToolbarUiSource() {
+  return parseToolbarUiSourceFromText(
+    readFileSync("src/components/Toolbar.tsx", "utf8"),
+    readFileSync("src/components/StatusBar.tsx", "utf8"),
+    readFileSync("src/App.tsx", "utf8"),
+  );
+}
+
+function buildToolbarByOperation(
+  ui: ReturnType<typeof parseToolbarUiSource>,
+  toolbarSourceLabels: ReturnType<typeof extractToolbarSourceLabels>,
+): Record<string, ToolbarOperationSpec> {
+  const f = OPERATION_FORMAL;
+  return {
+    "未保存の差分を開く（状態バー）": {
+      backtickStatic: [toolbarSourceLabels.dirtySaveStatusLabel],
+      citationBackticks: ["saveStatus", "StatusBar.tsx"],
+    },
+    "外部ファイル更新の確認": {
+      backtickStatic: [ui.externalReloadLabel],
+    },
+    "操作の案内を開く": { toolbarShortKeys: ["guide"] },
+    "ショートカット一覧を開く": {
+      backtickStatic: [toolbarSourceLabels.shortcutsButtonGlyph],
+    },
+    "タスク名／ノートで検索": {
+      slashLiterals: [ui.searchNameOption, ui.searchNoteOption],
+      placeholderLiterals: [
+        ui.searchNamePlaceholder,
+        ui.searchNotePlaceholder,
+      ],
+      cellKeywords: ["placeholder"],
+      noteMetadata: ["select"],
+    },
+    "今日へ移動": { ownerFormal: "goToday" },
+    "日表示": {
+      toolbarShortKeys: ["tierDay"],
+      noteMetadata: ["tier-toggle"],
+    },
+    "週表示": {
+      toolbarShortKeys: ["tierWeek"],
+      noteMetadata: ["tier-toggle"],
+    },
+    "月表示": {
+      toolbarShortKeys: ["tierMonth"],
+      noteMetadata: ["tier-toggle"],
+    },
+    "全体表示": { ownerFormal: "fit" },
+    "スケジュールのタイトルを変更": {
+      ownerFormal: "editTitle",
+      backtickStatic: [f.editTitle],
+      noteMetadata: ["aria-label / title", "鉛筆"],
+    },
+    "階層の名前・意味・指示を編集": { ownerFormal: "hierarchyEdit" },
+    "絞り込みパネルを開く": {
+      ownerFormal: "filterPanel",
+      backtickStatic: [f.filterPanel],
+      dynamicUnverified: ["filterCount"],
+    },
+    "絞り込みをすべて解除": {
+      backtickStatic: [toolbarSourceLabels.clearAllFiltersLabel],
+      citationBackticks: ["ActiveFilterBar.tsx"],
+    },
+    "系統を表示／解除": {
+      backtickStatic: [
+        toolbarSourceLabels.lineageButtonLabel,
+        toolbarSourceLabels.lineageNamedTemplate,
+      ],
+      structuralText: ["または"],
+      dynamicUnverified: ["lineageName"],
+    },
+    "系統（繋がりも辿る）": {
+      backtickStatic: [f.lineageFollowConnections],
+      noteMetadata: ["系統 split メニュー"],
+    },
+    "線を引くモード": {
+      backtickStatic: [f.link, ui.linkNamedTemplate],
+      structuralText: ["または"],
+      dynamicUnverified: ["linkSourceName"],
+    },
+    "取り消し": { ownerFormal: "undo" },
+    "やり直し": { ownerFormal: "redo" },
+    "タスクを追加": {
+      toolbarShortKeys: ["addTask"],
+      backtickStatic: [f.addTask],
+      noteMetadata: ["split 主ボタン"],
+      cellKeywords: ["メニュー"],
+      structuralText: ["／"],
+    },
+    "マイルストンを追加": {
+      backtickStatic: [f.addMilestone],
+      structuralText: ["追加メニュー"],
+    },
+    "タスクを削除": { ownerFormal: "deleteTask" },
+    "説明を消す": {
+      backtickStatic: [ui.explanationDismissLabel],
+      noteMetadata: ["バナー"],
+    },
+  };
+}
+
+export function extractToolbarSourceLabelsFromText(
+  toolbar: string,
+  activeFilterBar: string,
+  scheduleFile: string,
+) {
+  const saveStatusBlock = requireExtracted(
+    scheduleFile.match(
+      /const saveStatusLabel = useMemo\(\(\) => \{[\s\S]*?\}, \[browserFileLabel, filePath, isDirty\]\);/,
+    )?.[0],
+    "useScheduleFile.ts saveStatusLabel block",
+  );
+  return {
+    shortcutsButtonGlyph: requireExtracted(
+      toolbar.match(
+        /className="icon-btn shortcuts-btn"[^>]*>\s*([^<]+?)\s*<\/button>/,
+      )?.[1],
+      "Toolbar.tsx shortcuts-btn glyph",
+    ),
+    lineageNamedTemplate: requireExtracted(
+      toolbar.match(/lineageName \? `([^`]+)` :/)?.[1],
+      "Toolbar.tsx lineageNamedTemplate",
+    ),
+    lineageButtonLabel: requireExtracted(
+      toolbar.match(
+        /lineageName \? `系統: \$\{lineageName\}` : "([^"]+)"/,
+      )?.[1],
+      "Toolbar.tsx lineageButtonLabel",
+    ),
+    clearAllFiltersLabel: requireExtracted(
+      activeFilterBar.match(
+        /className="filter-clear-all"[\s\S]*?>\s*([^<\s]+)\s*</,
+      )?.[1],
+      "ActiveFilterBar.tsx clear-all label",
+    ),
+    dirtySaveStatusLabel: requireExtracted(
+      saveStatusBlock.match(/if \(isDirty\) return "([^"]+)"/)?.[1],
+      "useScheduleFile.ts dirty saveStatusLabel",
+    ),
+  };
+}
+
+function extractToolbarSourceLabels() {
+  return extractToolbarSourceLabelsFromText(
+    readFileSync("src/components/Toolbar.tsx", "utf8"),
+    readFileSync("src/components/ActiveFilterBar.tsx", "utf8"),
+    readFileSync("src/hooks/useScheduleFile.ts", "utf8"),
+  );
+}
+
+function parseExternalFeatureIds(): string[] {
+  const text = readFileSync("docs/external-spec.md", "utf8");
+  const ids = new Set<string>();
+  for (const match of text.matchAll(/\|\s*([A-Z]+-\d+)\s*\|/g)) {
+    ids.add(match[1]);
+  }
+  for (const match of text.matchAll(/^###\s+([A-Z]+-\d+)\s+/gm)) {
+    ids.add(match[1]);
+  }
+  return [...ids].sort();
+}
+
+function shortcutHintCatalog(): Record<string, { mac: string; win: string }> {
+  const mk = (mac: string, win: string) => ({ mac, win });
+  return {
+    open: mk(fileShortcutHint("open", true), fileShortcutHint("open", false)),
+    openNew: mk(
+      fileShortcutHint("openNew", true),
+      fileShortcutHint("openNew", false),
+    ),
+    save: mk(fileShortcutHint("save", true), fileShortcutHint("save", false)),
+    saveAs: mk(
+      fileShortcutHint("saveAs", true),
+      fileShortcutHint("saveAs", false),
+    ),
+    diffCopy: mk(
+      diffCopyShortcutHint(true),
+      diffCopyShortcutHint(false),
+    ),
+    find: mk(findShortcutHint(true), findShortcutHint(false)),
+    settings: mk(
+      settingsShortcutHint(true),
+      settingsShortcutHint(false),
+    ),
+    goToday: mk(goTodayShortcutHint(), goTodayShortcutHint()),
+    tierDay: mk(
+      viewTierShortcutHint("day", true),
+      viewTierShortcutHint("day", false),
+    ),
+    tierWeek: mk(
+      viewTierShortcutHint("week", true),
+      viewTierShortcutHint("week", false),
+    ),
+    tierMonth: mk(
+      viewTierShortcutHint("month", true),
+      viewTierShortcutHint("month", false),
+    ),
+    fit: mk(
+      viewTierShortcutHint("fit", true),
+      viewTierShortcutHint("fit", false),
+    ),
+    filterPanel: mk(
+      filterPanelShortcutHint(true),
+      filterPanelShortcutHint(false),
+    ),
+    lineage: mk(
+      lineageToggleShortcutHint(true),
+      lineageToggleShortcutHint(false),
+    ),
+    confidence: mk(
+      confidenceToggleShortcutHint(true),
+      confidenceToggleShortcutHint(false),
+    ),
+    undo: mk(undoShortcutHint(true), undoShortcutHint(false)),
+    redo: mk(redoShortcutHint(true), redoShortcutHint(false)),
+    displayScaleIn: mk("⌘+ / ⌘=", "Ctrl+ / Ctrl="),
+    displayScaleOut: mk(
+      displayScaleShortcutHint(true).split(" / ")[1] ?? "⌘−",
+      displayScaleShortcutHint(false),
+    ),
+    chartScroll: mk(
+      chartScrollShortcutHint(true),
+      chartScrollShortcutHint(false),
+    ),
+    commandPalette: mk(
+      commandPaletteShortcutHint(true),
+      commandPaletteShortcutHint(false),
+    ),
+    reorder: mk(reorderTaskShortcutHint(), reorderTaskShortcutHint()),
+    wheelZoomMac: mk("⌘+ホイール", "⌘+ホイール"),
+    wheelZoomWin: mk("Ctrl+ホイール", "Ctrl+ホイール"),
+    wheelShift: mk("Shift+ホイール", "Shift+ホイール"),
+  };
+}
+
+function paletteShortcutByCommandId(): Record<
+  string,
+  { mac: string | null; win: string | null }
+> {
+  const out: Record<string, { mac: string | null; win: string | null }> = {};
+  for (const id of PALETTE_TEMPLATE_IDS) {
+    out[id] = {
+      mac: commandPaletteCommandShortcut(id, true),
+      win: commandPaletteCommandShortcut(id, false),
+    };
+  }
+  return out;
+}
+
+export type OperationEntryCatalog = ReturnType<typeof buildOperationEntryCatalog>;
+
+export function buildOperationEntryCatalog() {
+  const palette = collectPaletteLabels();
+  const contextMenu = collectContextMenuOutputs();
+  const toolbarSourceLabels = extractToolbarSourceLabels();
+  const toolbarUiSource = parseToolbarUiSource();
+  const toolbarByOperation = buildToolbarByOperation(
+    toolbarUiSource,
+    toolbarSourceLabels,
+  );
+  const toolbarStaticLabelSet = [
+    ...Object.values(OPERATION_FORMAL),
+    ...Object.values(TOOLBAR_SHORT),
+    toolbarSourceLabels.shortcutsButtonGlyph,
+    toolbarSourceLabels.lineageButtonLabel,
+    toolbarSourceLabels.clearAllFiltersLabel,
+    toolbarSourceLabels.dirtySaveStatusLabel,
+  ];
+
+  const sharedFileMenuLabels = SHARED_FILE_MENU_ROWS.filter(
+    (row): row is Extract<typeof row, { kind: "action" }> => row.kind === "action",
+  ).map((row) => row.label);
+
+  const hamburgerTailLabels = HAMBURGER_MENU_TAIL_ROWS.map((row) => row.label);
+
+  const shortcutRefMac = shortcutReferenceRows(true);
+  const shortcutRefWin = shortcutReferenceRows(false);
+
+  return {
+    operationFormal: { ...OPERATION_FORMAL },
+    operationFormalValues: Object.values(OPERATION_FORMAL),
+    toolbarShort: { ...TOOLBAR_SHORT },
+    contextMenuFixed: contextMenu.fixedLabels,
+    contextMenuOutputs: contextMenu.allOutputs,
+    contextMenuTemplates: contextMenu.templates,
+    contextMenuTemplateLiterals: contextMenu.templateLiterals,
+    displayScaleShortcuts: deriveDisplayScaleShortcuts(),
+    toolbarSourceLabels,
+    toolbarUiSource,
+    toolbarByOperation,
+    toolbarStaticLabelSet,
+    toolbarTitleHintGoToday: goTodayShortcutHint(),
+    paletteStaticLabels: palette.staticLabels,
+    paletteLabelsByCommandId: palette.labelsByCommandId,
+    paletteConditionalCommands: palette.conditionalCommands,
+    paletteCommandIds: [...PALETTE_TEMPLATE_IDS],
+    sharedFileMenuLabels,
+    hamburgerTailLabels,
+    hamburgerExtraLabels: [OPERATION_FORMAL.clearRecentHistory],
+    macosPredefinedMenuIds: parseMacOSPredefinedMenuIds(),
+    mcpToolNames: [...MCP_ALL_TOOL_NAMES],
+    mcpReadToolNames: [...MCP_READ_TOOL_NAMES],
+    mcpWindowTargetToolNames: [...MCP_WINDOW_TARGET_TOOL_NAMES],
+    mcpFileActions: [...MCP_FILE_ACTIONS],
+    mcpHistoryActions: [...MCP_HISTORY_ACTIONS],
+    mcpToolsRejectingWindow: MCP_ALL_TOOL_NAMES.filter(
+      (name) => mcpToolRejectsWindowArgument(name) != null,
+    ),
+    guideTexts: GUIDE_SECTIONS.flatMap((section) =>
+      section.items.map((item) => item.text),
+    ),
+    externalFeatureIds: parseExternalFeatureIds(),
+    recentFilePaletteFactory:
+      "recentFileCommandPaletteLabel(`${prefix}${entry.label}`)",
+    recentFilePaletteFactoryFile: "src/model/recentFiles.ts",
+    recentFileMenuLabelPattern: "サブメニュー内 `entry.label`",
+    shortcutHints: shortcutHintCatalog(),
+    paletteShortcutByCommandId: paletteShortcutByCommandId(),
+    shortcutReferenceRows: shortcutRefMac.map((row, index) => ({
+      action: row.action,
+      mac: row.keys,
+      win: shortcutRefWin[index]?.keys ?? row.keys,
+      actionNote: row.actionNote,
+    })),
+    formalToPaletteCommandId: Object.fromEntries(
+      PALETTE_TEMPLATE_IDS.map((id) => {
+        const template = palette.labelsByCommandId[id]?.[0];
+        return template ? [template, id] : [];
+      }).filter((entry) => entry.length === 2),
+    ) as Record<string, CommandPaletteCommandId>,
+  };
+}

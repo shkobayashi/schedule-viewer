@@ -1,80 +1,61 @@
 import {
-  type ReactNode,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
 } from "react";
-import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
-import { hatchCanvas } from "../model/hatch";
 import type Konva from "konva";
-import { addDays, addUtcMonths, fmtShort, fmtWeekday, isoDate, parseDate, utcMonthStart } from "../model/dates";
+import { parseDate } from "../model/dates";
 import {
-  dragDateChipSize,
-  layoutDragDateChips,
-  buildMoveDragPreviews,
-  previewDatesForDrag,
-  previewLinkBrokenWithOverrides,
-  type DragBarGeometry,
-  type DragDatePreview,
-  type Rect as ChipRect,
-} from "../model/dragDates";
-import {
-  CHART_PAN_THRESHOLD_PX,
-  hitTaskAnchor,
   hitTaskResizeEdge,
-  type LinkModePointerButton,
-  type LinkModePressSurface,
-  RESIZE_EXCLUSIVE_OUTSIDE_PX,
-  resizeExclusiveInside,
-  resolveLinkModeGesture,
-  TASK_DRAG_THRESHOLD_PX,
-  TASK_HANDLE_WIDTH,
-  taskBarResizeEdgeAt,
   type ChartPointer,
 } from "../model/chartHitTest";
-import {
-  LINK_POINTER_LENGTH,
-  linkPoints,
-  nearestLinkHit,
-  type DependencyLink,
-  type LinkPolyline,
-} from "../model/dependencies";
+import type { DependencyLink } from "../model/dependencies";
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
-import {
-  barColors,
-  barLabelFill,
-  lightningDate,
-  taskBarExclusiveEnd,
-  taskBarWidthPx,
-} from "../model/timeline";
-import {
-  coveredSpanWidthPx,
-  summaryBarWidthPx,
-  type SummarySpan,
-} from "../model/summary";
-import { milestonesExceededBy } from "../model/milestones";
-import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
-import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
-import {
-  formatYearMonth,
-  MONTH_HEADER_LABEL_GAP_BASE_PX,
-  visibleMonthHeaderLabels,
-} from "../model/monthHeader";
+import { useTimelineChartPan } from "../hooks/useTimelineChartPan";
+import { useTimelineDragDates } from "../hooks/useTimelineDragDates";
+import { useTimelineLinkGesture } from "../hooks/useTimelineLinkGesture";
+import { useTimelineSpacePanArm } from "../hooks/useTimelineSpacePanArm";
+import { useTimelineMilestoneHover } from "../hooks/useTimelineMilestoneHover";
+import type { StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import { resolveAssigneeDisplay, assigneeSidebarLabel } from "../model/assigneeDisplay";
-import { KONVA_FONT_FAMILY } from "../model/fontStack";
+import { filterTimelineBodyGuideLineMilestones } from "../model/timelineBodyGuideMilestones";
+import { buildTimelineLightningPolyline } from "../model/timelineLightningPolyline";
+import { timelineDragDateChipMetrics } from "../model/timelineDragDateChipMetrics";
+import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
-import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  OutlineRoot,
+  ScheduleId,
+  Task,
+  TaskConnection,
+  VisibleRow,
+} from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
-import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
-import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
+import { paletteFor, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
+import { buildTimelineChartHeaderContent } from "./timeline/TimelineChartHeaderContent";
+import { TimelineHeaderPanel } from "./timeline/TimelineHeaderPanel";
+import { buildTimelineBodyBackgroundContent } from "./timeline/TimelineBodyBackground";
+import { buildTimelineStickyParentRowContent } from "./timeline/TimelineStickyParentRows";
+import { TimelineChartBodyStage } from "./timeline/TimelineChartBodyStage";
+import { useTimelineExplanationLayers } from "../hooks/useTimelineExplanationLayers";
+import { buildTimelineMilestoneBandExplanationProps } from "../model/timelineExplanationBandProps";
+import type { ExplanationOverlayState } from "../model/explainOverlay";
+import { isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
+import { TimelineBodyExplanationBalloons } from "./timeline/TimelineBodyExplanationLayers";
+import { TimelineMilestoneExplanationBalloons } from "./timeline/TimelineMilestoneExplanationBalloons";
+import {
+  applyDragPreviewsToTimelineAnchors,
+  buildTimelineTaskAnchors,
+} from "../model/timelineLiveAnchors";
+import { buildTimelineLinkPolylines } from "../model/timelineLinkPolylines";
+import { buildTimelineLinkPreviewPoints } from "../model/timelineLinkPreviewPoints";
+import { prepareTimelineConnectionArcs } from "../model/timelinePreparedConnectionArcs";
 import {
   MilestoneHoverOverlay,
-  type MilestoneHoverState,
 } from "./MilestoneHoverOverlay";
 
 type TimelineProps = {
@@ -108,6 +89,7 @@ type TimelineProps = {
   onResizeStart: (taskId: ScheduleId, groupX: number) => void;
   onResizeEnd: (taskId: ScheduleId, groupX: number, barWidth: number) => void;
   links: DependencyLink[];
+  connections: TaskConnection[];
   onOpenEdit: (task: Task) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
@@ -122,12 +104,16 @@ type TimelineProps = {
   onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
   onOpenMilestone: (id: ScheduleId) => void;
   onMilestoneContextMenu: (id: ScheduleId, x: number, y: number) => void;
+  milestoneGuideLineIds: ReadonlySet<ScheduleId>;
+  onToggleMilestoneGuideLine: (id: ScheduleId) => void;
   diffMarkedMilestoneId?: ScheduleId | null;
   diffMarkStrokeWidth?: number;
   today: string;
+  statuses: readonly StatusItem[];
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
   colorScheme: ResolvedColorScheme;
+  rowColors: readonly ColorItem[] | null;
   linkSourceId: ScheduleId | null;
   onLinkTargetClick: (taskId: ScheduleId) => void;
   onLinkContextMenu: (
@@ -135,6 +121,7 @@ type TimelineProps = {
     toId: ScheduleId,
     x: number,
     y: number,
+    linkKind: "predecessor" | "connection",
   ) => void;
   onAddMilestoneContextMenu: (
     chartX: number,
@@ -145,1288 +132,15 @@ type TimelineProps = {
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
   showLightningLine?: boolean;
-  scheduleBodyVisible?: boolean;
+  onBarDragActiveChange?: (active: boolean) => void;
+  explanationOverlay?: ExplanationOverlayState | null;
+  explainOverlayCategories?: Category[];
+  explainOverlayOutline?: OutlineRoot;
+  explainOverlayLiveAnchorsRef?: React.MutableRefObject<
+    Map<ScheduleId, import("../model/connections").TaskBarAnchor>
+  >;
+  uiScale?: number;
 };
-
-const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
-
-function exclusiveResizeHit(
-  barHeight: number,
-  handleY: number,
-  intoBar: 1 | -1,
-  inside: number,
-) {
-  return (context: Konva.Context, shape: Konva.Shape) => {
-    const edge = shape.width() / 2;
-    const outside = RESIZE_EXCLUSIVE_OUTSIDE_PX;
-    const start = intoBar === 1 ? edge - outside : edge - inside;
-    context.beginPath();
-    context.rect(start, -handleY, outside + inside, barHeight);
-    context.closePath();
-    context.fillStrokeShape(shape);
-  };
-}
-
-function swallowResizeClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
-  e.cancelBubble = true;
-}
-/** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
-const LINK_DOUBLE_CLICK_MS = 500;
-
-function SummaryBar({
-  summary,
-  y,
-  rowHeight,
-  barHeight,
-  dateToX,
-  chart,
-}: {
-  summary: SummarySpan;
-  y: number;
-  rowHeight: number;
-  barHeight: number;
-  dateToX: (d: Date) => number;
-  chart: ChartPalette;
-}) {
-  const { x, width } = summaryBarWidthPx(
-    summary.start,
-    summary.end,
-    dateToX,
-    6,
-  );
-  const height = Math.max(3, Math.round(barHeight * 0.35));
-  const barY = y + (rowHeight - height) / 2;
-  const cap = Math.max(3, Math.round(height * 0.9));
-  const sorted = [...summary.covered].sort((a, b) =>
-    a.start.localeCompare(b.start),
-  );
-  const gapLines: ReactNode[] = [];
-  let cursor = summary.start;
-  for (const span of sorted) {
-    if (span.start > cursor) {
-      const gx = dateToX(parseDate(cursor)) - x;
-      const gw = dateToX(parseDate(span.start)) - x - gx;
-      if (gw > 2) {
-        gapLines.push(
-          <Line
-            key={`gap-${cursor}-${span.start}`}
-            points={[gx, height / 2, gx + gw, height / 2]}
-            stroke={chart.summaryGap}
-            strokeWidth={1}
-            dash={[4, 3]}
-            listening={false}
-          />,
-        );
-      }
-    }
-    cursor = span.end > cursor ? span.end : cursor;
-  }
-  if (cursor < summary.end) {
-    const gx = dateToX(parseDate(cursor)) - x;
-    const gw = dateToX(parseDate(summary.end)) - x - gx;
-    if (gw > 2) {
-      gapLines.push(
-        <Line
-          key={`gap-tail-${cursor}`}
-          points={[gx, height / 2, gx + gw, height / 2]}
-          stroke={chart.summaryGap}
-          strokeWidth={1}
-          dash={[4, 3]}
-          listening={false}
-        />,
-      );
-    }
-  }
-  return (
-    <Group x={x} y={barY} listening={false}>
-      {sorted.map((span) => {
-        const spanX = dateToX(parseDate(span.start)) - x;
-        const spanW = coveredSpanWidthPx(span.start, span.end, dateToX, 2);
-        return (
-          <Rect
-            key={`${span.start}-${span.end}`}
-            x={spanX}
-            y={0}
-            width={spanW}
-            height={height}
-            fill={chart.summaryCovered}
-            cornerRadius={1}
-          />
-        );
-      })}
-      {gapLines}
-      <Line
-        points={[0, height, cap, height + cap, 0, height + cap]}
-        closed
-        fill={chart.summaryCovered}
-        listening={false}
-      />
-      <Line
-        points={[width, height, width - cap, height + cap, width, height + cap]}
-        closed
-        fill={chart.summaryCovered}
-        listening={false}
-      />
-    </Group>
-  );
-}
-
-function TaskBar({
-  task,
-  y,
-  rowHeight,
-  barHeight,
-  pxPerDay,
-  dateToX,
-  exceeded,
-  selected,
-  selectedTaskIds,
-  linkMode,
-  linkTarget,
-  onLinkBarPointerDown,
-  allowResizeEdges,
-  onSelect,
-  onOpenEdit,
-  onContextMenu,
-  onMoveTask,
-  onResizeStart,
-  onResizeEnd,
-  onDragGeometry,
-  onBeginPan,
-  panScrollArmed,
-  onDragMoved,
-  registerDragCancel,
-  dragLeft,
-  dragWidth,
-  chart,
-  today,
-  memberCatalog,
-  colorScheme,
-  tier,
-}: {
-  task: Task;
-  y: number;
-  rowHeight: number;
-  barHeight: number;
-  pxPerDay: number;
-  dateToX: (d: Date) => number;
-  exceeded: Milestone[];
-  selected: boolean;
-  selectedTaskIds: ReadonlySet<ScheduleId>;
-  linkMode: boolean;
-  linkTarget: boolean;
-  onLinkBarPointerDown: (
-    e: Konva.KonvaEventObject<PointerEvent>,
-    taskId: ScheduleId,
-  ) => void;
-  allowResizeEdges: boolean;
-  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
-  onOpenEdit: () => void;
-  onContextMenu: (x: number, y: number) => void;
-  onMoveTask: (deltaDays: number, taskIds: readonly ScheduleId[]) => void;
-  onResizeStart: (groupX: number) => void;
-  onResizeEnd: (groupX: number, barWidth: number) => void;
-  onDragGeometry: (geometry: DragBarGeometry | null) => void;
-  onBeginPan: (clientX: number, clientY: number) => void;
-  panScrollArmed: boolean;
-  onDragMoved: () => void;
-  registerDragCancel: (cancel: (() => void) | null) => void;
-  dragLeft?: number;
-  dragWidth?: number;
-  chart: ChartPalette;
-  today: string;
-  memberCatalog: Map<MemberId, Member> | null;
-  colorScheme: ResolvedColorScheme;
-  tier: "day" | "week" | "month";
-}) {
-  const css = paletteFor(colorScheme).css;
-  const start = parseDate(task.start);
-  const x = dragLeft ?? dateToX(start);
-  const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
-  const colors = barColors(task, today, colorScheme);
-  const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
-  const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
-  const stroke = colors.border;
-  const fontSize = Math.max(10, Math.round(barHeight * 0.55));
-  const labelInside =
-    w >= 72 && tier !== "month"
-      ? `${task.name}${task.status === "in-progress" ? ` ${task.progress}%` : ""}`
-      : null;
-  const labelOutside =
-    tier === "month" || w < 72
-      ? `${task.name} ${assigneeLabel}`.trim()
-      : assigneeLabel
-        ? assigneeLabel
-        : null;
-  const hatch =
-    task.confidence === "tentative"
-      ? hatchCanvas(colors.bg, colorScheme)
-      : null;
-  const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
-  const origXRef = useRef(0);
-  const groupRef = useRef<Konva.Group>(null);
-  const bgWidthRef = useRef(w);
-  const leftMaxXRef = useRef<number | null>(null);
-  const movePendingRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    captureTarget: Element;
-  } | null>(null);
-  const moveDragRef = useRef<{
-    pointerId: number;
-    startClientX: number;
-    originBarX: number;
-    captureTarget: Element;
-    detach: () => void;
-  } | null>(null);
-  const moveTargetIdsRef = useRef<readonly ScheduleId[]>([task.id]);
-  const blockOpenEditRef = useRef(false);
-  const resizeEdgeAtPointer = useCallback(() => {
-    if (!allowResizeEdges) return null;
-    const pos = groupRef.current?.getRelativePointerPosition();
-    if (pos == null || pos.y < 0 || pos.y > barHeight) return null;
-    return taskBarResizeEdgeAt(pos.x, bgWidthRef.current);
-  }, [allowResizeEdges, barHeight]);
-  const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
-  const handleY = barHeight / 2 - handleHeight / 2;
-
-  const finishPointerMove = useCallback(
-    (commit: boolean) => {
-      const drag = moveDragRef.current;
-      const node = groupRef.current;
-      if (drag) {
-        drag.detach();
-        if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
-          drag.captureTarget.releasePointerCapture(drag.pointerId);
-        }
-        moveDragRef.current = null;
-      }
-      registerDragCancel(null);
-      if (!node) {
-        onDragGeometry(null);
-        return;
-      }
-      if (commit) {
-        const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
-        node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
-        if (delta !== 0) onMoveTask(delta, moveTargetIdsRef.current);
-      } else {
-        node.position({ x: origXRef.current, y: barY });
-      }
-      onDragGeometry(null);
-      node.getLayer()?.batchDraw();
-    },
-    [barY, onDragGeometry, onMoveTask, pxPerDay, registerDragCancel],
-  );
-
-  const cancelMove = useCallback(() => {
-    finishPointerMove(false);
-  }, [finishPointerMove]);
-
-  useEffect(() => {
-    bgWidthRef.current = w;
-  }, [w]);
-
-  useEffect(() => {
-    return () => registerDragCancel(null);
-  }, [registerDragCancel]);
-
-  const beginPointerMove = useCallback(
-    (
-      pointerId: number,
-      startClientX: number,
-      captureTarget: Element,
-    ) => {
-      const node = groupRef.current;
-      if (!node || moveDragRef.current) return;
-      moveTargetIdsRef.current =
-        selectedTaskIds.has(task.id) && selectedTaskIds.size > 1
-          ? [...selectedTaskIds]
-          : [task.id];
-      origXRef.current = node.x();
-      try {
-        captureTarget.setPointerCapture(pointerId);
-      } catch {
-        // キャプチャできないときは window の監視だけで続ける。
-      }
-      registerDragCancel(() => cancelMove());
-      const reportGeometry = (barLeft: number) => {
-        onDragGeometry({
-          taskId: task.id,
-          kind: "move",
-          barLeft,
-          barWidth: w,
-          barTop: barY,
-          originX: origXRef.current,
-        });
-      };
-      reportGeometry(origXRef.current);
-      const onMove = (evt: PointerEvent) => {
-        const drag = moveDragRef.current;
-        if (!drag || evt.pointerId !== drag.pointerId) return;
-        const dx = evt.clientX - drag.startClientX;
-        const nextX = drag.originBarX + dx;
-        node.x(nextX);
-        reportGeometry(nextX);
-        node.getLayer()?.batchDraw();
-      };
-      const onUp = (evt: PointerEvent) => {
-        if (evt.pointerId !== pointerId) return;
-        finishPointerMove(true);
-      };
-      const onCancel = (evt: PointerEvent) => {
-        if (evt.pointerId !== pointerId) return;
-        finishPointerMove(false);
-      };
-      const detach = () => {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onCancel);
-      };
-      moveDragRef.current = {
-        pointerId,
-        startClientX,
-        originBarX: origXRef.current,
-        captureTarget,
-        detach,
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-      window.addEventListener("pointercancel", onCancel);
-    },
-    [
-      barY,
-      cancelMove,
-      finishPointerMove,
-      onDragGeometry,
-      registerDragCancel,
-      selectedTaskIds,
-      task.id,
-      w,
-    ],
-  );
-
-  const onBodyPointerDown = useCallback(
-    (e: Konva.KonvaEventObject<PointerEvent>) => {
-      if (linkMode) {
-        onLinkBarPointerDown(e, task.id);
-        return;
-      }
-      if (e.evt.button === 1 || panScrollArmed) {
-        onBeginPan(e.evt.clientX, e.evt.clientY);
-        return;
-      }
-      if (e.evt.button !== 0) return;
-      e.cancelBubble = true;
-      blockOpenEditRef.current =
-        selected && selectedTaskIds.size > 1;
-      const captureTarget = e.target.getStage()?.content;
-      if (!captureTarget) return;
-      movePendingRef.current = {
-        pointerId: e.evt.pointerId,
-        startX: e.evt.clientX,
-        startY: e.evt.clientY,
-        captureTarget,
-      };
-      const onMove = (evt: PointerEvent) => {
-        const pending = movePendingRef.current;
-        if (!pending || evt.pointerId !== pending.pointerId) return;
-        const dx = evt.clientX - pending.startX;
-        const dy = evt.clientY - pending.startY;
-        if (Math.hypot(dx, dy) < TASK_DRAG_THRESHOLD_PX) return;
-        const { pointerId, startX, captureTarget: target } = pending;
-        movePendingRef.current = null;
-        onDragMoved();
-        if (!selected) {
-          onSelect({
-            evt: {
-              shiftKey: false,
-              metaKey: false,
-              ctrlKey: false,
-            },
-          } as Konva.KonvaEventObject<MouseEvent>);
-        }
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
-        beginPointerMove(pointerId, startX, target);
-      };
-      const onUp = (evt: PointerEvent) => {
-        const pending = movePendingRef.current;
-        if (!pending || evt.pointerId !== pending.pointerId) return;
-        movePendingRef.current = null;
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-      window.addEventListener("pointercancel", onUp);
-    },
-    [
-      beginPointerMove,
-      linkMode,
-      onBeginPan,
-      onDragMoved,
-      onLinkBarPointerDown,
-      onSelect,
-      panScrollArmed,
-      selected,
-      selectedTaskIds,
-      task.id,
-    ],
-  );
-
-  const onHitPointerDown = useCallback(
-    (e: Konva.KonvaEventObject<PointerEvent>) => {
-      if (resizeEdgeAtPointer() != null) {
-        e.cancelBubble = true;
-        return;
-      }
-      onBodyPointerDown(e);
-    },
-    [onBodyPointerDown, resizeEdgeAtPointer],
-  );
-
-  const leftHandleRef = useRef<Konva.Rect>(null);
-  const rightHandleRef = useRef<Konva.Rect>(null);
-  const resizeAbortedRef = useRef(false);
-  const origResizeRef = useRef<{ groupX: number; barWidth: number } | null>(
-    null,
-  );
-  const draggingHandleRef = useRef<Konva.Rect | null>(null);
-
-  const cancelUnselectedResize = useCallback(() => {
-    resizeAbortedRef.current = true;
-    const orig = origResizeRef.current;
-    const g = groupRef.current;
-    if (orig && g) {
-      g.x(orig.groupX);
-      bgWidthRef.current = orig.barWidth;
-      leftHandleRef.current?.x(-HANDLE_WIDTH / 2);
-      rightHandleRef.current?.x(orig.barWidth - HANDLE_WIDTH / 2);
-    }
-    draggingHandleRef.current?.stopDrag();
-    draggingHandleRef.current = null;
-    origResizeRef.current = null;
-    registerDragCancel(null);
-    onDragGeometry(null);
-  }, [onDragGeometry, registerDragCancel]);
-
-  return (
-    <Group
-      ref={groupRef}
-      name="task-bar"
-      x={x}
-      y={barY}
-      onClick={(e) => {
-        e.cancelBubble = true;
-        if (resizeEdgeAtPointer() != null || e.evt.button !== 0) return;
-        if (linkMode && e.evt.detail > 1) return;
-        onSelect(e);
-      }}
-      onTap={(e) => {
-        e.cancelBubble = true;
-        if (resizeEdgeAtPointer() != null) return;
-        if (linkMode && e.evt.detail > 1) return;
-        onSelect(e as unknown as Konva.KonvaEventObject<MouseEvent>);
-      }}
-      onDblClick={(e) => {
-        e.cancelBubble = true;
-        if (resizeEdgeAtPointer() != null) return;
-        if (linkMode) return;
-        if (blockOpenEditRef.current) {
-          blockOpenEditRef.current = false;
-          return;
-        }
-        onOpenEdit();
-      }}
-      onContextMenu={(e) => {
-        e.cancelBubble = true;
-        e.evt.preventDefault();
-        if (resizeEdgeAtPointer() != null) return;
-        if (linkMode) return;
-        onContextMenu(e.evt.clientX, e.evt.clientY);
-      }}
-      onDblTap={(e) => {
-        e.cancelBubble = true;
-        if (resizeEdgeAtPointer() != null) return;
-        if (linkMode) return;
-        onOpenEdit();
-      }}
-    >
-      <Rect
-        width={w}
-        height={barHeight}
-        fill={hatch ? undefined : colors.bg}
-        fillPriority={hatch ? "pattern" : "color"}
-        fillPatternImage={
-          // 設定型は HTMLImageElement。実行時の setter は canvas も受ける。
-          hatch ? (hatch as unknown as HTMLImageElement) : undefined
-        }
-        fillPatternRepeat="repeat"
-        cornerRadius={4}
-      />
-      {task.status === "in-progress" && colors.fill ? (
-        <Rect
-          width={w * (task.progress / 100)}
-          height={barHeight}
-          fill={colors.fill}
-          cornerRadius={4}
-        />
-      ) : null}
-      <Rect
-        width={w}
-        height={barHeight}
-        stroke={stroke}
-        strokeWidth={selected ? 2 : 1}
-        cornerRadius={4}
-        listening={false}
-      />
-      {selected ? (
-        <Rect
-          x={-2}
-          y={-2}
-          width={w + 4}
-          height={barHeight + 4}
-          stroke={css.accent}
-          strokeWidth={1}
-          opacity={0.35}
-          cornerRadius={6}
-          listening={false}
-        />
-      ) : null}
-      {linkTarget ? (
-        <Rect
-          width={w}
-          height={barHeight}
-          stroke={chart.linkTargetStroke}
-          strokeWidth={2.5}
-          cornerRadius={4}
-          listening={false}
-        />
-      ) : null}
-      {labelInside ? (
-        <Text
-          x={6}
-          y={barHeight / 2 - fontSize / 2}
-          width={Math.max(0, w - 12)}
-          text={labelInside}
-          fontSize={fontSize}
-          fontFamily={KONVA_FONT_FAMILY}
-          fill={barLabelFill(task, today, colorScheme)}
-          wrap="none"
-          ellipsis
-          listening={false}
-        />
-      ) : null}
-      {labelOutside ? (
-        <Text
-          x={w + 4}
-          y={barHeight / 2 - fontSize / 2}
-          text={labelOutside}
-          fontSize={fontSize}
-          fontFamily={KONVA_FONT_FAMILY}
-          fill={chart.textSecondary}
-          listening={false}
-        />
-      ) : null}
-      {overrunAt != null && overrunAt < w ? (
-        <Rect
-          x={Math.max(0, overrunAt)}
-          y={0}
-          width={Math.max(2, w - Math.max(0, overrunAt))}
-          height={barHeight}
-          stroke={chart.linkBroken}
-          strokeWidth={1.5}
-          cornerRadius={overrunAt <= 0 ? 4 : [0, 4, 4, 0]}
-          listening={false}
-        />
-      ) : null}
-      <Rect
-        width={w}
-        height={barHeight}
-        fill="rgba(0,0,0,0.001)"
-        onPointerDown={
-          linkMode
-            ? (e) => onLinkBarPointerDown(e, task.id)
-            : onHitPointerDown
-        }
-      />
-      {!linkMode && !selected ? (
-        <>
-          <Rect
-            ref={leftHandleRef}
-            x={-HANDLE_WIDTH / 2}
-            y={handleY}
-            width={HANDLE_WIDTH}
-            height={handleHeight}
-            name="resize-handle"
-            fill="rgba(0,0,0,0.001)"
-            hitFunc={exclusiveResizeHit(
-              barHeight,
-              handleY,
-              1,
-              resizeExclusiveInside(w),
-            )}
-            draggable
-            onClick={swallowResizeClick}
-            onTap={swallowResizeClick}
-            onDblClick={swallowResizeClick}
-            onDblTap={swallowResizeClick}
-            onDragStart={function (this: Konva.Node) {
-              const parent = this.getParent()!.getAbsolutePosition();
-              const barWidth = bgWidthRef.current;
-              leftMaxXRef.current =
-                parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
-              const g = groupRef.current;
-              if (!g) return;
-              resizeAbortedRef.current = false;
-              origResizeRef.current = {
-                groupX: g.x(),
-                barWidth,
-              };
-              draggingHandleRef.current = this as Konva.Rect;
-              registerDragCancel(() => cancelUnselectedResize());
-              onDragGeometry({
-                taskId: task.id,
-                kind: "start",
-                barLeft: g.x(),
-                barWidth,
-                barTop: barY,
-                originX: g.x(),
-              });
-            }}
-            dragBoundFunc={function (this: Konva.Node, pos) {
-              const parent = this.getParent()!.getAbsolutePosition();
-              if (leftMaxXRef.current == null) {
-                const barWidth = bgWidthRef.current;
-                leftMaxXRef.current =
-                  parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
-              }
-              return {
-                x: Math.min(pos.x, leftMaxXRef.current),
-                y: parent.y + handleY,
-              };
-            }}
-            onDragMove={(e) => {
-              const g = groupRef.current;
-              if (!g) return;
-              const barWidth = bgWidthRef.current;
-              const rightEdge = g.x() + barWidth;
-              const newLeft = g.x() + e.target.x() + HANDLE_WIDTH / 2;
-              const newW = Math.max(pxPerDay, rightEdge - newLeft);
-              g.x(newLeft);
-              e.target.x(-HANDLE_WIDTH / 2);
-              bgWidthRef.current = newW;
-              rightHandleRef.current?.x(newW - HANDLE_WIDTH / 2);
-              onDragGeometry({
-                taskId: task.id,
-                kind: "start",
-                barLeft: newLeft,
-                barWidth: newW,
-                barTop: barY,
-                originX: newLeft,
-              });
-              e.target.getLayer()?.batchDraw();
-            }}
-            onDragEnd={() => {
-              const g = groupRef.current;
-              leftMaxXRef.current = null;
-              registerDragCancel(null);
-              onDragGeometry(null);
-              if (resizeAbortedRef.current) {
-                resizeAbortedRef.current = false;
-                return;
-              }
-              if (!g) return;
-              onResizeStart(g.x());
-            }}
-          />
-          <Rect
-            ref={rightHandleRef}
-            x={w - HANDLE_WIDTH / 2}
-            y={handleY}
-            width={HANDLE_WIDTH}
-            height={handleHeight}
-            name="resize-handle"
-            fill="rgba(0,0,0,0.001)"
-            hitFunc={exclusiveResizeHit(
-              barHeight,
-              handleY,
-              -1,
-              resizeExclusiveInside(w),
-            )}
-            draggable
-            onClick={swallowResizeClick}
-            onTap={swallowResizeClick}
-            onDblClick={swallowResizeClick}
-            onDblTap={swallowResizeClick}
-            onDragStart={function (this: Konva.Node) {
-              const g = groupRef.current;
-              if (!g) return;
-              resizeAbortedRef.current = false;
-              origResizeRef.current = {
-                groupX: g.x(),
-                barWidth: bgWidthRef.current,
-              };
-              draggingHandleRef.current = this as Konva.Rect;
-              registerDragCancel(() => cancelUnselectedResize());
-              onDragGeometry({
-                taskId: task.id,
-                kind: "end",
-                barLeft: g.x(),
-                barWidth: bgWidthRef.current,
-                barTop: barY,
-                originX: g.x(),
-              });
-            }}
-            dragBoundFunc={function (this: Konva.Node, pos) {
-              const parent = this.getParent()!.getAbsolutePosition();
-              return {
-                x: Math.max(pos.x, parent.x + pxPerDay - HANDLE_WIDTH / 2),
-                y: parent.y + handleY,
-              };
-            }}
-            onDragMove={(e) => {
-              const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
-              bgWidthRef.current = newW;
-              const barLeft = groupRef.current?.x() ?? x;
-              onDragGeometry({
-                taskId: task.id,
-                kind: "end",
-                barLeft,
-                barWidth: newW,
-                barTop: barY,
-                originX: barLeft,
-              });
-              e.target.getLayer()?.batchDraw();
-            }}
-            onDragEnd={() => {
-              const g = groupRef.current;
-              registerDragCancel(null);
-              onDragGeometry(null);
-              if (resizeAbortedRef.current) {
-                resizeAbortedRef.current = false;
-                return;
-              }
-              if (!g) return;
-              onResizeEnd(g.x(), bgWidthRef.current);
-            }}
-          />
-        </>
-      ) : null}
-    </Group>
-  );
-}
-
-function ResizeHandles({
-  task,
-  y,
-  rowHeight,
-  barHeight,
-  pxPerDay,
-  dateToX,
-  onResizeStart,
-  onResizeEnd,
-  onDragGeometry,
-  registerDragCancel,
-  chart,
-}: {
-  task: Task;
-  y: number;
-  rowHeight: number;
-  barHeight: number;
-  pxPerDay: number;
-  dateToX: (d: Date) => number;
-  onResizeStart: (groupX: number) => void;
-  onResizeEnd: (groupX: number, barWidth: number) => void;
-  onDragGeometry: (geometry: DragBarGeometry | null) => void;
-  registerDragCancel: (cancel: (() => void) | null) => void;
-  chart: ChartPalette;
-}) {
-  const start = parseDate(task.start);
-  const groupX = dateToX(start);
-  const w = taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
-  const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
-  const handleY = barHeight / 2 - handleHeight / 2;
-  const groupRef = useRef<Konva.Group>(null);
-  const bgRef = useRef<Konva.Rect>(null);
-  const fillRef = useRef<Konva.Rect | null>(null);
-  const leftHandleRef = useRef<Konva.Rect>(null);
-  const rightHandleRef = useRef<Konva.Rect>(null);
-  const leftMaxXRef = useRef<number | null>(null);
-  const resizeAbortedRef = useRef(false);
-  const origResizeRef = useRef<{ groupX: number; barWidth: number } | null>(
-    null,
-  );
-  const draggingHandleRef = useRef<Konva.Rect | null>(null);
-
-  const syncFillWidth = useCallback(
-    (barWidth: number) => {
-      if (task.status === "in-progress" && fillRef.current) {
-        fillRef.current.width(barWidth * (task.progress / 100));
-      }
-    },
-    [task.progress, task.status],
-  );
-
-  const cancelSelectedResize = useCallback(() => {
-    resizeAbortedRef.current = true;
-    const orig = origResizeRef.current;
-    const g = groupRef.current;
-    const bg = bgRef.current;
-    if (orig && g && bg) {
-      g.x(orig.groupX);
-      bg.width(orig.barWidth);
-      syncFillWidth(orig.barWidth);
-      leftHandleRef.current?.x(-HANDLE_WIDTH / 2);
-      rightHandleRef.current?.x(orig.barWidth - HANDLE_WIDTH / 2);
-    }
-    draggingHandleRef.current?.stopDrag();
-    draggingHandleRef.current = null;
-    origResizeRef.current = null;
-    registerDragCancel(null);
-    onDragGeometry(null);
-  }, [onDragGeometry, registerDragCancel, syncFillWidth]);
-
-  return (
-    <Group
-      ref={groupRef}
-      x={groupX}
-      y={barY}
-      onContextMenu={(e) => {
-        e.cancelBubble = true;
-        e.evt.preventDefault();
-      }}
-    >
-      <Rect ref={bgRef} width={w} height={barHeight} visible={false} />
-      {task.status === "in-progress" ? (
-        <Rect
-          ref={(node) => {
-            fillRef.current = node;
-          }}
-          width={w * (task.progress / 100)}
-          height={barHeight}
-          visible={false}
-        />
-      ) : null}
-      <Rect
-        ref={leftHandleRef}
-        x={-HANDLE_WIDTH / 2}
-        y={handleY}
-        width={HANDLE_WIDTH}
-        height={handleHeight}
-        name="resize-handle"
-        fill={chart.resizeHandle}
-        cornerRadius={2}
-        hitFunc={exclusiveResizeHit(
-          barHeight,
-          handleY,
-          1,
-          resizeExclusiveInside(w),
-        )}
-        draggable
-        onClick={swallowResizeClick}
-        onTap={swallowResizeClick}
-        onDblClick={swallowResizeClick}
-        onDblTap={swallowResizeClick}
-        onDragStart={function (this: Konva.Node) {
-          const parent = this.getParent()!.getAbsolutePosition();
-          const barWidth = bgRef.current?.width() ?? w;
-          leftMaxXRef.current =
-            parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
-          const g = groupRef.current;
-          if (!g) return;
-          resizeAbortedRef.current = false;
-          origResizeRef.current = { groupX: g.x(), barWidth };
-          draggingHandleRef.current = this as Konva.Rect;
-          registerDragCancel(() => cancelSelectedResize());
-          onDragGeometry({
-            taskId: task.id,
-            kind: "start",
-            barLeft: g.x(),
-            barWidth,
-            barTop: barY,
-            originX: g.x(),
-          });
-        }}
-        dragBoundFunc={function (this: Konva.Node, pos) {
-          const parent = this.getParent()!.getAbsolutePosition();
-          if (leftMaxXRef.current == null) {
-            const barWidth = bgRef.current?.width() ?? w;
-            leftMaxXRef.current =
-              parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
-          }
-          return {
-            x: Math.min(pos.x, leftMaxXRef.current),
-            y: parent.y + handleY,
-          };
-        }}
-        onDragMove={(e) => {
-          const g = groupRef.current;
-          const bg = bgRef.current;
-          if (!g || !bg) return;
-          const rightEdge = g.x() + bg.width();
-          const newLeft = g.x() + e.target.x() + HANDLE_WIDTH / 2;
-          const newW = Math.max(pxPerDay, rightEdge - newLeft);
-          g.x(newLeft);
-          e.target.x(-HANDLE_WIDTH / 2);
-          bg.width(newW);
-          rightHandleRef.current?.x(newW - HANDLE_WIDTH / 2);
-          syncFillWidth(newW);
-          onDragGeometry({
-            taskId: task.id,
-            kind: "start",
-            barLeft: newLeft,
-            barWidth: newW,
-            barTop: barY,
-            originX: newLeft,
-          });
-          e.target.getLayer()?.batchDraw();
-        }}
-        onDragEnd={() => {
-          const g = groupRef.current;
-          leftMaxXRef.current = null;
-          registerDragCancel(null);
-          onDragGeometry(null);
-          if (resizeAbortedRef.current) {
-            resizeAbortedRef.current = false;
-            return;
-          }
-          if (!g) return;
-          onResizeStart(g.x());
-        }}
-      />
-      <Rect
-        ref={rightHandleRef}
-        x={w - HANDLE_WIDTH / 2}
-        y={handleY}
-        width={HANDLE_WIDTH}
-        height={handleHeight}
-        name="resize-handle"
-        fill={chart.resizeHandle}
-        cornerRadius={2}
-        hitFunc={exclusiveResizeHit(
-          barHeight,
-          handleY,
-          -1,
-          resizeExclusiveInside(w),
-        )}
-        draggable
-        onClick={swallowResizeClick}
-        onTap={swallowResizeClick}
-        onDblClick={swallowResizeClick}
-        onDblTap={swallowResizeClick}
-        onDragStart={function (this: Konva.Node) {
-          const g = groupRef.current;
-          const bg = bgRef.current;
-          if (!g || !bg) return;
-          resizeAbortedRef.current = false;
-          origResizeRef.current = { groupX: g.x(), barWidth: bg.width() };
-          draggingHandleRef.current = this as Konva.Rect;
-          registerDragCancel(() => cancelSelectedResize());
-          onDragGeometry({
-            taskId: task.id,
-            kind: "end",
-            barLeft: g.x(),
-            barWidth: bg.width(),
-            barTop: barY,
-            originX: g.x(),
-          });
-        }}
-        dragBoundFunc={function (this: Konva.Node, pos) {
-          const parent = this.getParent()!.getAbsolutePosition();
-          return {
-            x: Math.max(pos.x, parent.x + pxPerDay - HANDLE_WIDTH / 2),
-            y: parent.y + handleY,
-          };
-        }}
-        onDragMove={(e) => {
-          const bg = bgRef.current;
-          if (!bg) return;
-          const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
-          bg.width(newW);
-          syncFillWidth(newW);
-          const barLeft = groupRef.current?.x() ?? groupX;
-          onDragGeometry({
-            taskId: task.id,
-            kind: "end",
-            barLeft,
-            barWidth: newW,
-            barTop: barY,
-            originX: barLeft,
-          });
-          e.target.getLayer()?.batchDraw();
-        }}
-        onDragEnd={() => {
-          const g = groupRef.current;
-          const bg = bgRef.current;
-          registerDragCancel(null);
-          onDragGeometry(null);
-          if (resizeAbortedRef.current) {
-            resizeAbortedRef.current = false;
-            return;
-          }
-          if (!g || !bg) return;
-          onResizeEnd(g.x(), bg.width());
-        }}
-      />
-    </Group>
-  );
-}
-
-function visibleBarObstacles(
-  rows: VisibleRow[],
-  scrollY: number,
-  rowHeight: number,
-  barHeight: number,
-  bodyHeight: number,
-  dateToX: (d: Date) => number,
-  pxPerDay: number,
-  skipTaskIds: ReadonlySet<ScheduleId>,
-): ChipRect[] {
-  const rects: ChipRect[] = [];
-  for (const row of rows) {
-    const y = row.y - scrollY;
-    if (y + rowHeight < 0 || y > bodyHeight) continue;
-    if (row.type !== "task") {
-      if (row.summary == null) continue;
-      const placed = summaryBarWidthPx(
-        row.summary.start,
-        row.summary.end,
-        dateToX,
-        6,
-      );
-      const height = Math.max(4, Math.round(barHeight / 2));
-      rects.push({
-        x: placed.x,
-        y: y + (rowHeight - height) / 2,
-        width: placed.width,
-        height,
-      });
-      continue;
-    }
-    if (skipTaskIds.has(row.task.id)) continue;
-    const x = dateToX(parseDate(row.task.start));
-    const top = y + (rowHeight - barHeight) / 2;
-    rects.push({
-      x,
-      y: top,
-      width: taskBarWidthPx(row.task, dateToX, pxPerDay),
-      height: barHeight,
-    });
-  }
-  return rects;
-}
-
-function DragDateChip({
-  box,
-  text,
-  fontSize,
-  fill,
-  stroke,
-  textFill,
-}: {
-  box: ChipRect;
-  text: string;
-  fontSize: number;
-  fill: string;
-  stroke: string;
-  textFill: string;
-}) {
-  return (
-    <Group listening={false}>
-      <Rect
-        x={box.x}
-        y={box.y}
-        width={box.width}
-        height={box.height}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={1}
-        cornerRadius={Math.min(3, box.height / 2)}
-        listening={false}
-      />
-      <Text
-        name="drag-date"
-        x={box.x}
-        y={box.y}
-        width={box.width}
-        height={box.height}
-        text={text}
-        fontSize={fontSize}
-        fill={textFill}
-        align="center"
-        verticalAlign="middle"
-        listening={false}
-      />
-    </Group>
-  );
-}
-
-function DragDateLabels({
-  preview,
-  fontSize,
-  padX,
-  padY,
-  gap,
-  viewportWidth,
-  viewportHeight,
-  barHeight,
-  obstacles,
-  chart,
-}: {
-  preview: DragDatePreview;
-  fontSize: number;
-  padX: number;
-  padY: number;
-  gap: number;
-  viewportWidth: number;
-  viewportHeight: number;
-  barHeight: number;
-  obstacles: readonly ChipRect[];
-  chart: ChartPalette;
-}) {
-  const startText = fmtShort(parseDate(preview.start));
-  const endText = fmtShort(parseDate(preview.end));
-  const layout = layoutDragDateChips({
-    bar: {
-      x: preview.barLeft,
-      y: preview.barTop,
-      width: preview.barWidth,
-      height: barHeight,
-    },
-    avoid: {
-      x: preview.barLeft - HANDLE_WIDTH / 2,
-      y: preview.barTop,
-      width: preview.barWidth + HANDLE_WIDTH,
-      height: barHeight,
-    },
-    start: dragDateChipSize(startText, fontSize, padX, padY),
-    end: dragDateChipSize(endText, fontSize, padX, padY),
-    viewport: { width: viewportWidth, height: viewportHeight },
-    gap,
-    obstacles,
-  });
-  return (
-    <>
-      <DragDateChip
-        box={layout.start}
-        text={startText}
-        fontSize={fontSize}
-        fill={chart.dragDateFill}
-        stroke={chart.dragDateStroke}
-        textFill={chart.textPrimary}
-      />
-      <DragDateChip
-        box={layout.end}
-        text={endText}
-        fontSize={fontSize}
-        fill={chart.dragDateFill}
-        stroke={chart.dragDateStroke}
-        textFill={chart.textPrimary}
-      />
-    </>
-  );
-}
-
-function bodyColumnNodes(input: {
-  keyPrefix: string;
-  width: number;
-  height: number;
-  tier: "day" | "week" | "month";
-  timelineStart: Date;
-  timelineEnd: Date;
-  totalDays: number;
-  dayStart: number;
-  dayEnd: number;
-  dateToX: (d: Date) => number;
-  pxPerDay: number;
-  calendar: CalendarDocument | null;
-  chart: ChartPalette;
-}): ReactNode[] {
-  const elements: ReactNode[] = [];
-  const {
-    keyPrefix,
-    width,
-    height,
-    tier,
-    timelineStart,
-    timelineEnd,
-    totalDays,
-    dayStart,
-    dayEnd,
-    dateToX,
-    pxPerDay,
-    calendar,
-    chart,
-  } = input;
-  if (tier !== "month") {
-    const bands = nonWorkingDayClipRects(
-      timelineStart,
-      dayStart,
-      dayEnd,
-      dateToX,
-      pxPerDay,
-      width,
-      calendar,
-      totalDays,
-    );
-    for (let i = 0; i < bands.length; i += 1) {
-      const band = bands[i];
-      elements.push(
-        <Rect
-          key={`${keyPrefix}nwd-${i}-${band.x}`}
-          x={band.x}
-          y={0}
-          width={band.width}
-          height={height}
-          fill={chart.nonWorking}
-          listening={false}
-        />,
-      );
-    }
-    for (let i = dayStart; i <= dayEnd; i += 1) {
-      const d = addDays(timelineStart, i);
-      const x = dateToX(d);
-      if (x < -10 || x > width + 10) continue;
-      const isMonday = d.getUTCDay() === 1;
-      if (tier === "day" || isMonday) {
-        elements.push(
-          <Line
-            key={`${keyPrefix}vg-${i}`}
-            points={[x, 0, x, height]}
-            stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
-            strokeWidth={1}
-            listening={false}
-          />,
-        );
-      }
-    }
-  } else {
-    let d = utcMonthStart(timelineStart);
-    while (d < timelineEnd) {
-      const x = dateToX(d);
-      if (x > -10 && x < width + 10) {
-        elements.push(
-          <Line
-            key={`${keyPrefix}mg-${d.getTime()}`}
-            points={[x, 0, x, height]}
-            stroke={chart.gridMonth}
-            strokeWidth={1}
-            listening={false}
-          />,
-        );
-      }
-      d = addUtcMonths(d, 1);
-    }
-  }
-  return elements;
-}
 
 export function Timeline({
   visibleRows,
@@ -1452,6 +166,7 @@ export function Timeline({
   onResizeStart,
   onResizeEnd,
   links,
+  connections,
   onOpenEdit,
   onTaskContextMenu,
   onWheelBody,
@@ -1466,12 +181,16 @@ export function Timeline({
   onMoveMilestone,
   onOpenMilestone,
   onMilestoneContextMenu,
+  milestoneGuideLineIds,
+  onToggleMilestoneGuideLine,
   diffMarkedMilestoneId = null,
   diffMarkStrokeWidth = 3,
   today,
+  statuses,
   memberCatalog,
   calendar,
   colorScheme,
+  rowColors,
   linkSourceId,
   onLinkTargetClick,
   onLinkContextMenu,
@@ -1479,7 +198,12 @@ export function Timeline({
   onChartPointer,
   sticky,
   showLightningLine = true,
-  scheduleBodyVisible = true,
+  onBarDragActiveChange,
+  explanationOverlay = null,
+  explainOverlayCategories = [],
+  explainOverlayOutline,
+  explainOverlayLiveAnchorsRef,
+  uiScale = 1,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -1491,357 +215,152 @@ export function Timeline({
     [colorScheme],
   );
   const todayDate = useMemo(() => parseDate(today), [today]);
+  const { dateFontSize, datePadX, datePadY, dateGap } = useMemo(
+    () => timelineDragDateChipMetrics(headerHeight),
+    [headerHeight],
+  );
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
-  const dateFontSize = Math.max(8, Math.round(11 * scale));
-  const datePadX = Math.max(3, Math.round(4 * scale));
-  const datePadY = Math.max(1, Math.round(2 * scale));
-  const dateGap = Math.max(4, Math.round(4 * scale));
-  const [dragPreviews, setDragPreviews] = useState<DragDatePreview[] | null>(
-    null,
+  const {
+    dragPreviews,
+    registerDragCancel,
+    onDragGeometry,
+    dragPreviewOverrides,
+    dragObstacles,
+  } = useTimelineDragDates({
+    visibleRows,
+    selectedTaskIds,
+    timelineStart,
+    xToDate,
+    pxPerDay,
+    dateToX,
+    scrollY,
+    rowHeight,
+    barHeight,
+    bodyHeight,
+    onBarDragActiveChange,
+  });
+  const { milestoneHover, onHoverMilestone } = useTimelineMilestoneHover({
+    milestoneBandLayout,
+    milestoneLaneHeight,
+    milestoneDiamondSize,
+    milestoneFontSize,
+    dateToX,
+  });
+
+  const bodyGuideLineMilestones = useMemo(
+    () =>
+      filterTimelineBodyGuideLineMilestones({
+        milestones,
+        milestoneGuideLineIds,
+        milestoneCenterYById: milestoneBandLayout.centerYById,
+      }),
+    [milestones, milestoneBandLayout.centerYById, milestoneGuideLineIds],
   );
-  const dragCancelRef = useRef<(() => void) | null>(null);
-  const registerDragCancel = useCallback((cancel: (() => void) | null) => {
-    dragCancelRef.current = cancel;
-  }, []);
-  const [milestoneHoverId, setMilestoneHoverId] =
-    useState<ScheduleId | null>(null);
 
-  const milestoneHover =
-    milestoneHoverId == null
-      ? null
-      : resolveMilestoneHover(
-          milestoneHoverId,
-          milestoneBandLayout,
-          milestoneLaneHeight,
-          milestoneDiamondSize,
-          milestoneFontSize,
-          dateToX,
-        );
-
-  useEffect(() => {
-    if (milestoneHoverId != null && milestoneHover == null) {
-      setMilestoneHoverId(null);
-    }
-  }, [milestoneHover, milestoneHoverId]);
-
-  const onHoverMilestone = useCallback((hover: MilestoneHoverState | null) => {
-    setMilestoneHoverId(hover?.id ?? null);
-  }, []);
-  const [spacePanArmed, setSpacePanArmed] = useState(false);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable ||
-          target.tagName === "BUTTON" ||
-          target.closest("button, a, [role='button']"))
-      ) {
-        return;
-      }
-      if (
-        target !== document.body &&
-        !(target instanceof HTMLElement && target.closest(".timeline-body"))
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setSpacePanArmed(true);
-    };
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") setSpacePanArmed(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, []);
-  useEffect(() => {
-    if (dragPreviews == null) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-        return;
-      }
-      dragCancelRef.current?.();
-      dragCancelRef.current = null;
-      setDragPreviews(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [dragPreviews]);
-  const onDragGeometry = useCallback(
-    (geometry: DragBarGeometry | null) => {
-      if (geometry == null) {
-        setDragPreviews(null);
-        return;
-      }
-      const row = visibleRows.find(
-        (item) => item.type === "task" && item.task.id === geometry.taskId,
-      );
-      if (!row || row.type !== "task") {
-        setDragPreviews(null);
-        return;
-      }
-      const dates = previewDatesForDrag(
-        row.task,
-        geometry,
-        timelineStart,
-        xToDate,
-        pxPerDay,
-      );
-      const primary: DragDatePreview = {
-        taskId: geometry.taskId,
-        kind: geometry.kind,
-        start: dates.start,
-        end: dates.end,
-        barLeft: geometry.barLeft,
-        barWidth: geometry.barWidth,
-        barTop: geometry.barTop,
-      };
-      const taskRows = visibleRows.filter(
-        (item): item is VisibleRow & { type: "task" } => item.type === "task",
-      );
-      const multi = buildMoveDragPreviews(
-        geometry,
-        taskRows,
-        selectedTaskIds,
-        pxPerDay,
-        dateToX,
-        scrollY,
-        rowHeight,
-        barHeight,
-        (task) => taskBarWidthPx(task, dateToX, pxPerDay),
-      );
-      setDragPreviews(multi.length > 0 ? multi : [primary]);
-    },
-    [
-      barHeight,
-      dateToX,
-      pxPerDay,
-      rowHeight,
-      scrollY,
-      selectedTaskIds,
-      timelineStart,
-      visibleRows,
-      xToDate,
-    ],
-  );
+  const spacePanArmed = useTimelineSpacePanArm();
   const dayRange = useMemo(
     () => visibleDayIndexRange(scrollX, pxPerDay, width, totalDays),
     [pxPerDay, scrollX, totalDays, width],
   );
 
-  const headerContent = useMemo(() => {
-    const elements: ReactNode[] = [];
-    elements.push(
-      <Line
-        key="header-border"
-        points={[0, headerHeight - 0.5, width, headerHeight - 0.5]}
-        stroke={chart.headerBorder}
-        strokeWidth={1}
-        listening={false}
-      />,
-    );
-    if (!scheduleBodyVisible) {
-      return elements;
-    }
-
-    const scrollAnchor = Math.max(
-      0,
-      Math.min(totalDays - 1, Math.floor(scrollX / Math.max(pxPerDay, 0.001))),
-    );
-    const anchorDate = addDays(timelineStart, scrollAnchor);
-    const yearMonthLabel = (
-      <Text
-        key="header-year-month"
-        x={4}
-        y={4 * scale}
-        text={formatYearMonth(anchorDate)}
-        fontSize={11 * scale}
-        fontStyle="bold"
-        fontFamily={KONVA_FONT_FAMILY}
-        fill={chart.textPrimary}
-        listening={false}
-      />
-    );
-
-    if (tier === "month") {
-      const fixedFontSize = 11 * scale;
-      const monthFontSize = 12 * scale;
-      const gapPx = MONTH_HEADER_LABEL_GAP_BASE_PX * scale;
-      elements.push(yearMonthLabel);
-      const monthLabelCandidates = [];
-      let d = utcMonthStart(timelineStart);
-      while (d < timelineEnd) {
-        const x = dateToX(d);
-        if (x > -120 && x < width + 120) {
-          elements.push(
-            <Line
-              key={`mh-${d.getTime()}`}
-              points={[x, 0, x, headerHeight]}
-              stroke={chart.monthGrid}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-          monthLabelCandidates.push({
-            key: `mt-${d.getTime()}`,
-            x: x + 6,
-            text: formatYearMonth(d),
-            fontSize: monthFontSize,
-          });
-        }
-        d = addUtcMonths(d, 1);
-      }
-      const visibleMonthLabels = visibleMonthHeaderLabels(
-        monthLabelCandidates,
-        [{ left: 4, text: formatYearMonth(anchorDate), fontSize: fixedFontSize }],
-        gapPx,
-      );
-      for (const label of visibleMonthLabels) {
-        elements.push(
-          <Text
-            key={label.key}
-            x={label.x}
-            y={13 * scale}
-            text={label.text}
-            fontSize={label.fontSize}
-            fontStyle="bold"
-            fontFamily={KONVA_FONT_FAMILY}
-            fill={chart.textPrimary}
-            listening={false}
-          />,
-        );
-      }
-    } else {
-      const headerBands = nonWorkingDayClipRects(
-        timelineStart,
-        dayRange.start,
-        dayRange.end,
-        dateToX,
-        pxPerDay,
+  const headerContent = useMemo(
+    () =>
+      buildTimelineChartHeaderContent({
         width,
-        calendar,
+        headerHeight,
+        scale,
+        tier,
+        timelineStart,
+        timelineEnd,
         totalDays,
-      );
-      for (let i = 0; i < headerBands.length; i += 1) {
-        const band = headerBands[i];
-        elements.push(
-          <Rect
-            key={`hwe-${i}-${band.x}`}
-            x={band.x}
-            y={0}
-            width={band.width}
-            height={headerHeight}
-            fill={chart.nonWorking}
-            listening={false}
-          />,
-        );
-      }
-      elements.push(yearMonthLabel);
-      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
-        const d = addDays(timelineStart, i);
-        const x = dateToX(d);
-        if (x < -40 || x > width + 40) continue;
-        const isMonday = d.getUTCDay() === 1;
-        const isToday = isoDate(d) === today;
-        if (tier === "day" || isMonday) {
-          elements.push(
-            <Line
-              key={`hl-${i}`}
-              points={[x, 22 * scale, x, headerHeight]}
-              stroke={isMonday ? chart.gridMonday : chart.gridWeekday}
-              strokeWidth={1}
-              listening={false}
-            />,
-            <Text
-              key={`ht-${i}`}
-              x={x + 2}
-              y={28 * scale}
-              text={
-                tier === "day"
-                  ? `${fmtShort(d)} ${fmtWeekday(d)}`
-                  : fmtShort(d)
-              }
-              fontSize={10 * scale}
-              fontFamily={KONVA_FONT_FAMILY}
-              fill={isMonday || isToday ? chart.textPrimary : chart.textSecondary}
-              fontStyle={isMonday || isToday ? "bold" : "normal"}
-              listening={false}
-            />,
-          );
-        }
-        if (isToday) {
-          elements.push(
-            <Rect
-              key={`today-${i}`}
-              x={x + 1}
-              y={26 * scale}
-              width={Math.max(4, pxPerDay - 2)}
-              height={4 * scale}
-              fill={cssPalette.accent}
-              cornerRadius={2}
-              listening={false}
-            />,
-          );
-        }
-      }
-    }
-    return elements;
-  }, [
-    calendar,
-    cssPalette.accent,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    headerHeight,
-    pxPerDay,
-    scale,
-    scrollX,
-    today,
-    totalDays,
-    tier,
-    timelineEnd,
-    timelineStart,
-    width,
-    chart,
-    scheduleBodyVisible,
-  ]);
+        scrollX,
+        pxPerDay,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
+        dateToX,
+        today,
+        calendar,
+        chart,
+        accentColor: cssPalette.accent,
+      }),
+    [
+      calendar,
+      cssPalette.accent,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      headerHeight,
+      pxPerDay,
+      scale,
+      scrollX,
+      today,
+      totalDays,
+      tier,
+      timelineEnd,
+      timelineStart,
+      width,
+      chart,
+    ],
+  );
 
   const stickyHidden = useMemo(
     () => new Set(sticky.hiddenIndexes),
     [sticky.hiddenIndexes],
   );
 
-  const bgContent = useMemo(() => {
-    if (!scheduleBodyVisible) {
-      return [];
-    }
-    const elements: ReactNode[] = [];
-    const height = bodyHeight;
-
-    for (let index = 0; index < visibleRows.length; index += 1) {
-      if (stickyHidden.has(index)) continue;
-      const row = visibleRows[index];
-      const y = row.y - scrollY;
-      if (y + rowHeight < 0 || y > height) continue;
-      if (row.type === "category" || row.type === "group") {
-        continue;
-      }
-    }
-
-    elements.push(
-      ...bodyColumnNodes({
-        keyPrefix: "",
+  const bgContent = useMemo(
+    () =>
+      buildTimelineBodyBackgroundContent({
+        visibleRows,
+        stickyHidden,
+        scrollY,
+        rowHeight,
+        bodyHeight,
         width,
-        height,
+        tier,
+        timelineStart,
+        timelineEnd,
+        totalDays,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
+        dateToX,
+        pxPerDay,
+        calendar,
+        chart,
+        rowColors,
+        colorScheme,
+      }),
+    [
+      bodyHeight,
+      calendar,
+      colorScheme,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      pxPerDay,
+      rowHeight,
+      rowColors,
+      scrollY,
+      stickyHidden,
+      tier,
+      timelineEnd,
+      timelineStart,
+      totalDays,
+      visibleRows,
+      width,
+      chart,
+    ],
+  );
+
+  const stickyContent = useMemo(
+    () =>
+      buildTimelineStickyParentRowContent({
+        sticky,
+        visibleRows,
+        width,
+        bodyHeight,
+        rowHeight,
+        barHeight,
         tier,
         timelineStart,
         timelineEnd,
@@ -1853,137 +372,40 @@ export function Timeline({
         calendar,
         chart,
       }),
-    );
+    [
+      barHeight,
+      bodyHeight,
+      calendar,
+      chart,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      pxPerDay,
+      rowHeight,
+      sticky,
+      tier,
+      timelineEnd,
+      timelineStart,
+      totalDays,
+      visibleRows,
+      width,
+    ],
+  );
 
-    for (let index = 0; index < visibleRows.length; index += 1) {
-      if (stickyHidden.has(index)) continue;
-      const row = visibleRows[index];
-      const y = row.y - scrollY + rowHeight;
-      if (y < 0 || y > height) continue;
-      elements.push(
-        <Line
-          key={`hr-${row.y}`}
-          points={[0, y, width, y]}
-          stroke={chart.rowBorder}
-          strokeWidth={1}
-          listening={false}
-        />,
-      );
-    }
-
-    return elements;
-  }, [
-    bodyHeight,
-    calendar,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    pxPerDay,
-    rowHeight,
-    totalDays,
-    scrollY,
-    tier,
-    timelineEnd,
-    timelineStart,
-    stickyHidden,
-    visibleRows,
-    width,
-    chart,
-    scheduleBodyVisible,
-  ]);
-
-  const stickyContent = useMemo(() => {
-    return sticky.draws.map((draw) => {
-      const row = visibleRows[draw.index];
-      if (row == null || (row.type !== "category" && row.type !== "group")) {
-        return null;
-      }
-      const clipHeight = draw.clipBottom - draw.clipTop;
-      if (clipHeight <= 0) return null;
-      return (
-        <Group
-          key={`sticky-${draw.index}`}
-          clipX={0}
-          clipY={draw.clipTop}
-          clipWidth={width}
-          clipHeight={clipHeight}
-          listening={false}
-        >
-          <Rect
-            x={0}
-            y={draw.top}
-            width={width}
-            height={rowHeight}
-            fill="transparent"
-            listening={false}
-          />
-          {bodyColumnNodes({
-            keyPrefix: `s${draw.index}-`,
-            width,
-            height: bodyHeight,
-            tier,
-            timelineStart,
-            timelineEnd,
-            totalDays,
-            dayStart: dayRange.start,
-            dayEnd: dayRange.end,
-            dateToX,
-            pxPerDay,
-            calendar,
-            chart,
-          })}
-          <Line
-            points={[0, draw.top + rowHeight, width, draw.top + rowHeight]}
-            stroke={chart.rowBorder}
-            strokeWidth={1}
-            listening={false}
-          />
-          {row.summary != null ? (
-            <SummaryBar
-              summary={row.summary}
-              y={draw.top}
-              rowHeight={rowHeight}
-              barHeight={barHeight}
-              dateToX={dateToX}
-              chart={chart}
-            />
-          ) : null}
-        </Group>
-      );
-    });
-  }, [
-    barHeight,
-    bodyHeight,
-    calendar,
-    chart,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    pxPerDay,
-    rowHeight,
-    sticky.draws,
-    tier,
-    timelineEnd,
-    timelineStart,
-    totalDays,
-    visibleRows,
-    width,
-  ]);
-
-  const lightningPoints = useMemo(() => {
-    const tx = dateToX(todayDate);
-    const points = [tx, 0];
-    for (const row of visibleRows) {
-      const y = row.y - scrollY + rowHeight / 2;
-      const x =
-        row.type === "task"
-          ? dateToX(parseDate(lightningDate(row.task, today)))
-          : tx;
-      points.push(x, y);
-    }
-    points.push(tx, bodyHeight);
-    return points;
-  }, [bodyHeight, dateToX, rowHeight, scrollY, today, todayDate, visibleRows]);
+  const lightningPoints = useMemo(
+    () =>
+      buildTimelineLightningPolyline({
+        visibleRows,
+        scrollY,
+        rowHeight,
+        bodyHeight,
+        today,
+        todayDate,
+        statuses,
+        dateToX,
+      }),
+    [bodyHeight, dateToX, rowHeight, scrollY, statuses, today, todayDate, visibleRows],
+  );
 
   const soleSelectedId =
     selectedTaskIds.size === 1 ? selectedTaskIds.values().next().value : null;
@@ -1994,117 +416,140 @@ export function Timeline({
     (r) => r.type === "task" && selectedTaskIds.has(r.task.id),
   );
 
-  const taskAnchors = useMemo(() => {
-    const byId = new Map<
-      ScheduleId,
-      { x: number; right: number; linkRight: number; y: number }
-    >();
-    for (const row of visibleRows) {
-      if (row.type !== "task") continue;
-      const y = row.y - scrollY + rowHeight / 2;
-      const x = dateToX(parseDate(row.task.start));
-      const exclusive = dateToX(taskBarExclusiveEnd(row.task));
-      byId.set(row.task.id, {
-        x,
-        right: x + Math.max(pxPerDay, exclusive - x),
-        linkRight: Math.max(x + 6, exclusive),
-        y,
-      });
-    }
-    return byId;
-  }, [dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
+  const taskAnchors = useMemo(
+    () =>
+      buildTimelineTaskAnchors({
+        visibleRows,
+        scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+        skipRow: isExplanationTrialVisibleRow,
+      }),
+    [barHeight, dateToX, pxPerDay, rowHeight, scrollY, visibleRows],
+  );
 
-  const liveAnchors = useMemo(() => {
-    if (dragPreviews == null || dragPreviews.length === 0) return taskAnchors;
-    const next = new Map(taskAnchors);
-    for (const preview of dragPreviews) {
-      const x = preview.barLeft;
-      const right = x + preview.barWidth;
-      next.set(preview.taskId, {
-        x,
-        right,
-        linkRight: Math.max(x + 6, right),
-        y: preview.barTop + barHeight / 2,
-      });
-    }
-    return next;
-  }, [barHeight, dragPreviews, taskAnchors]);
+  const liveAnchors = useMemo(
+    () =>
+      applyDragPreviewsToTimelineAnchors({
+        taskAnchors,
+        dragPreviews,
+        visibleRows,
+        scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+      }),
+    [
+      barHeight,
+      dateToX,
+      dragPreviews,
+      pxPerDay,
+      rowHeight,
+      scrollY,
+      taskAnchors,
+      visibleRows,
+    ],
+  );
+
+  const {
+    explanationActive,
+    explanationOverlayGeometry,
+    explanationTrialMilestones,
+    milestoneIdsWithTrialMove,
+    explanationTrialBars,
+    explanationTrialPredecessorArcs,
+  } = useTimelineExplanationLayers({
+    explanationOverlay,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explainOverlayLiveAnchorsRef,
+    visibleRows,
+    dateToX,
+    pxPerDay,
+    scrollY,
+    rowHeight,
+    barHeight,
+    bodyHeight,
+    headerHeight,
+    width,
+    liveAnchors,
+    milestones,
+    milestoneBandLayout,
+    milestoneDiamondSize,
+    tier,
+    memberCatalog,
+    uiScale,
+  });
+
+
   const resizeHitAt = useCallback(
     (pos: { x: number; y: number }) =>
       hitTaskResizeEdge(pos, liveAnchors, barHeight),
     [barHeight, liveAnchors],
   );
 
-  const dragPreviewOverrides = useMemo(() => {
-    if (dragPreviews == null) return null;
-    return new Map(
-      dragPreviews.map((preview) => [
-        preview.taskId,
-        { start: preview.start, end: preview.end },
-      ]),
-    );
-  }, [dragPreviews]);
-
-  const dragObstacleSkipIds = useMemo(() => {
-    if (dragPreviews == null) return new Set<ScheduleId>();
-    return new Set(dragPreviews.map((preview) => preview.taskId));
-  }, [dragPreviews]);
-
-  const dragObstacles = useMemo(() => {
-    if (dragPreviews == null || dragPreviews.length === 0) return [];
-    return visibleBarObstacles(
-      visibleRows,
-      scrollY,
-      rowHeight,
+  const preparedConnectionArcs = useMemo(
+    () =>
+      prepareTimelineConnectionArcs({
+        connections,
+        visibleRows,
+        scrollY,
+        rowHeight,
+        barHeight,
+        bodyHeight,
+        dateToX,
+        pxPerDay,
+        liveAnchors,
+      }),
+    [
       barHeight,
       bodyHeight,
+      connections,
       dateToX,
+      liveAnchors,
       pxPerDay,
-      dragObstacleSkipIds,
-    );
-  }, [
-    barHeight,
-    bodyHeight,
-    dateToX,
-    dragObstacleSkipIds,
-    dragPreviews,
-    pxPerDay,
-    rowHeight,
-    scrollY,
-    visibleRows,
-  ]);
+      rowHeight,
+      scrollY,
+      visibleRows,
+    ],
+  );
 
-  const linkPolylines = useMemo(() => {
-    const dates = new Map<ScheduleId, { start: string; end: string }>();
-    for (const row of visibleRows) {
-      if (row.type === "task") dates.set(row.task.id, row.task);
-    }
-    const polylines: Array<LinkPolyline & { broken: boolean }> = [];
-    for (const link of links) {
-      const from = liveAnchors.get(link.fromId);
-      const to = liveAnchors.get(link.toId);
-      if (!from || !to) continue;
-      polylines.push({
-        fromId: link.fromId,
-        toId: link.toId,
-        broken: previewLinkBrokenWithOverrides(
-          link,
-          dates,
-          dragPreviewOverrides ?? new Map(),
-        ),
-        points: linkPoints(from.linkRight, from.y, to.x, to.y, barHeight),
-      });
-    }
-    return polylines;
-  }, [barHeight, dragPreviewOverrides, links, liveAnchors, visibleRows]);
+  const linkPolylines = useMemo(
+    () =>
+      buildTimelineLinkPolylines({
+        links,
+        preparedConnectionArcs,
+        liveAnchors,
+        visibleRows,
+        dragPreviewOverrides,
+        barHeight,
+      }),
+    [
+      barHeight,
+      dragPreviewOverrides,
+      links,
+      liveAnchors,
+      preparedConnectionArcs,
+      visibleRows,
+    ],
+  );
 
   const bandMilestones = useMemo(
     () => milestoneBandLayout.blocks.flatMap((block) => block.milestones),
     [milestoneBandLayout],
   );
 
-  const [panSession, setPanSession] = useState(false);
-  const [panning, setPanning] = useState(false);
+  const {
+    panSession,
+    panning,
+    suppressClickRef,
+    beginPan,
+    endPan,
+    commitLinkScrollPan,
+  } = useTimelineChartPan({ onPan });
 
   const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
     linkMode,
@@ -2123,443 +568,48 @@ export function Timeline({
     panTrackActive: panSession,
   });
 
-  const linkArrows = useMemo(() => {
-    return linkPolylines.flatMap((link) => {
-      const hovered =
-        hover.link?.fromId === link.fromId &&
-        hover.link.toId === link.toId;
-      const color = link.broken ? chart.linkBroken : chart.linkOk;
-      const strokeWidth = link.broken ? 1.75 : 1.25;
-      return [
-        <Arrow
-          key={`${link.fromId}-${link.toId}`}
-          points={link.points}
-          stroke={color}
-          fill={color}
-          strokeWidth={hovered ? strokeWidth + 1.5 : strokeWidth}
-          pointerLength={LINK_POINTER_LENGTH}
-          pointerWidth={LINK_POINTER_LENGTH}
-          listening={false}
-        />,
-      ];
-    });
-  }, [chart, hover.link, linkPolylines]);
-
-  const previewPoints = useMemo(() => {
-    if (!linkSourceId || !previewEnd) return null;
-    const from = liveAnchors.get(linkSourceId);
-    if (!from) return null;
-    return linkPoints(
-      from.linkRight,
-      from.y,
-      previewEnd.x,
-      previewEnd.y,
-      barHeight,
-    );
-  }, [barHeight, previewEnd, linkSourceId, liveAnchors]);
-
-  const panRef = useRef<{
-    x: number;
-    y: number;
-    active: boolean;
-    moved: boolean;
-  } | null>(null);
-  const suppressClickRef = useRef(false);
-  const linkClickAtRef = useRef(0);
-  const linkPointerFireRef = useRef<{
-    taskId: ScheduleId;
-    at: number;
-  } | null>(null);
-  const linkPressRef = useRef(false);
-  const linkPressTimerRef = useRef<number | null>(null);
-  const armLinkPress = useCallback(() => {
-    linkPressRef.current = true;
-    if (linkPressTimerRef.current != null) {
-      window.clearTimeout(linkPressTimerRef.current);
-    }
-    linkPressTimerRef.current = window.setTimeout(() => {
-      linkPressRef.current = false;
-      linkPressTimerRef.current = null;
-    }, LINK_DOUBLE_CLICK_MS + 100);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (linkPressTimerRef.current != null) {
-        window.clearTimeout(linkPressTimerRef.current);
-      }
-    };
-  }, []);
-
-  const endPan = useCallback(() => {
-    const pan = panRef.current;
-    panRef.current = null;
-    setPanning(false);
-    setPanSession(false);
-    if (pan?.moved) suppressClickRef.current = true;
-  }, []);
-
-  const beginPan = useCallback((clientX: number, clientY: number) => {
-    suppressClickRef.current = false;
-    panRef.current = {
-      x: clientX,
-      y: clientY,
-      active: true,
-      moved: false,
-    };
-    setPanSession(true);
-  }, []);
-
-  const commitLinkScrollPan = useCallback(
-    (startX: number, startY: number, currentX: number, currentY: number) => {
-      suppressClickRef.current = true;
-      panRef.current = {
-        x: currentX,
-        y: currentY,
-        active: true,
-        moved: true,
-      };
-      setPanSession(true);
-      setPanning(true);
-      onPan(currentX - startX, currentY - startY);
-    },
-    [onPan],
+  const previewPoints = useMemo(
+    () =>
+      buildTimelineLinkPreviewPoints({
+        linkSourceId,
+        previewEnd,
+        liveAnchors,
+        barHeight,
+      }),
+    [barHeight, linkSourceId, liveAnchors, previewEnd],
   );
 
-  const linkGestureRef = useRef<{
-    pointerId: number | null;
-    startX: number;
-    startY: number;
-    surface: LinkModePressSurface;
-    taskId: ScheduleId | null;
-    button: LinkModePointerButton;
-    scrollCommitted: boolean;
-    useMouse: boolean;
-  } | null>(null);
-  const endLinkGestureListenersRef = useRef<(() => void) | null>(null);
-
-  const clearLinkGesture = useCallback(() => {
-    endLinkGestureListenersRef.current?.();
-    endLinkGestureListenersRef.current = null;
-    linkGestureRef.current = null;
-  }, []);
-
-  const taskIdAtChartClient = useCallback(
-    (clientX: number, clientY: number): ScheduleId | null => {
-      const body = bodyRef.current?.getBoundingClientRect();
-      if (!body) return null;
-      const pos = { x: clientX - body.left, y: clientY - body.top };
-      const hit = hitTaskAnchor(pos, liveAnchors, barHeight, {
-        linkMode: true,
-        selectedTaskId,
-      });
-      return hit?.taskId ?? null;
-    },
-    [barHeight, bodyRef, liveAnchors, selectedTaskId],
-  );
-
-  const fireLinkTargetClick = useCallback(
-    (taskId: ScheduleId) => {
-      armLinkPress();
-      const now = performance.now();
-      if (now - linkClickAtRef.current < 50) return;
-      linkClickAtRef.current = now;
-      linkPointerFireRef.current = { taskId, at: now };
-      suppressClickRef.current = true;
-      onLinkTargetClick(taskId);
-    },
-    [armLinkPress, onLinkTargetClick],
-  );
-
-  const shouldFireLinkPointerClick = useCallback(
-    (taskId: ScheduleId, evt: MouseEvent | PointerEvent) => {
-      if (evt instanceof MouseEvent && evt.detail > 1) return false;
-      const last = linkPointerFireRef.current;
-      if (
-        last?.taskId === taskId &&
-        performance.now() - last.at < LINK_DOUBLE_CLICK_MS
-      ) {
-        return false;
-      }
-      return true;
-    },
-    [],
-  );
-
-  const beginLinkGesture = useCallback(
-    (params: {
-      pointerId: number | null;
-      clientX: number;
-      clientY: number;
-      surface: LinkModePressSurface;
-      taskId: ScheduleId | null;
-      button: LinkModePointerButton;
-      useMouse: boolean;
-    }) => {
-      clearLinkGesture();
-      if (params.surface === "taskBar") {
-        armLinkPress();
-      }
-      linkGestureRef.current = {
-        pointerId: params.pointerId,
-        startX: params.clientX,
-        startY: params.clientY,
-        surface: params.surface,
-        taskId: params.taskId,
-        button: params.button,
-        scrollCommitted: false,
-        useMouse: params.useMouse,
-      };
-
-      const finishGesture = (
-        clientX: number,
-        clientY: number,
-        phase: "move" | "release",
-        evt?: MouseEvent | PointerEvent,
-      ) => {
-        const g = linkGestureRef.current;
-        if (!g) return;
-        const distance = Math.hypot(clientX - g.startX, clientY - g.startY);
-        const releaseOnSameTaskBar =
-          g.taskId != null && taskIdAtChartClient(clientX, clientY) === g.taskId;
-        const resolution = resolveLinkModeGesture({
-          phase,
-          distancePx: distance,
-          surface: g.surface,
-          button: g.button,
-          releaseOnSameTaskBar,
-          scrollCommitted: g.scrollCommitted,
-        });
-        if (phase === "move") {
-          if (resolution.kind === "scroll" && !g.scrollCommitted) {
-            g.scrollCommitted = true;
-            commitLinkScrollPan(g.startX, g.startY, clientX, clientY);
-          }
-          return;
-        }
-        const scrollCommitted = g.scrollCommitted;
-        const taskId = g.taskId;
-        clearLinkGesture();
-        if (scrollCommitted) {
-          endPan();
-          return;
-        }
-        if (
-          resolution.kind === "linkClick" &&
-          taskId != null &&
-          evt != null &&
-          shouldFireLinkPointerClick(taskId, evt)
-        ) {
-          fireLinkTargetClick(taskId);
-        }
-      };
-
-      const onPointerMove = (evt: PointerEvent) => {
-        const g = linkGestureRef.current;
-        if (!g || g.useMouse || evt.pointerId !== g.pointerId) return;
-        finishGesture(evt.clientX, evt.clientY, "move");
-      };
-      const onPointerUp = (evt: PointerEvent) => {
-        const g = linkGestureRef.current;
-        if (!g || g.useMouse || evt.pointerId !== g.pointerId) return;
-        finishGesture(evt.clientX, evt.clientY, "release", evt);
-      };
-      const onPointerCancel = (evt: PointerEvent) => {
-        const g = linkGestureRef.current;
-        if (!g || g.useMouse || evt.pointerId !== g.pointerId) return;
-        const scrollCommitted = g.scrollCommitted;
-        clearLinkGesture();
-        if (scrollCommitted) endPan();
-      };
-      const onMouseMove = (evt: MouseEvent) => {
-        const g = linkGestureRef.current;
-        if (!g || !g.useMouse) return;
-        finishGesture(evt.clientX, evt.clientY, "move");
-      };
-      const onMouseUp = (evt: MouseEvent) => {
-        const g = linkGestureRef.current;
-        if (!g || !g.useMouse) return;
-        finishGesture(evt.clientX, evt.clientY, "release", evt);
-      };
-
-      if (params.useMouse) {
-        window.addEventListener("mousemove", onMouseMove);
-        window.addEventListener("mouseup", onMouseUp);
-        endLinkGestureListenersRef.current = () => {
-          window.removeEventListener("mousemove", onMouseMove);
-          window.removeEventListener("mouseup", onMouseUp);
-        };
-      } else {
-        window.addEventListener("pointermove", onPointerMove);
-        window.addEventListener("pointerup", onPointerUp);
-        window.addEventListener("pointercancel", onPointerCancel);
-        endLinkGestureListenersRef.current = () => {
-          window.removeEventListener("pointermove", onPointerMove);
-          window.removeEventListener("pointerup", onPointerUp);
-          window.removeEventListener("pointercancel", onPointerCancel);
-        };
-      }
-    },
-    [
-      armLinkPress,
-      clearLinkGesture,
-      commitLinkScrollPan,
-      endPan,
-      fireLinkTargetClick,
-      shouldFireLinkPointerClick,
-      taskIdAtChartClient,
-    ],
-  );
-
-  const linkBarPointerDown = useCallback(
-    (e: Konva.KonvaEventObject<PointerEvent>, taskId: ScheduleId) => {
-      if (!linkMode) return;
-      const panOnly = e.evt.button === 1 || spacePanArmed;
-      if (e.evt.button !== 0 && e.evt.button !== 1) return;
-      e.cancelBubble = true;
-      const button: LinkModePointerButton = panOnly
-        ? e.evt.button === 1
-          ? "middle"
-          : "spacePan"
-        : "primary";
-      beginLinkGesture({
-        pointerId: e.evt.pointerId,
-        clientX: e.evt.clientX,
-        clientY: e.evt.clientY,
-        surface: "taskBar",
-        taskId,
-        button,
-        useMouse: false,
-      });
-    },
-    [beginLinkGesture, linkMode, spacePanArmed],
-  );
-
-  const onBodyMouseDown = useCallback(
-    (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const panOnly = e.evt.button === 1 || spacePanArmed;
-      if (e.evt.button !== 0 && e.evt.button !== 1) return;
-      const pos = e.target.getStage()?.getPointerPosition();
-      if (pos != null && resizeHitAt(pos) != null && !linkMode) return;
-      const target = e.target;
-      const overTaskBar =
-        target.name() === "task-bar" || target.findAncestor(".task-bar");
-      if (linkMode && overTaskBar) {
-        return;
-      }
-      if (
-        !panOnly &&
-        overTaskBar
-      ) {
-        return;
-      }
-      if (!panOnly && (e.evt.metaKey || e.evt.ctrlKey)) return;
-      if (linkMode) {
-        const button: LinkModePointerButton = panOnly
-          ? e.evt.button === 1
-            ? "middle"
-            : "spacePan"
-          : "primary";
-        beginLinkGesture({
-          pointerId: null,
-          clientX: e.evt.clientX,
-          clientY: e.evt.clientY,
-          surface: "chartEmpty",
-          taskId: null,
-          button,
-          useMouse: true,
-        });
-        return;
-      }
-      suppressClickRef.current = false;
-      beginPan(e.evt.clientX, e.evt.clientY);
-    },
-    [
-      beginLinkGesture,
-      beginPan,
-      linkMode,
-      resizeHitAt,
-      spacePanArmed,
-    ],
-  );
-
-  useEffect(() => {
-    if (!linkMode) {
-      clearLinkGesture();
-      endPan();
-    }
-  }, [clearLinkGesture, endPan, linkMode]);
-
-  const panDeltaRef = useRef({ dx: 0, dy: 0 });
-  const panRafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!panSession) return;
-    const flushPan = () => {
-      panRafRef.current = null;
-      const { dx, dy } = panDeltaRef.current;
-      if (dx === 0 && dy === 0) return;
-      panDeltaRef.current = { dx: 0, dy: 0 };
-      onPan(dx, dy);
-    };
-    const onMove = (evt: MouseEvent) => {
-      const pan = panRef.current;
-      if (!pan?.active) return;
-      const dx = evt.clientX - pan.x;
-      const dy = evt.clientY - pan.y;
-      if (!pan.moved && Math.hypot(dx, dy) < CHART_PAN_THRESHOLD_PX) return;
-      pan.moved = true;
-      pan.x = evt.clientX;
-      pan.y = evt.clientY;
-      setPanning(true);
-      panDeltaRef.current.dx += dx;
-      panDeltaRef.current.dy += dy;
-      if (panRafRef.current == null) {
-        panRafRef.current = window.requestAnimationFrame(flushPan);
-      }
-    };
-    const onUp = () => {
-      if (panRafRef.current != null) {
-        window.cancelAnimationFrame(panRafRef.current);
-        panRafRef.current = null;
-        flushPan();
-      }
-      endPan();
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      if (panRafRef.current != null) {
-        window.cancelAnimationFrame(panRafRef.current);
-        panRafRef.current = null;
-      }
-    };
-  }, [endPan, onPan, panSession]);
+  const { linkBarPointerDown, onBodyMouseDown, linkPressRef } =
+    useTimelineLinkGesture({
+    linkMode,
+    bodyRef,
+    liveAnchors,
+    barHeight,
+    selectedTaskId,
+    spacePanArmed,
+    onLinkTargetClick,
+    suppressClickRef,
+    beginPan,
+    endPan,
+    commitLinkScrollPan,
+    resizeHitAt,
+  });
 
   return (
     <div className="timeline">
-      <div className="timeline-header">
-        <Stage
-          width={width}
-          height={headerHeight}
-          onWheel={onWheelHeader}
-          onContextMenu={(e) => {
-            e.evt.preventDefault();
-            if (linkMode) return;
-            const pos = e.target.getStage()?.getPointerPosition();
-            if (!pos) return;
-            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-          }}
-        >
-          <Layer>{headerContent}</Layer>
-        </Stage>
-      </div>
-      {scheduleBodyVisible && milestoneBandHeight > 0 ? (
+      <TimelineHeaderPanel
+        width={width}
+        headerHeight={headerHeight}
+        headerContent={headerContent}
+        linkMode={linkMode}
+        explanationActive={explanationActive}
+        colorScheme={colorScheme}
+        headerHoles={explanationOverlayGeometry?.headerHoles ?? []}
+        headerBalloons={explanationOverlayGeometry?.headerBalloons ?? []}
+        onWheelHeader={onWheelHeader}
+        onAddMilestoneContextMenu={onAddMilestoneContextMenu}
+      />
+      {milestoneBandHeight > 0 ? (
         <MilestoneBand
           bandLayout={milestoneBandLayout}
           width={width}
@@ -2574,15 +624,31 @@ export function Timeline({
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onContextMenu={onMilestoneContextMenu}
+          onToggleGuideLine={onToggleMilestoneGuideLine}
           onEmptyContextMenu={onAddMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
-          colorScheme={colorScheme}
           onHoverMilestone={onHoverMilestone}
+          milestoneGuideLineIds={milestoneGuideLineIds}
           diffMarkedMilestoneId={diffMarkedMilestoneId}
           diffMarkStrokeWidth={diffMarkStrokeWidth}
+          {...buildTimelineMilestoneBandExplanationProps({
+            active: explanationActive,
+            milestoneHoles: explanationOverlayGeometry?.milestoneHoles,
+            colorScheme,
+            trialMilestones: explanationTrialMilestones,
+            milestoneIdsWithTrialMove,
+          })}
         />
       ) : null}
+      <TimelineMilestoneExplanationBalloons
+        active={explanationActive}
+        milestoneBandHeight={milestoneBandHeight}
+        headerHeight={headerHeight}
+        width={width}
+        uiScale={uiScale}
+        geometry={explanationOverlayGeometry}
+      />
       <MilestoneHoverOverlay
         hover={milestoneHover}
         bandTopPx={headerHeight}
@@ -2595,339 +661,77 @@ export function Timeline({
         className={`timeline-body${linkMode ? " linking" : ""}${panning ? " panning" : ""}`}
         ref={bodyRef}
       >
-        <Stage
+        <TimelineChartBodyStage
           width={width}
-          height={bodyHeight}
-          onWheel={onWheelBody}
-          onMouseDown={onBodyMouseDown}
-          onMouseUp={endPan}
-          onContextMenu={(e) => {
-            e.evt.preventDefault();
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (!pos) return;
-            if (resizeHitAt(pos) != null) return;
-            if (pos.y < sticky.clipTop) {
-              if (linkMode) return;
-              onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-              return;
-            }
-            const overTask =
-              hitTaskAnchor(pos, liveAnchors, barHeight, {
-                linkMode,
-                selectedTaskId,
-              }) != null;
-            if (overTask) return;
-            const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
-            if (hit) {
-              onLinkContextMenu(hit.fromId, hit.toId, e.evt.clientX, e.evt.clientY);
-              return;
-            }
-            if (linkMode) return;
-            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-          }}
-          onClick={(e) => {
-            if (linkMode) return;
-            // Konva は右ボタンの mouseup でも click を出す。右クリックは選択を外さない。
-            if (e.evt.button !== 0) return;
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              return;
-            }
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (pos != null && resizeHitAt(pos) != null) return;
-            if (e.target === stage) onClearSelection();
-          }}
-          onTap={(e) => {
-            if (linkMode) return;
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (pos != null && resizeHitAt(pos) != null) return;
-            if (e.target === stage) onClearSelection();
-          }}
-        >
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {bgContent}
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {linkArrows}
-            </Group>
-          </Layer>
-          <Layer>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            >
-            {hover.hoverTaskId != null &&
-            hover.hoverTaskId !== selectedTaskId &&
-            visibleRows.find(
-              (row) =>
-                row.type === "task" && row.task.id === hover.hoverTaskId,
-            ) ? (
-              <Rect
-                key={`hover-row-${hover.hoverTaskId}`}
-                x={0}
-                y={
-                  (
-                    visibleRows.find(
-                      (row) =>
-                        row.type === "task" &&
-                        row.task.id === hover.hoverTaskId,
-                    )!
-                  ).y - scrollY
-                }
-                width={width}
-                height={rowHeight}
-                fill={cssPalette.hoverRow}
-                listening={false}
-              />
-            ) : null}
-            {multiSelectedRows.map((row) =>
-              row.type === "task" ? (
-                <Rect
-                  key={`selected-row-${row.task.id}`}
-                  x={0}
-                  y={row.y - scrollY}
-                  width={width}
-                  height={rowHeight}
-                  fill={cssPalette.selectedRow}
-                  listening={false}
-                />
-              ) : null,
-            )}
-            {visibleRows.map((row, index) => {
-              if (row.type === "task" || stickyHidden.has(index)) return null;
-              const y = row.y - scrollY;
-              if (y + rowHeight < 0 || y > bodyHeight) return null;
-              if (row.summary == null) return null;
-              return (
-                <SummaryBar
-                  key={`${row.type}-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}
-                  summary={row.summary}
-                  y={y}
-                  rowHeight={rowHeight}
-                  barHeight={barHeight}
-                  dateToX={dateToX}
-                  chart={chart}
-                />
-              );
-            })}
-            {visibleRows.map((row) => {
-              if (row.type !== "task") return null;
-              const y = row.y - scrollY;
-              if (y + rowHeight < 0 || y > bodyHeight) return null;
-              return (
-                <TaskBar
-                  key={row.task.id}
-                  task={row.task}
-                  y={y}
-                  rowHeight={rowHeight}
-                  barHeight={barHeight}
-                  pxPerDay={pxPerDay}
-                  dateToX={dateToX}
-                  exceeded={milestonesExceededBy(row.task, milestones)}
-                  selected={selectedTaskIds.has(row.task.id)}
-                  selectedTaskIds={selectedTaskIds}
-                  allowResizeEdges={
-                    !selectedTaskIds.has(row.task.id) ||
-                    selectedTaskIds.size <= 1
-                  }
-                  linkMode={linkMode}
-                  linkTarget={
-                    linkMode &&
-                    hover.hoverTaskId === row.task.id &&
-                    row.task.id !== linkSourceId
-                  }
-                  onLinkBarPointerDown={linkBarPointerDown}
-                  onSelect={(e) => {
-                    if (suppressClickRef.current) {
-                      suppressClickRef.current = false;
-                      return;
-                    }
-                    if (linkMode) return;
-                    onSelectTask(row.task.id, {
-                      shiftKey: e.evt.shiftKey,
-                      metaKey: e.evt.metaKey,
-                      ctrlKey: e.evt.ctrlKey,
-                    });
-                  }}
-                  onOpenEdit={() => {
-                    if (linkPressRef.current) return;
-                    onOpenEdit(row.task);
-                  }}
-                  onContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
-                  onMoveTask={(delta, taskIds) =>
-                    onMoveTask(row.task.id, delta, taskIds)
-                  }
-                  onResizeStart={(groupX) =>
-                    onResizeStart(row.task.id, groupX)
-                  }
-                  onResizeEnd={(groupX, barWidth) =>
-                    onResizeEnd(row.task.id, groupX, barWidth)
-                  }
-                  onDragGeometry={onDragGeometry}
-                  onBeginPan={beginPan}
-                  panScrollArmed={spacePanArmed}
-                  onDragMoved={() => {
-                    suppressClickRef.current = true;
-                  }}
-                  registerDragCancel={registerDragCancel}
-                  chart={chart}
-                  dragLeft={
-                    dragPreviews?.find(
-                      (preview) =>
-                        preview.taskId === row.task.id &&
-                        preview.kind !== "move",
-                    )?.barLeft
-                  }
-                  dragWidth={
-                    dragPreviews?.find(
-                      (preview) =>
-                        preview.taskId === row.task.id &&
-                        preview.kind !== "move",
-                    )?.barWidth
-                  }
-                  today={today}
-                  memberCatalog={memberCatalog}
-                  colorScheme={colorScheme}
-                  tier={tier}
-                />
-              );
-            })}
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {previewPoints ? (
-                <Arrow
-                  points={previewPoints}
-                  stroke={chart.linkOk}
-                  fill={chart.linkOk}
-                  strokeWidth={1.25}
-                  pointerLength={LINK_POINTER_LENGTH}
-                  pointerWidth={LINK_POINTER_LENGTH}
-                  listening={false}
-                />
-              ) : null}
-            </Group>
-          </Layer>
-          {scheduleBodyVisible ? (
-            <>
-              <Layer listening={false}>
-                <Group
-                  clipX={0}
-                  clipY={sticky.clipTop}
-                  clipWidth={width}
-                  clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-                  listening={false}
-                >
-                  <Line
-                    points={[
-                      dateToX(todayDate),
-                      sticky.clipTop,
-                      dateToX(todayDate),
-                      bodyHeight,
-                    ]}
-                    stroke={cssPalette.accent}
-                    strokeWidth={1}
-                    opacity={0.85}
-                    listening={false}
-                  />
-                </Group>
-              </Layer>
-              <Layer listening={false}>
-                <Group
-                  clipX={0}
-                  clipY={sticky.clipTop}
-                  clipWidth={width}
-                  clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-                  listening={false}
-                >
-                  {showLightningLine ? (
-                    <Line
-                      points={lightningPoints}
-                      stroke={chart.lightning}
-                      strokeWidth={1.5}
-                      opacity={0.55}
-                      lineJoin="round"
-                      lineCap="round"
-                      listening={false}
-                    />
-                  ) : null}
-                </Group>
-              </Layer>
-            </>
-          ) : null}
-          <Layer>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            >
-            {selectedRow && selectedRow.type === "task" && !linkMode ? (
-              <ResizeHandles
-                key={selectedRow.task.id}
-                task={selectedRow.task}
-                y={selectedRow.y - scrollY}
-                rowHeight={rowHeight}
-                barHeight={barHeight}
-                pxPerDay={pxPerDay}
-                dateToX={dateToX}
-                onResizeStart={(groupX) =>
-                  onResizeStart(selectedRow.task.id, groupX)
-                }
-                onResizeEnd={(groupX, barWidth) =>
-                  onResizeEnd(selectedRow.task.id, groupX, barWidth)
-                }
-                onDragGeometry={onDragGeometry}
-                registerDragCancel={registerDragCancel}
-                chart={chart}
-              />
-            ) : null}
-            {dragPreviews?.map((preview) => (
-              <DragDateLabels
-                key={preview.taskId}
-                preview={preview}
-                fontSize={dateFontSize}
-                padX={datePadX}
-                padY={datePadY}
-                gap={dateGap}
-                viewportWidth={width}
-                viewportHeight={bodyHeight}
-                barHeight={barHeight}
-                obstacles={dragObstacles}
-                chart={chart}
-              />
-            ))}
-            </Group>
-            {stickyContent}
-          </Layer>
-        </Stage>
+          bodyHeight={bodyHeight}
+          onWheelBody={onWheelBody}
+          onBodyMouseDown={onBodyMouseDown}
+          endPan={endPan}
+          resizeHitAt={resizeHitAt}
+          sticky={sticky}
+          linkMode={linkMode}
+          onAddMilestoneContextMenu={onAddMilestoneContextMenu}
+          liveAnchors={liveAnchors}
+          barHeight={barHeight}
+          selectedTaskId={selectedTaskId}
+          linkPolylines={linkPolylines}
+          onLinkContextMenu={onLinkContextMenu}
+          suppressClickRef={suppressClickRef}
+          onClearSelection={onClearSelection}
+          bgContent={bgContent}
+          hover={hover}
+          visibleRows={visibleRows}
+          scrollY={scrollY}
+          rowHeight={rowHeight}
+          cssPalette={cssPalette}
+          multiSelectedRows={multiSelectedRows}
+          milestones={milestones}
+          selectedTaskIds={selectedTaskIds}
+          linkSourceId={linkSourceId}
+          linkBarPointerDown={linkBarPointerDown}
+          onSelectTask={onSelectTask}
+          linkPressRef={linkPressRef}
+          onOpenEdit={onOpenEdit}
+          onTaskContextMenu={onTaskContextMenu}
+          onMoveTask={onMoveTask}
+          onResizeStart={onResizeStart}
+          onResizeEnd={onResizeEnd}
+          onDragGeometry={onDragGeometry}
+          beginPan={beginPan}
+          spacePanArmed={spacePanArmed}
+          registerDragCancel={registerDragCancel}
+          chart={chart}
+          dragPreviews={dragPreviews}
+          today={today}
+          statuses={statuses}
+          memberCatalog={memberCatalog}
+          colorScheme={colorScheme}
+          tier={tier}
+          preparedConnectionArcs={preparedConnectionArcs}
+          previewPoints={previewPoints}
+          bodyGuideLineMilestones={bodyGuideLineMilestones}
+          dateToX={dateToX}
+          todayDate={todayDate}
+          showLightningLine={showLightningLine}
+          lightningPoints={lightningPoints}
+          selectedRow={selectedRow}
+          stickyContent={stickyContent}
+          stickyHidden={stickyHidden}
+          dateFontSize={dateFontSize}
+          datePadX={datePadX}
+          datePadY={datePadY}
+          dateGap={dateGap}
+          dragObstacles={dragObstacles}
+          pxPerDay={pxPerDay}
+          explanationActive={explanationActive}
+          explanationOverlayGeometry={explanationOverlayGeometry}
+          explanationTrialBars={explanationTrialBars}
+          explanationTrialPredecessorArcs={explanationTrialPredecessorArcs}
+        />
+        <TimelineBodyExplanationBalloons
+          active={explanationActive}
+          geometry={explanationOverlayGeometry}
+        />
       </div>
     </div>
   );

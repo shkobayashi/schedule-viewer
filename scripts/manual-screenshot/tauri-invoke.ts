@@ -5,12 +5,47 @@ type OpenPick = { path: string; contents: string };
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
 
+const DISK_GLOBAL_KEY = "__manualScreenshotOpenScheduleDisk";
+
+function syncDiskGlobal(contents: string | null): void {
+  if (typeof window === "undefined") return;
+  const globalStore = window as unknown as Record<string, unknown>;
+  if (contents == null) {
+    delete globalStore[DISK_GLOBAL_KEY];
+    return;
+  }
+  globalStore[DISK_GLOBAL_KEY] = contents;
+}
+
+function resolveDiskContents(): string | null {
+  if (openScheduleDiskContents != null) return openScheduleDiskContents;
+  if (typeof window === "undefined") return null;
+  const shared = (window as unknown as Record<string, unknown>)[DISK_GLOBAL_KEY];
+  if (typeof shared === "string") {
+    openScheduleDiskContents = shared;
+    return shared;
+  }
+  return null;
+}
+const memberCatalogBodies = new Map<string, string>();
+let selectedMemberCatalogId: string | null = null;
+const statusCatalogBodies = new Map<string, string>();
+let selectedStatusCatalogId: string | null = null;
+const colorCatalogBodies = new Map<string, string>();
+let selectedColorCatalogId: string | null = null;
+
 export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
   pendingOpenPick = pick;
 }
 
 export function setManualScreenshotDiskContents(contents: string | null): void {
   openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
+}
+
+function rememberOpenSchedule(contents: string): void {
+  openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
 }
 
 const MANUAL_SCREENSHOT_EXE_PATH =
@@ -35,6 +70,12 @@ export async function manualScreenshotInvoke(
       return null;
     case "register_window_focus":
       return null;
+    case "read_focused_window_label":
+      return "main";
+    case "is_store_distribution":
+      return false;
+    case "report_external_schedule_drop_ready":
+      return null;
     case "unregister_window_session":
       return null;
     case "read_schedule_recovery":
@@ -44,6 +85,112 @@ export async function manualScreenshotInvoke(
     case "read_last_schedule_file":
       return null;
     case "clear_last_schedule_path":
+      return null;
+    case "get_members_settings":
+      return {
+        selectedCatalogId: selectedMemberCatalogId,
+        catalogs: [...memberCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_member_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        memberCatalogBodies.set(catalogId, contents);
+        if (selectedMemberCatalogId == null) {
+          selectedMemberCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_member_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return memberCatalogBodies.get(catalogId) ?? null;
+    }
+    case "delete_member_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      memberCatalogBodies.delete(catalogId);
+      if (selectedMemberCatalogId === catalogId) {
+        selectedMemberCatalogId = null;
+      }
+      return null;
+    }
+    case "set_selected_member_catalog": {
+      const catalogId = args.catalogId;
+      selectedMemberCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "get_statuses_settings":
+      return {
+        selectedCatalogId: selectedStatusCatalogId,
+        catalogs: [...statusCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_status_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        statusCatalogBodies.set(catalogId, contents);
+        if (selectedStatusCatalogId == null) {
+          selectedStatusCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_status_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return statusCatalogBodies.get(catalogId) ?? null;
+    }
+    case "set_selected_status_catalog": {
+      const catalogId = args.catalogId;
+      selectedStatusCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "get_colors_settings":
+      return {
+        selectedCatalogId: selectedColorCatalogId,
+        catalogs: [...colorCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_color_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        colorCatalogBodies.set(catalogId, contents);
+        if (selectedColorCatalogId == null) {
+          selectedColorCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_color_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return colorCatalogBodies.get(catalogId) ?? null;
+    }
+    case "set_selected_color_catalog": {
+      const catalogId = args.catalogId;
+      selectedColorCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "release_field_extension_edit":
+      return null;
+    case "get_field_extensions_settings":
+      return { selectedCatalogIds: [], catalogs: [] };
+    case "get_calendar_state":
+      return { label: null };
+    case "read_recent_files":
+      return { schedules: [], workspaces: [] };
+    case "clear_recent_files":
+      return { schedules: [], workspaces: [] };
+    case "record_recent_files":
+      return args.store ?? { schedules: [], workspaces: [] };
+    case "read_app_calendar":
       return null;
     case "read_schedule_filter":
       return null;
@@ -68,7 +215,7 @@ export async function manualScreenshotInvoke(
     }
     case "accept_opened_schedule":
       if (typeof args.contents === "string") {
-        openScheduleDiskContents = args.contents;
+        rememberOpenSchedule(args.contents);
       }
       return null;
     case "acknowledge_schedule_file_contents":
@@ -77,19 +224,52 @@ export async function manualScreenshotInvoke(
       return null;
     case "check_schedule_file_changed":
       return false;
-    case "read_open_schedule_file":
-      if (openScheduleDiskContents == null) {
+    case "save_schedule_file": {
+      const saveAs = Boolean(args.saveAs);
+      const contents = String(args.contents ?? "");
+      const suggested = String(args.suggestedName ?? "schedule.json");
+      const expectedPath =
+        typeof args.expectedPath === "string" && args.expectedPath.length > 0
+          ? args.expectedPath
+          : null;
+      const path =
+        saveAs || expectedPath == null
+          ? `/Users/example/Documents/${suggested.endsWith(".json") ? suggested : `${suggested}.json`}`
+          : expectedPath;
+      rememberOpenSchedule(contents);
+      return path;
+    }
+    case "save_schedule_at_path": {
+      const path = String(args.path ?? "");
+      const contents = String(args.contents ?? "");
+      rememberOpenSchedule(contents);
+      return path;
+    }
+    case "read_open_schedule_file": {
+      const disk = resolveDiskContents();
+      if (disk == null) {
         throw new Error("開いているスケジュールファイルがありません");
       }
-      return openScheduleDiskContents;
+      return disk;
+    }
     case "read_members_app_data":
     case "write_members_app_data":
     case "read_calendar_app_data":
     case "write_calendar_app_data":
       return null;
+    case "json_skill_home_dirs":
+      return { cursor: true, claude: true, copilot: true };
     case "install_json_skills":
+      return {
+        installedPaths: ["/mock/skills/write-schedule"],
+        existingPaths: [],
+        claudeUserShadows: [],
+      };
     case "remove_json_skills":
-      return null;
+      return {
+        removedPaths: [],
+        missingPaths: [],
+      };
     case "export_schedule_html":
     case "export_schedule_svg":
       return null;

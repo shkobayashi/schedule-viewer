@@ -1,6 +1,6 @@
 # データ仕様
 
-スケジュール、メンバー、稼働日カレンダーの JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
+スケジュール、メンバー、ステータス一覧、色の一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
 
 スキーマファイルは `scripts/` と CI がパスを直接参照している。場所は変えない。
 
@@ -10,21 +10,24 @@
 | --- | --- | --- |
 | スケジュール JSON | LLM のスキル、またはアプリの「保存」「別名保存」 | 利用者が選んだパス。アプリはパスをスケジュールの中に書かない |
 | メンバー JSON | 利用者が用意し、設定の「メンバー」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
+| ステータス一覧 JSON | 利用者が用意し、設定の「ステータス」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
+| 色の一覧 JSON | 利用者が用意し、設定の「色」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | 稼働日カレンダー JSON | 利用者が用意し、設定の「稼働日」から取り込む | 取り込み後はアプリデータに1件。スケジュール JSON には含めない |
+| 拡張項目 JSON | 利用者が用意し、設定の「拡張項目」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には定義を写さない。値は `fieldValues` に `プラグインID_項目ID` で書く |
 | HTML / SVG | アプリの「書き出し」 | 利用者が選んだパス、またはブラウザのダウンロード |
 | アプリデータ | アプリだけ | 下の「アプリデータ」 |
 
 画面の絞り込み、折りたたみ、ズーム、系統、選択、取り消し履歴は、どの JSON にも書かない。
 
-## スケジュール JSON（schemaVersion 7）
+## スケジュール JSON（schemaVersion 8）
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
-ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` だけを持つ。知らないプロパティは拒否する。
+ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones` を必ず持つ。タスクの入れ子は `categories` か、任意の `levels` と `outline` の組み合わせで書く。知らないプロパティは拒否する。
 
 ```json
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "title": "プロジェクト名",
   "milestoneGroups": [{ "id": "<uuid>", "name": "マイルストン" }],
   "milestones": [{ "id": "<uuid>", "name": "要件確定", "date": "2026-04-01", "confidence": "committed", "groupId": "<milestone-group-uuid>" }],
@@ -53,53 +56,107 @@
 
 | フィールド | 内容 |
 | --- | --- |
-| `schemaVersion` | `7` 固定 |
+| `schemaVersion` | `8` 固定 |
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `categories` | 1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
+| `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
 | `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
 | `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
 | `name` | 1文字以上。空白だけは不可 |
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
-| `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
-| `status` | `not-started`、`in-progress`、`done` のいずれか |
-| `progress` | 0 以上 100 以下の整数 |
+| `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。一人は id の文字列（読み込みでは要素1つの配列も可）。二人以上は、入れた順の id の配列（同じ id は1回だけ）。空の配列は不可。保存では一人は文字列、二人以上は配列。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
+| `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
+| `colorId` | 任意。使用中の色の一覧の `id`。設定ファイルで開いているウィンドウではその `colors` のパス先の一覧、それ以外ではアプリデータで選んだ一覧の `id` だけを書く。色なしはキーを書かない。空白だけは拒否する。色の値はスケジュール JSON に書かない。保存では `status` の直後に置く |
+| `progress` | 0 以上 100 以下の整数。`todos` が無いタスクは手で置く。`todos` があるタスクは、読み込みと保存のたびに済んだ件数を全体で割った整数（切り捨て、全部済んだときだけ 100）に置き換える |
+| `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
+| `connections` | 任意。1件以上あるときだけ書く。終わってから始まる前後とは別の、2タスク間の繋がり。各要素は `taskIds`（実在タスクの UUID がちょうど2つ。同じ id は不可。並びは方向ではない）と `label`（1文字以上）。同じ2タスクの組は1回だけ。日の前後は見ない。色・太さ・ふくらみは JSON に書かない |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
 | `tags` | 任意。説明用の文字列の配列。各要素は1文字以上。前後の空白だけは不可。同一タスク内で、空白を除いた文字列が重複したら拒否する。大文字小文字は区別する。0件のときはプロパティを書かない |
+| `fieldValues` | 任意。追加項目の値。プロパティ名は使用中の拡張項目の合成キー `プラグインID_項目ID` である。1件以上あるときだけ書く。`text` は1文字以上の文字列（改行不可）。`number` は有限の数値。`date` は実在する `YYYY-MM-DD`。`choice` は `choices` のいずれか。定義に無いキーは開ける。値の型だけ検査し、保存しても消さない。型と必須の検査は、使用中の拡張に一致したキーだけを見る |
 | `note` | 任意。1文字以上。空文字や空白だけはプロパティ自体を書かない |
 
 カテゴリ名は1つのスケジュールの中で重複できない。グループ名は同じカテゴリの中で重複できない。別のカテゴリに同じグループ名があってもよい。名前は表示であり、対応づけは `id` で行う。並び替え用のフィールドはない。配列の順が画面の並びになる。
 
 ### 以前の schemaVersion
 
-開けるのは schemaVersion 3、4、5、6、7 である。
+開けるのは schemaVersion 3、4、5、6、7、8 である。
 
 - schemaVersion 1 の終了日は、その日を含まない書き方（最終日の翌日）だった。読み込むと終了日を1日戻して schemaVersion 2 にする（[src/model/scheduleMigrate.ts](../src/model/scheduleMigrate.ts)）。そのあと schemaVersion 2 として拒否するので、結果として開けない
-- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 7 へ更新するよう求める
-- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 7 にする。既に `confidence` があるタスクはその値のまま検証する
-- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にし、続けて schemaVersion 7 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
-- schemaVersion 5 は開ける。マイルストンが1件以上あるときは、名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンにその `groupId` を付けて schemaVersion 7 にする。そのグループの ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
-- schemaVersion 6 は開ける。タグは無いまま schemaVersion 7 にする
-- 未保存の比較元は、3〜6 を 7 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 7 になる
-- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 7 に上げる
+- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 8 へ更新するよう求める
+- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 8 にする。既に `confidence` があるタスクはその値のまま検証する
+- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にし、続けて schemaVersion 8 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
+- schemaVersion 5 は開ける。マイルストンが1件以上あるときは、名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンにその `groupId` を付けて schemaVersion 8 にする。そのグループの ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
+- schemaVersion 6 は開ける。タグは無いまま schemaVersion 7 にし、続けて schemaVersion 8 にする
+- schemaVersion 7 は開ける。`status` の値は変えず、schemaVersion 8 にする
+- 未保存の比較元は、3〜7 を 8 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 8 になる
+- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 8 に上げる
 
 ## 設定ファイル（workspace、schemaVersion 1）
 
-正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON とカレンダー JSON への相対パスは省略できる。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、色の一覧 JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
 
 ```json
 {
   "schemaVersion": 1,
   "schedule": "plan.json",
   "members": "team.members.json",
-  "calendar": "jp-2026.calendar.json"
+  "statuses": "team.statuses.json",
+  "calendar": "jp-2026.calendar.json",
+  "colors": "team.colors.json",
+  "fieldExtensions": ["risk.fields.json"]
 }
 ```
 
-アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+`colors` を省略したとき、そのウィンドウは行の地を塗らない。アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+
+## 色の一覧 JSON（schemaVersion 1）
+
+正本は [colors.schema.json](colors.schema.json)。意味規則は [src/model/validateColors.ts](../src/model/validateColors.ts) にある。タスクの行とチャートの地を塗るための一覧である。スケジュール JSON には載せない。タスクが持つのは `colorId` だけで、色の値は書かない。
+
+```json
+{
+  "schemaVersion": 1,
+  "colors": [
+    {
+      "id": "focus",
+      "name": "注力",
+      "description": "今いちばん手を付ける作業。",
+      "color": {
+        "light": { "bg": "#FEF3C7" },
+        "dark": { "bg": "#78350F" }
+      }
+    }
+  ]
+}
+```
+
+- `schemaVersion` は `1`
+- `colors` は 1 件以上 8 件まで。配列の順は、詳細パネルと複製と一括の「色」の選択肢の順である
+- `id` は 1 文字以上で、一覧の中で重複しない。作ったあとは変えない
+- `name` は画面に出す名前。空白だけは不可
+- `color` は、ライトとダークのそれぞれで `bg`（行とチャートの地）を `#RRGGBB` で持つ。枠の色は無い
+- `description` は、その `id` を選ぶ状態だけ。空白だけは不可。LLM が `id` を選ぶ手がかりにする。色の名前や十六進は書かない。選んだあとに LLM が守る指示は無い
+- 組み込みの一覧は置かない。未選択のとき、設定ファイルに `colors` が無いとき、読み込みに失敗したときは行の地を塗らない
+
+## 拡張項目 JSON（schemaVersion 1）
+
+正本は [field-extensions.schema.json](field-extensions.schema.json)。意味規則は [src/model/validateFieldExtensions.ts](../src/model/validateFieldExtensions.ts) にある。追加項目の定義はここに書き、スケジュール JSON には載せない。`id` がプラグイン ID である。空白と `_` はプラグイン ID と項目 ID に使えない。値のキーは `プラグインID_項目ID` である。
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "risk",
+  "name": "リスク管理",
+  "fields": [
+    { "id": "score", "name": "点数", "type": "number" }
+  ]
+}
+```
 
 ## メンバー JSON（schemaVersion 1）
 
@@ -109,15 +166,63 @@
 {
   "schemaVersion": 1,
   "members": [
-    { "id": "tanaka", "name": "田中" }
+    { "id": "tanaka", "name": "田中", "description": "バックエンド実装" }
   ]
 }
 ```
 
 - `schemaVersion` は `1`
 - `id` と `name` は1文字以上。空白だけは不可
+- `description` は省略できる。書くときは1文字以上で、空白だけは不可。LLM が担当の `id` を選ぶ材料であり、タスクへコピーしない
 - `id` は配列内で重複できない。`name` は重複してよい。画面では、同じ表示名が複数あるときだけ ID を添える
+- `members` は空の配列でもよい
 - 先頭の UTF-8 BOM は取り込み時に取り除く
+
+## ステータス一覧 JSON（schemaVersion 2）
+
+正本は [statuses.schema.json](statuses.schema.json)。意味規則は [src/model/validateStatuses.ts](../src/model/validateStatuses.ts) にある。タスクの `status` が書く `id` の意味、色、扱いを、チームで共有する一覧に置く。スケジュール JSON には含めない。schemaVersion 1 は取り込み時に 2 へ移す。移し方は [src/model/statusesMigrate.ts](../src/model/statusesMigrate.ts) と同じである。
+
+### schemaVersion 1 から 2 への移し方
+
+項目ごとに `closed` を `role` に置き換える。表示名は見ない。
+
+- `id` が `not-started` なら未着手（`not-started`）
+- `id` が `in-progress` なら着手済み（`started`）
+- `id` が `done` なら完了（`done`）
+- 上記以外で `closed` が true なら完了（`done`）
+- 上記以外で `closed` が false なら着手済み（`started`）
+
+管理外（`unmanaged`）は移行では付けない。利用者が項目に付ける。
+
+読み込みと取り込みの検証では、移した結果を schemaVersion 2 として扱う。ディスク上の JSON を 2 に書き換えるのは、設定の「項目を編集…」で一覧を保存したときだけである。取り込みのたびにファイルを書き換えない。
+
+```json
+{
+  "schemaVersion": 2,
+  "statuses": [
+    {
+      "id": "review",
+      "name": "確認待ち",
+      "color": {
+        "light": { "bg": "#FFF3C4", "border": "#B58900" },
+        "dark": { "bg": "#4a4020", "border": "#d9b43a" }
+      },
+      "role": "started",
+      "description": "作業は終わり、確認を待っている。"
+    }
+  ]
+}
+```
+
+- `statuses` は1件以上。`id` は1文字以上で、一覧の中で重複しない。作ったあとは変えない
+- `name` は画面に出す名前。空白だけは不可
+- `color` は、ライトとダークのそれぞれで `bg`（バーの地）と `border`（バーの枠と、進捗の帯の色）を `#RRGGBB` で持つ。進行中専用の色は無い。進捗の帯は `border` の色で、どのステータスでも進捗率の幅で出す
+- `role` は、未着手（`not-started`）、着手済み（`started`）、完了（`done`）、管理外（`unmanaged`）のいずれか一つ。イナズマ線の折れ位置と期限超過と「完了以外」に使う。同じ `role` の項目は複数あってよい
+- `description` は、その `id` を選ぶ状態だけ。空白だけは不可。LLM が `id` を選ぶ手がかりにする
+- `instruction` は任意。その `id` を選んだあとに LLM が守ること。空白だけのときはキーを書かない
+- 組み込みの三件は `not-started`（未着手）、`in-progress`（進行中、着手済み）、`done`（完了）である。一覧を選んでいないときも、この三件で動く。初回の起動で、この三件を `standard` として取り込んで選ぶ。外したあとは自動では戻さない
+
+期限超過、後続が先行の終了より前に始まること、今日の位置、非稼働日は、アプリが計算して描く。この一覧には含めない。
 
 ## 稼働日カレンダー JSON（schemaVersion 1）
 
@@ -150,7 +255,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、繋がりがあるときだけ `connections` を置き、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は、使用中の拡張項目の定義の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -158,7 +263,7 @@
 
 「書き出し」は、絞り込み・折りたたみ・系統のあとで見えている行を、単一の HTML または SVG にする。チャートはどちらも SVG で、画面の Canvas を撮ったものではない。生成は [src/model/exportHtml.ts](../src/model/exportHtml.ts) と [src/model/exportView.ts](../src/model/exportView.ts) で行う。
 
-入るものは、見えている行の名前、タスクバー、カテゴリとグループの親バー、前後の線、イナズマ線、非稼働日、マイルストン、使っている絞り込みの一覧である。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
+入るものは、見えている行の名前、タスクバー、見出し行の親バー（定義の無いカテゴリとグループ、および `levels` の見出し）、前後の線、イナズマ線、非稼働日、マイルストン、書き出し時点で画面がオンにしているマイルストンの点線、使っている絞り込みの一覧である。前後ではない繋がりの円弧と言葉は HTML と SVG には入れない。Excel の繋がりは [外部仕様](external-spec.md) の EXPORT-05 を見る。左の名前の縦線と行の地、Excel の字下げは [外部仕様](external-spec.md) の VIEW-01 と EXPORT-02・EXPORT-05 に合わせる。階層の定義の形は [スケジュール JSON](#スケジュール-json) を見る。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
 
 書き出すマイルストンは次のとおりである。
 
@@ -166,7 +271,6 @@
 - 特定のマイルストンで絞っているときは、その1件だけ
 - それ以外は、見えている行が参照しているものと、見えている行の期間に入るもの
 - 帯の線で隠したグループのマイルストンは載せない。期間の端にも使わない。超過の判定には、隠したグループのマイルストンも使う
-- 帯の印で隠したマイルストンは載せない。期間の端にも使わない
 
 提案するファイル名は、タイトルから使えない文字を除いた本体に `.html` または `.svg` を付ける。タイトルが空、または Windows の予約名だけなら `schedule` を使う。
 
@@ -184,11 +288,14 @@
 
 | パス | 内容 | 上限 |
 | --- | --- | --- |
-| `settings.json` | `selectedMembersCatalogId` と `calendarLabel`。どちらも無くてよい | — |
+| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedColorsCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
+| `field-extensions/<catalogId>.json` | 取り込んだ拡張項目 JSON の本文 | 2MB |
+| `statuses/<catalogId>.json` | 取り込んだステータス一覧 JSON の本文 | 2MB |
+| `colors/<catalogId>.json` | 取り込んだ色の一覧 JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
-| `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1）、`path`、絞り込みの各値、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id の配列、帯の印をオフにしたマイルストンの id の配列、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。`hiddenMilestoneIds` と折りたたみの配列が無い古いファイルは、それぞれ空として読む | 64KB |
+| `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1 または 2）、`path`、絞り込みの各値（`filters` の中に `fieldFilters` を含む。`version` 1 のファイルは追加項目の条件を持たず、読み込み時は空にする。`version` 2 では `fieldFilters` がオブジェクトでないときは記録全体を初期値にする。オブジェクトのときは、型が合わないキーだけ外し、ほかの条件は戻す）、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id の配列、帯の印をオフにしたマイルストンの id の配列、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。`hiddenMilestoneIds` と折りたたみの配列が無い古いファイルは、それぞれ空として読む | 64KB |
 | `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル。設定ファイルで開いたウィンドウは任意の `workspacePath` を含む | — |
 | `recent-files.json` | `schedules` と `workspaces` の二つの配列。それぞれ最近開いたスケジュールと設定ファイルの絶対パス。新しいものが先頭、各最大 5 件。旧形式の単一配列は `schedules` だけとして読む | 64KB |
 
@@ -201,25 +308,44 @@
 | `schedule-viewer/members/catalogs` | カタログ ID から本文への対応 |
 | `schedule-viewer/members/selected` | 使用中のカタログ ID |
 | `schedule-viewer/members/sample-seeded` | サンプルのメンバーを入れたかどうかの記録 |
+| `schedule-viewer/statuses/catalogs` | ステータス一覧のカタログ ID から本文への対応 |
+| `schedule-viewer/statuses/selected` | 使用中のステータス一覧のカタログ ID |
+| `schedule-viewer/statuses/builtin-seeded` | 組み込みの三件を入れたかどうかの記録 |
+| `schedule-viewer/colors/catalogs` | 色の一覧のカタログ ID から本文への対応 |
+| `schedule-viewer/colors/selected` | 使用中の色の一覧のカタログ ID |
 | `schedule-viewer/calendar/body` | カレンダー JSON の本文 |
 | `schedule-viewer/calendar/label` | カレンダーの表示名 |
 | `schedule-viewer/display-scale` | 表示サイズ。`auto`、`0.5`、`0.75`、`1`、`1.25`、`1.5`、`2` のいずれか |
 | `schedule-viewer/color-scheme` | 配色。`light` または `dark`。システム設定に合わせるときはキーを消す |
 | `schedule-viewer/sidebar-width` | 左一覧の基準幅。表示倍率 1 のときの px。既定の 190 のときはキーを消す |
 | `schedule-viewer/auto-update` | 自動更新。`on` のときだけ起動時に確認する。オフのときはキーを消す |
-| `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、ノートのオンオフ。名前は常に含む |
+| `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、TODO、ノートのオンオフ。名前は常に含む |
+| `schedule-viewer/excel-export-field-columns` | Excel 書き出しの追加項目の列。使用中の定義の合成キーごとのオンオフ。初期はすべてオフ |
 
-表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
+表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、色の一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
 
 ## 検証のしかた
 
-アプリは読み込み前に `validateSchedule`、`validateMembers`、`validateCalendar` を通す。失敗した内容は開かず、エラーは日本語で、場所はカテゴリ、グループ、タスクの名前で示す。
+アプリは読み込み前に `validateSchedule`、`validateMembers`、`validateStatuses`、`validateCalendar` を通す。失敗した内容は開かず、エラーは日本語で、場所はカテゴリ、グループ、タスクの名前で示す。
 
 開発時の確認は次のとおりである。
 
 - `npm run check:schedule` は、引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する
 - `npm run check:calendar` は、引数なしなら [examples/jp-2026.calendar.json](../examples/jp-2026.calendar.json) を検証する
 - `npm run check:members` は、引数なしなら [examples/playground.members.json](../examples/playground.members.json) を検証する
+- `npm run check:statuses` は、引数なしなら [examples/playground.statuses.json](../examples/playground.statuses.json) を検証する
 - 置いたスキルでは、各スキルフォルダで `node scripts/validate-schedule.mjs <file>`、`node scripts/validate-calendar.mjs <file>`、`node scripts/validate-members.mjs <file>` を使う
 
+[examples/review.statuses.json](../examples/review.statuses.json) と [examples/review.schedule.json](../examples/review.schedule.json) は、ステータスの見え方を手で確かめる組である。一覧は既定の三件に「確認待ち」（`review`、着手済み）と、扱いが完了の「中止」（`dropped`）を足してある。スケジュールは、超過の枠、帯の有無、完了の非超過、一覧に無い `id`（`shelved`）、イナズマ線の位置を、今日が 2026-10-23 から 2026-11-01 のあいだに見られるように日付を置いてある。引数なしの `check:statuses` の対象は変えない。
+
+[examples/lightning/workspace.json](../examples/lightning/workspace.json) は、四つの扱いと一覧に無い `id` の折れと赤を、同じ日付で見比べる組である。`schedule.json` と `statuses.json` を指す。一覧は確認用に、確認待ち（着手済み）、中止（完了）、管理外を足してある。スケジュールの開始前は 2026-11-04 から 2026-11-18、期間中は 2026-10-06 から 2026-11-06、終了後は 2026-10-01 から 2026-10-16 である。
+
+今日が 2026-10-23 から 2026-11-01 のあいだなら、折れ先は扱いと期間で決まる。未着手は、開始前が今日、期間中が開始日、終了後が終了日である。着手済みは、開始前が開始日、期間中が今日、終了後が終了日である。確認待ちも同じ位置へ折れる。完了は、開始前と期間中が終了日、終了後が今日である。管理外と一覧に無い `shelved` は、どの期間でも今日である。終了後の着手済みは、進捗 20 と 80 で折れ先が同じである。
+
+枠が赤くなるのは、終了後の未着手と着手済みだけである。完了と中止と管理外と `shelved` は赤くならない。「完了以外」では完了と中止が消え、管理外と `shelved` は残る。終了が 2026-10-25 の行は、今日がその日のときだけ終了列で止まり、その日は赤くならない。
+
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
+
+階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（帯の上に三つの定義名、`outline` で工程・機能・タスク）。4段は [levels-4.schedule.json](../examples/hierarchy/levels-4.schedule.json)（帯の上に四つの定義名、同じ段の枝が複数ある追加先の確認用）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、縦スクロールで見出しは祖先を段の数だけ固定）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。
+
+[examples/connections/](../examples/connections/) は、前後ではない繋がり（VIEW-15）を手で確かめる組である。`schedule.json` に、期間が重なる組と離れる組、斜め、あいだの棒、一つの起点から複数、塗った行の上を通る組、端が塗ってある組を置く。行の地は `workspace.json` が `colors.json` を指すときだけ付く。`npm run check:schedule -- examples/connections/schedule.json` で検証する。

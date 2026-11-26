@@ -127,7 +127,8 @@ jobs:
         run: |
           repo="${{ github.repository }}"
           if [ "$PRERELEASE" = "true" ]; then
-            body=$(cat scripts/release-body-beta.md)
+            body_file=$(npx tsx scripts/prerelease-release-body-path.ts)
+            body=$(cat "$body_file")
           else
             body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
           fi
@@ -218,7 +219,8 @@ jobs:
         run: |
           repo="${{ github.repository }}"
           if [ "$PRERELEASE" = "true" ]; then
-            body=$(cat scripts/release-body-beta.md)
+            body_file=$(npx tsx scripts/prerelease-release-body-path.ts)
+            body=$(cat "$body_file")
           else
             body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
           fi
@@ -348,7 +350,8 @@ jobs:
         shell: bash
         run: |
           repo="${{ github.repository }}"
-          body=$(cat scripts/release-body-beta.md)
+          body_file=$(npx tsx scripts/prerelease-release-body-path.ts)
+          body=$(cat "$body_file")
           {
             echo 'body<<EOF'
             printf '%s\n' "$body"
@@ -551,7 +554,8 @@ jobs:
           (cd dist-release && sha256sum -- * > SHA256SUMS)
           gh release upload "$tag" dist-release/SHA256SUMS --clobber
           if [ "$PRERELEASE" = "true" ]; then
-            cp scripts/release-body-beta.md dist-release/release-body.md
+            body_file=$(npx tsx scripts/prerelease-release-body-path.ts)
+            cp "$body_file" dist-release/release-body.md
           else
             sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md > dist-release/release-body-prefix.md
             npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md

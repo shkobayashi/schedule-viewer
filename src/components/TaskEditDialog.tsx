@@ -1,18 +1,22 @@
+import { StatusOptions } from "./StatusOptions";
+import {
+  COLOR_NONE_VALUE,
+  colorSelectOptionsForTask,
+} from "./ColorOptions";
+import { ColorSelectField } from "./ColorSelectField";
+import type { ResolvedColorScheme } from "../model/palette";
+import { defaultStatusId, type StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
-import {
-  duplicateMemberNames,
-  formatUnknownAssigneeOption,
-  isUnknownAssignee,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
+import { AssigneeListField } from "./AssigneeListField";
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import { validateTaskEdit } from "../model/tasks";
 import { MilestoneField } from "./MilestoneField";
+import { DateInput } from "./DateInput";
 import { ModalDialog } from "./ModalDialog";
 import {
-  UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleId,
   type Task,
@@ -30,12 +34,15 @@ type TaskEditDialogProps = {
   successorIds: ScheduleId[];
   /** 候補から除く ID。複製では元タスクも候補に残すため null。 */
   excludeTaskId?: ScheduleId | null;
+  statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   onClose: () => void;
   onSave: (patch: {
     name: string;
     start: string;
     end: string;
-    assigneeId: MemberId | null;
+    assigneeIds: MemberId[];
     status: TaskStatus;
     progress: number;
     confidence: TaskConfidence;
@@ -43,10 +50,11 @@ type TaskEditDialogProps = {
     successors: ScheduleId[];
     milestoneId: ScheduleId | null;
     note: string;
+    colorId?: string | null;
   }) => string | null;
 };
 
-function taskRelationLabel(
+export function taskRelationLabel(
   tasks: TaskRef[],
   id: ScheduleId,
 ): { title: string; ancestors: string | null; leaf: string } {
@@ -71,15 +79,23 @@ export function TaskEditDialog({
   milestones,
   successorIds,
   excludeTaskId,
+  statuses,
+  colors = null,
+  colorScheme,
   onClose,
   onSave,
 }: TaskEditDialogProps) {
   const [name, setName] = useState(task.name);
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
-  const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
+  const [assigneeIds, setAssigneeIds] = useState<MemberId[]>(() => [
+    ...task.assigneeIds,
+  ]);
   const [status, setStatus] = useState<TaskStatus>(() =>
-    mode === "duplicate" ? "not-started" : task.status,
+    mode === "duplicate" ? defaultStatusId(statuses) : task.status,
+  );
+  const [colorId, setColorId] = useState<string | null>(() =>
+    task.colorId ?? null,
   );
   const [progress, setProgress] = useState(() =>
     mode === "duplicate" ? 0 : task.progress,
@@ -88,7 +104,9 @@ export function TaskEditDialog({
   const [predecessors, setPredecessors] = useState<ScheduleId[]>(() =>
     mode === "duplicate" ? [] : task.predecessors,
   );
-  const [successors, setSuccessors] = useState<ScheduleId[]>(successorIds);
+  const [successors, setSuccessors] = useState<ScheduleId[]>(() =>
+    mode === "duplicate" ? [] : successorIds,
+  );
   const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(
     task.milestoneId,
   );
@@ -112,12 +130,6 @@ export function TaskEditDialog({
     () => tasks.filter((item) => item.id !== omittedId),
     [omittedId, tasks],
   );
-
-  const duplicateNames = useMemo(
-    () => duplicateMemberNames(members),
-    [members],
-  );
-  const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
 
   return (
     <ModalDialog
@@ -148,41 +160,31 @@ export function TaskEditDialog({
         </div>
         <div className="field">
           <label htmlFor="fieldStart">開始日</label>
-          <input
+          <DateInput
             id="fieldStart"
-            type="date"
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={setStart}
           />
         </div>
         <div className="field">
           <label htmlFor="fieldEnd">終了日（この日を含む）</label>
-          <input
+          <DateInput
             id="fieldEnd"
-            type="date"
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            onChange={setEnd}
           />
         </div>
         <div className="field">
-          <label htmlFor="fieldAssignee">担当者</label>
-          <select
-            id="fieldAssignee"
-            value={assigneeId}
-            onChange={(e) => setAssigneeId(e.target.value)}
-          >
-            <option value="">{UNASSIGNED_LABEL}</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {memberOptionLabel(member, duplicateNames)}
-              </option>
-            ))}
-            {showUnknownOption && task.assigneeId ? (
-              <option value={task.assigneeId}>
-                {formatUnknownAssigneeOption(task.assigneeId)}
-              </option>
-            ) : null}
-          </select>
+          <span className="field-label" id="fieldAssigneeLabel">
+            担当者
+          </span>
+          <AssigneeListField
+            idPrefix="field"
+            assigneeIds={assigneeIds}
+            members={members}
+            memberCatalog={memberCatalog}
+            onChange={setAssigneeIds}
+          />
         </div>
         <div className="field">
           <label htmlFor="fieldStatus">ステータス</label>
@@ -191,11 +193,24 @@ export function TaskEditDialog({
             value={status}
             onChange={(e) => setStatus(e.target.value as TaskStatus)}
           >
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="fieldColor">色</label>
+            <ColorSelectField
+              id="fieldColor"
+              value={colorId ?? COLOR_NONE_VALUE}
+              options={colorSelectOptionsForTask(colors, colorId, colorScheme)}
+              onChange={(next) =>
+                setColorId(
+                  next === COLOR_NONE_VALUE ? null : next,
+                )
+              }
+            />
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="fieldProgress">進捗率 (%)</label>
           <input
@@ -283,7 +298,7 @@ export function TaskEditDialog({
                 name,
                 start,
                 end,
-                assigneeId: assigneeId === "" ? null : assigneeId,
+                assigneeIds: [...assigneeIds],
                 status,
                 progress: roundedProgress,
                 confidence,
@@ -291,6 +306,7 @@ export function TaskEditDialog({
                 successors,
                 milestoneId,
                 note,
+                ...(colors != null ? { colorId } : {}),
               });
               if (saveError) {
                 setFormError(saveError);

@@ -1,11 +1,14 @@
-import { clamp, isIsoDateString } from "./dates";
+import { isIsoDateString } from "./dates";
 import type { MemberId } from "./memberTypes";
 import {
   validateDependencyCycles,
   validatePredecessorRefs,
 } from "./scheduleSemantics";
+import { applyTaskColorId } from "./taskColorId";
 import { applyTaskNote } from "./taskNote";
+import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
+import { forEachTask, mapTasks } from "./taskTraversal";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
@@ -17,7 +20,9 @@ import {
   type TaskConfidence,
   type TaskStatus,
 } from "./types";
-import { formatValidationErrors } from "./validateSchedule";
+import { formatValidationErrors } from "./validationMessages";
+
+export { forEachTask, mapTasks } from "./taskTraversal";
 
 export function createScheduleId(): ScheduleId {
   return crypto.randomUUID();
@@ -56,32 +61,6 @@ export function uniqueScheduleId(
     if (!taken.has(id)) return id;
   }
   throw new Error("スケジュール ID を作れませんでした");
-}
-
-export function forEachTask(
-  categories: Category[],
-  visit: (task: Task, place: { category: string; group: string }) => void,
-): void {
-  for (const category of categories) {
-    for (const group of category.groups) {
-      for (const task of group.tasks) {
-        visit(task, { category: category.name, group: group.name });
-      }
-    }
-  }
-}
-
-export function mapTasks(
-  categories: Category[],
-  update: (task: Task) => Task,
-): Category[] {
-  return categories.map((category) => ({
-    ...category,
-    groups: category.groups.map((group) => ({
-      ...group,
-      tasks: group.tasks.map(update),
-    })),
-  }));
 }
 
 export function findTaskInCategories(
@@ -321,7 +300,7 @@ export type TaskEditPatch = {
   name: string;
   start: string;
   end: string;
-  assigneeId: MemberId | null;
+  assigneeIds: MemberId[];
   status: TaskStatus;
   progress: number;
   confidence: TaskConfidence;
@@ -329,6 +308,8 @@ export type TaskEditPatch = {
   successors: ScheduleId[];
   milestoneId: ScheduleId | null;
   note: string;
+  /** あるときだけ反映する。`null` はキーを外す。 */
+  colorId?: string | null;
 };
 
 export type TaskGraphResult =
@@ -342,7 +323,6 @@ export function applyTaskEdit(
   patch: TaskEditPatch,
   milestoneIds: ReadonlySet<ScheduleId>,
 ): Category[] {
-  const progress = clamp(Math.round(patch.progress), 0, 100);
   const predecessors = [
     ...new Set(patch.predecessors.filter((id) => id !== taskId)),
   ];
@@ -351,22 +331,26 @@ export function applyTaskEdit(
   );
   return mapTasks(categories, (task) => {
     if (task.id === taskId) {
+      const progress = resolveTaskEditProgress(task, patch.progress);
       return applyTaskNote(
-        {
-          ...task,
-          name: patch.name.trim(),
-          start: patch.start,
-          end: patch.end,
-          assigneeId: patch.assigneeId,
-          status: patch.status,
-          progress,
-          confidence: patch.confidence,
-          predecessors,
-          milestoneId:
-            patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
-              ? patch.milestoneId
-              : null,
-        },
+        applyTaskColorId(
+          {
+            ...task,
+            name: patch.name.trim(),
+            start: patch.start,
+            end: patch.end,
+            assigneeIds: patch.assigneeIds,
+            status: patch.status,
+            progress,
+            confidence: patch.confidence,
+            predecessors,
+            milestoneId:
+              patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
+                ? patch.milestoneId
+                : null,
+          },
+          patch,
+        ),
         patch.note,
       );
     }
@@ -433,6 +417,14 @@ export function categoriesAfterDuplicate(
   patch: TaskEditPatch,
 ): TaskGraphResult {
   const source = findTaskInCategories(categories, sourceId);
+  const colorFromPatch =
+    "colorId" in patch
+      ? patch.colorId != null
+        ? { colorId: patch.colorId }
+        : {}
+      : source?.colorId != null
+        ? { colorId: source.colorId }
+        : {};
   const inserted = insertTaskAfter(
     categories,
     {
@@ -440,13 +432,17 @@ export function categoriesAfterDuplicate(
       name: patch.name.trim(),
       start: patch.start,
       end: patch.end,
-      assigneeId: patch.assigneeId,
+      assigneeIds: patch.assigneeIds,
       status: patch.status,
       progress: patch.progress,
       confidence: patch.confidence,
       predecessors: [],
       milestoneId: null,
       ...(source?.tags ? { tags: [...source.tags] } : {}),
+      ...colorFromPatch,
+      ...(source?.fieldValues
+        ? { fieldValues: { ...source.fieldValues } }
+        : {}),
     },
     sourceId,
   );
@@ -593,6 +589,53 @@ export function removeGroup(
     ...category,
     groups: category.groups.filter((item) => item.id !== groupId),
   }));
+}
+
+/** 定義の無い3段で、ツールバーの見出し追加と同じ規則で categories に足す。 */
+export function appendLegacyHeadingFromToolbar(
+  categories: Category[],
+  levelIndex: number,
+  parentCategoryId: ScheduleId | null,
+  rawName: string,
+  newCategoryId: ScheduleId,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  if (levelIndex === 0) {
+    return appendCategoryAtEnd(
+      categories,
+      rawName,
+      newCategoryId,
+      newGroupId,
+    );
+  }
+  if (levelIndex === 1) {
+    if (parentCategoryId == null) {
+      return { categories, error: "追加先を選んでください", changed: false };
+    }
+    return appendGroupToCategory(
+      categories,
+      parentCategoryId,
+      rawName,
+      newGroupId,
+    );
+  }
+  return { categories, error: "追加できませんでした", changed: false };
+}
+
+export function appendCategoryAtEnd(
+  categories: Category[],
+  rawName: string,
+  newCategoryId: ScheduleId,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  const lastId = categories[categories.length - 1]?.id ?? "";
+  return insertCategoryAfter(
+    categories,
+    lastId,
+    rawName,
+    newCategoryId,
+    newGroupId,
+  );
 }
 
 export function insertCategoryAfter(

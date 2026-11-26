@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { validateNewMilestone } from "../model/milestones";
 import type { MilestoneGroup, ScheduleId, TaskConfidence } from "../model/types";
 import { ModalDialog } from "./ModalDialog";
+import { DateInput } from "./DateInput";
 
 type MilestoneAddDialogProps = {
   initialDate: string;
@@ -86,11 +87,10 @@ export function MilestoneAddDialog({
         </div>
         <div className="field">
           <label htmlFor="addMilestoneDate">日付</label>
-          <input
+          <DateInput
             id="addMilestoneDate"
-            type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={setDate}
           />
         </div>
         <div className="field">

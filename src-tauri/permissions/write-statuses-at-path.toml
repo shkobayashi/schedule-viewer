@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-write-statuses-at-path"
+description = "Allows writing a status catalog JSON to an absolute path (workspace binding)."
+commands.allow = ["write_statuses_at_path"]

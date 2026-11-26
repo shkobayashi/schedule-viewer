@@ -3,9 +3,11 @@ import {
   LINK_ARROW_CLEARANCE,
   LINK_HIT_DISTANCE,
   dropPredecessorLink,
+  lineageTaskIdsFromTasksWithConnections,
   linkPoints,
   nearestLinkHit,
   tryAddPredecessorLink,
+  visibleLinksFromTasks,
   type LinkPolyline,
 } from "./dependencies";
 import {
@@ -25,7 +27,7 @@ function task(id: string, predecessors: string[] = []): Task {
     name: id,
     start: "2026-01-01",
     end: "2026-01-03",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -159,6 +161,34 @@ describe("tryAddPredecessorLink", () => {
   });
 });
 
+describe("visibleLinksFromTasks", () => {
+  it("links outline tasks when both ends are visible", () => {
+    const predecessor = {
+      ...task(TASK_A),
+      name: "先行タスク",
+    };
+    const successor = {
+      ...task(TASK_B, [TASK_A]),
+      name: "後続タスク",
+      start: "2026-01-04",
+      end: "2026-01-06",
+    };
+    const visibleIds = new Set([TASK_A, TASK_B]);
+    const links = visibleLinksFromTasks([predecessor, successor], visibleIds);
+    expect(links).toEqual([
+      { fromId: TASK_A, toId: TASK_B, broken: false },
+    ]);
+  });
+
+  it("omits links when a task is not visible", () => {
+    const predecessor = task(TASK_A);
+    const successor = task(TASK_B, [TASK_A]);
+    expect(
+      visibleLinksFromTasks([predecessor, successor], new Set([TASK_B])),
+    ).toEqual([]);
+  });
+});
+
 describe("dropPredecessorLink", () => {
   it("removes only that predecessor id", () => {
     const current = categories([
@@ -173,5 +203,21 @@ describe("dropPredecessorLink", () => {
       TASK_A,
       TASK_B,
     ]);
+  });
+});
+
+describe("lineageTaskIdsFromTasksWithConnections", () => {
+  const connections = [
+    { taskIds: [TASK_B, TASK_C] as [string, string], label: "関連" },
+  ];
+
+  it("includes connection partner reachable through dependencies", () => {
+    const tasks = [task(TASK_A), task(TASK_B, [TASK_A]), task(TASK_C)];
+    const ids = lineageTaskIdsFromTasksWithConnections(
+      tasks,
+      connections,
+      TASK_A,
+    );
+    expect(ids?.has(TASK_C)).toBe(true);
   });
 });

@@ -124,6 +124,7 @@ export function taskBarResizeEdgeAt(
 export type ChartPointerLink = {
   fromId: ScheduleId;
   toId: ScheduleId;
+  kind: "predecessor" | "connection";
 };
 
 export type ChartPointer = {
@@ -312,7 +313,13 @@ export function resolveChartHover(input: {
     hover: {
       overTask,
       overMilestone: input.overMilestone,
-      link: linkHit ? { fromId: linkHit.fromId, toId: linkHit.toId } : null,
+      link: linkHit
+        ? {
+            fromId: linkHit.fromId,
+            toId: linkHit.toId,
+            kind: linkHit.kind ?? "predecessor",
+          }
+        : null,
       hoverTaskId,
     },
     previewEnd: linkPreviewEnd({
@@ -330,7 +337,8 @@ export function chartHoverEquals(prev: ChartHover, next: ChartHover): boolean {
     prev.overMilestone === next.overMilestone &&
     prev.hoverTaskId === next.hoverTaskId &&
     prev.link?.fromId === next.link?.fromId &&
-    prev.link?.toId === next.link?.toId
+    prev.link?.toId === next.link?.toId &&
+    prev.link?.kind === next.link?.kind
   );
 }
 
@@ -340,4 +348,34 @@ export function previewEndEquals(
 ): boolean {
   if (next == null) return prev == null;
   return prev != null && prev.x === next.x && prev.y === next.y;
+}
+
+export type ClientRectLike = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+/** クライアント座標を、矩形左上を原点としたチャート座標へ。 */
+export function clientOffsetInRect(
+  clientX: number,
+  clientY: number,
+  rect: Pick<ClientRectLike, "left" | "top">,
+): { x: number; y: number } {
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+/** クライアント座標が矩形の内側にあるか。 */
+export function clientPointInRect(
+  clientX: number,
+  clientY: number,
+  rect: ClientRectLike,
+): boolean {
+  return (
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  );
 }

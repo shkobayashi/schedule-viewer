@@ -17,25 +17,47 @@ describe("pickLatestBetaVersion", () => {
       ]),
     ).toBe("1.0.1-beta.2");
   });
+
+  it("prefers newer beta over older alpha on same base", () => {
+    expect(
+      pickLatestBetaVersion([
+        "v2.0.0-alpha.5",
+        "v2.0.0-beta.1",
+        "v2.0.0-alpha.2",
+      ]),
+    ).toBe("2.0.0-beta.1");
+  });
+
+  it("picks newest alpha when no beta exists", () => {
+    expect(
+      pickLatestBetaVersion(["v2.0.0-alpha.1", "v2.0.0-alpha.3"]),
+    ).toBe("2.0.0-alpha.3");
+  });
 });
 
 describe("pickSaveableBetaVersion", () => {
-  it("returns null when only older or equal betas exist", () => {
+  it("returns null when only older or equal prereleases exist", () => {
     expect(
       pickSaveableBetaVersion("1.0.0", ["v1.0.0-beta.1", "v1.0.0-beta.2"]),
     ).toBeNull();
     expect(
       pickSaveableBetaVersion("1.0.0-beta.2", ["v1.0.0-beta.1"]),
     ).toBeNull();
+    expect(
+      pickSaveableBetaVersion("2.0.0-beta.1", ["v2.0.0-alpha.9"]),
+    ).toBeNull();
   });
 
-  it("returns newer beta", () => {
+  it("returns newer prerelease", () => {
     expect(
       pickSaveableBetaVersion("1.0.0", ["v1.0.0-beta.1", "v1.0.1-beta.1"]),
     ).toBe("1.0.1-beta.1");
     expect(
       pickSaveableBetaVersion("1.0.0-beta.2", ["v1.0.0-beta.3"]),
     ).toBe("1.0.0-beta.3");
+    expect(
+      pickSaveableBetaVersion("2.0.0-alpha.1", ["v2.0.0-alpha.2"]),
+    ).toBe("2.0.0-alpha.2");
   });
 });
 
@@ -50,6 +72,12 @@ describe("matchBetaInstallerAssetName", () => {
     expect(
       matchBetaInstallerAssetName(
         "schedule-viewer_1.0.1-beta.1_x64-setup.exe",
+        "windows",
+      ),
+    ).toBe(true);
+    expect(
+      matchBetaInstallerAssetName(
+        "schedule-viewer_2.0.0-alpha.1_x64-setup.exe",
         "windows",
       ),
     ).toBe(true);
