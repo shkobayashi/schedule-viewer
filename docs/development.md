@@ -288,16 +288,16 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 
 ## ブランチと CI
 
-ブランチ運用は `develop`（開発）と `main`（リリース）の二本立てである。次のメジャーを 1.x と並行して進めるときは、下の「1.x を出しながら次のメジャーを進める」に従う。`feature-*` は、その変更を出す統合ブランチから切り、マージ先もそこである。`next` が無いあいだ、統合ブランチは `develop` である。
+ブランチ運用は `develop`（開発）と `main`（リリース）の二本立てである。`feature-<Issue番号>` は `develop` から切り、`develop` へ戻す。Pre-release 用の `release/X.Y.Z` も `develop` から切る。
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop`、`main`、`next`、`feature-436` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルド、`agentdocs` を分け、集約ジョブ `ci` で結果をまとめる |
+| `develop`、`main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルド、`agentdocs` を分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
-| `develop` または `next` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
+| `develop` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
 
-`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next`、`feature-436` 向けの pull request のときである。
+`develop` への push だけでは CI は動かない。CI が動くのは `develop` と `main` 向けの pull request のときである。
 
 `browser-regression.yml` は、`develop` への push では動かない。夜間の `schedule` は、このファイルが既定ブランチ `develop` にあるとき、その最新コミットで動く。`workflow_dispatch` も、ファイルが `develop` にあるときだけ起動できる。
 
@@ -328,7 +328,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
 | 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
 | `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
-| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
 | 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
@@ -336,7 +336,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 差分が文書だけのときは、作業中も「PR 前の一回」も、フロントエンド向けの検査を理由なく求めない。該当する文書用の checker とリンク検査は、差分に合わせて回す。PR 本文では省略した「PR 前の一回」の項目を not-run と書く。
 
-ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` または `next` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
+ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
 
 **触ったテスト**
 
@@ -394,45 +394,13 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 `check:statuses` と `check:colors` は、CI にも「自動を先に流す」にも無い。この一覧にも足さない。
 
-### 1.x を出しながら次のメジャーを進める
+### 1.x を出しながら次のメジャーを進める（履歴）
 
-今の出荷メジャーは 1.x である。次のメジャーの変更に着手するまでは、`next` を切らない。切ったあとのブランチは、次のとおりである。
+v2.0.0 安定版の出荷後（[PR #638](https://github.com/shkobayashi/schedule-viewer/pull/638)、`ac5a27ff`）、統合ブランチは `develop` と `main` だけである。機能ブランチは `develop` から切り、`develop` へ戻す。Pre-release 用の `release/X.Y.Z` も `develop` から切る。
 
-| ブランチ | 役割 |
-| --- | --- |
-| `develop` | 1.x の統合。安定版はここから `main` へ載せる |
-| `main` | 安定版。push すると安定版の Release が走る |
-| `feature-<Issue番号>` | 1.x は `develop` から、次メジャーは `next` から切る。マージ先は切った元である |
-| `release/X.Y.Z` | その版の Pre-release（アルファ・ベータ）を出してから消すまでのブランチである。次メジャーの統合には使わない |
-| `next` | 次メジャーの統合。`main` と `release/**` へはマージしない |
+2.0 を 1.x と並行して進めるときに使った `next` ブランチは廃止する。当時の手順（`next` の切り方、`develop` との取り込み、2.0 の出荷）は git 履歴と [PLANNING.md](PLANNING.md) に残る。いまは [cut-release](../.cursor/skills/cut-release/SKILL.md) の通常手順どおり、`develop` から `release/X.Y.Z` を切って Pre-release と安定版を出す。
 
-#### `next` を切る
-
-上から順に行う。
-
-1. `develop` 向けの pull request で、`.github/workflows/ci.yml` の `pull_request.branches` に `next` を足し、`develop` へマージする。同じ変更で、上の CI の表と「CI が動くのは」の文、および [test-spec.md](test-spec.md) で対象ブランチを列挙している箇所に `next` を足す。`next` がまだ無くても、対象に書いてよい。
-2. 手順 1 が入った `develop` から `next` を切る。
-3. `develop` と `main` と同じ ruleset を `next` に付ける。中身は、pull request 必須、コードオーナーのレビュー、必須ステータスチェック `ci`、force push と削除の禁止である。
-
-#### 変更の入れ先
-
-1. 1.x のまま出せる変更は、`develop` から `feature-<Issue番号>` を切り、`develop` へ戻す。安定版とベータは、「`main` に載せる前のバージョン上げ」と「ベータリリース」で出す。
-2. 公開する契約を壊す変更は、`next` から `feature-<Issue番号>` を切り、`next` へ戻す。1.x で開けているスケジュールを拒否するスキーマの変更も、`next` だけに置く。
-3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。`develop` へマージしただけでは `next` には載らない。
-4. 1.x の修正と依存更新を `next` に届けるときは、**出荷済みの安定版を `main` に載せたあと**（または同じ版の `develop` を指しているとき）、`main` または `develop` を `next` へマージする pull request を出す。通常の feature マージと別に、この取り込みを忘れない。取り込まないと、CHANGELOG や `develop` の履歴だけ先行し、`next` のコードが 1.x 安定版から遅れたままになる（#410・#418・#386 は `develop`/`main` にあったが、この取り込みが無かったため `next` に載っていなかった）。`next` を `develop` へマージするのは、下の「次のメジャーを出す」が終わったあとだけである。
-5. 手順 4 のマージで `next` に載せた版は、**いま出荷した安定版の `X.Y.Z` に揃える**。`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の 5 ファイルを、その版に書き換えてから pull request に含める。手元では [scripts/project-version-files.ts](../scripts/project-version-files.ts) の `writeProjectVersion`（`npm run version:bump` は使わず、出荷版の番号をそのまま指定する）のあと `npm run version:check` する。`plugins.updater.endpoints` は 1.x メジャー用の `updater-1` のままである。`next` 上の次メジャー開発のあいだ、版番号を古い 1.x のままにしない。番号は「コードが追いついている最新の 1.x 安定版」を示す。`version:check` が受け付けるのは `X.Y.Z`、`X.Y.Z-alpha.N`、`X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
-6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の出荷済み安定版に揃えた値を維持する。
-
-#### 次のメジャーを出す
-
-上から順に行う。番号は 2.0.0 と書く。別の番号なら、その番号に読み替える。
-
-1. `develop` を `next` へマージする。
-2. 確認先がまだ `releases/latest` の版があるときは、2.0.0 を `main` に載せる前に、今のメジャーの安定版として `updater-1` を配る。確認先が `updater-1` の版は、2.0 へ自動では進まない。
-3. `next` から `release/2.0.0` を切る。
-4. 「アルファリリース」の手順 2 を行う。版が 1.x のままなら、`major` のあと `alpha` で `2.0.0-alpha.1` にする。続けて「アルファリリース」の手順 3、4、5 を、この `release/2.0.0` に対して行う。アルファのあいだに入れた修正は、同じ内容を `next` にも入れる。このアルファに、1.x 側で別途進めた機能は混ぜない。機能が固まったら「アルファリリース」の手順 6 からベータへ進み、以降は「ベータリリース」の手順 5 以降で安定版を出す。
-5. 「ベータリリース」の手順 6 のとおり、`release/2.0.0` を `main` へマージする。この push が安定版になる。操作マニュアルの Pages は、この時点の `main` を公開する。Windows の安定版は Store の同じ製品なので、Store の利用者には 2.0 が届く。
-6. `release/2.0.0` を `next` へマージしてから、`next` を `develop` へマージする。`develop` は 2.x の統合になる。そのあと `release/2.0.0` を消す。「ベータリリース」の手順 1 と 7 は行わない。
+将来、また 1.x の出荷と次メジャーの開発を分けるときは、廃止前の `development.md` と cut-release の「1.x と次のメジャー」節を履歴から参照し、統合ブランチを足して CI の対象ブランチを広げる。
 
 #### 2.0 を出したあとの 1.x
 
@@ -715,18 +683,18 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 
 機能がまだ増える段階の確認用である。同じ `release/X.Y.Z` ブランチで **アルファ → ベータ → 安定版** の順に進める。版の順序は semver 上 `alpha.N` ＜ `beta.N` ＜ 安定版である。
 
-1. 1.x は `develop` から、次メジャーは `next` から `release/X.Y.Z` を切る。最初の 2.0 アルファの例: 作業ブランチを `next` にマージしたあと、`next` から `release/2.0.0` を切る
+1. `develop` から `release/X.Y.Z` を切る
 2. 今の番号が出したい安定版と同じなら `npm run version:bump -- alpha` だけで `X.Y.Z-alpha.1` にする。まだ 1.x のままなら、先に `npm run version:bump -- major`（または `minor`、`patch`）してから `alpha` を実行する
 3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、Windows NSIS が Pre-release として出る。タグは `vX.Y.Z-alpha.N` である。Microsoft Store への MSIX 提出は行わない。GitHub の Latest も付けない。利用者は Release ページからインストーラを取る。Windows と Ubuntu では、設定の「更新」から、入っている版より新しい公開 Pre-release（アルファまたはベータ）の、この OS 用インストーラを別名保存できる
-4. アルファのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- alpha` で `N` を増やして push する。`develop` や `next` で進めた別の機能は、そのアルファに混ぜない。同じ修正は `next` にも入れる
+4. アルファのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- alpha` で `N` を増やして push する。`develop` で進めた別の機能は、そのアルファに混ぜない。同じ修正は `develop` にも入れる
 5. 機能追加を一段落させたら、次のベータへ進む。`npm run version:bump -- beta` を実行する。アルファからは `X.Y.Z-beta.1` になる（`alpha.N` の続きにはしない）
 6. 以降は「ベータリリース」の手順 3 から 7 まで行う。`stable` はベータからだけ実行できる
 
 ### ベータリリース
 
-1.x の統合用ブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。次メジャーは「1.x を出しながら次のメジャーを進める」の出荷の手順で切る。2.0 以降で機能がまだ増える段階は、先に「アルファリリース」を行う。
+統合ブランチは `develop` と `main` である。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。機能がまだ増える段階は、先に「アルファリリース」を行う。
 
-1. 1.x は `develop` から `release/X.Y.Z` を切る。次メジャーは、出荷の手順で `next` から切る（アルファを省略してベータから始めてもよい）
+1. `develop` から `release/X.Y.Z` を切る（アルファを省略してベータから始めてもよい）
 2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。アルファから進むときも手順 2 は同じ `beta` である。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
 3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。Pre-release を使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開 Pre-release の、この OS 用インストーラを別名保存できる
 4. ベータのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- beta` で `N` を増やして push する。`develop` で進めた別の機能は、そのベータに混ぜない

@@ -17,7 +17,7 @@
 | 循環 import と CI | [model-circular-import-plan.md](model-circular-import-plan.md) |
 | テスト | [test-spec.md](test-spec.md) |
 | 環境・CI・リリース | [development.md](development.md) |
-| 1.x と next のブランチ | [development.md](development.md)（1.x を出しながら次のメジャーを進める） |
+| ブランチとリリース | [development.md](development.md)（ブランチと CI、リリース） |
 | 方針・ロードマップ | [PLANNING.md](PLANNING.md) |
 | 残している作業上の決定（#541、#436、PR599 の教訓） | [standing-decisions.md](standing-decisions.md) |
 | UI デザイン #449 | [design/benchmark.md](design/benchmark.md)、[inventory.md](design/inventory.md) |
@@ -58,7 +58,7 @@
 | メンバー / カレンダー / 色 / workspace / 拡張項目 | write-members, write-calendar, write-colors, write-workspace, write-fields |
 | スケジュール schema | [update-schedule-schema](../.cursor/skills/update-schedule-schema/SKILL.md) |
 
-1.x を出しながら next を進める手順は development のみ（専用スキルは作らない）。`next` 切りと次メジャーリリースは cut-release「1.x と次のメジャー」。スキルリンクは SKILL から `../../../AGENTS.md` のように相対パス。
+ブランチとリリースは development と cut-release が正本である（v2.0.0 出荷後、統合は `develop` のみ。旧 `next` は廃止）。スキルリンクは SKILL から `../../../AGENTS.md` のように相対パス。
 
 スキルの分割・更新はエージェントが同じ作業で行う。半分以上の節が不要なら種類別スキルへ分ける（スキーマ変更は update-schedule-schema のまま）。毎回 2 つの実装スキルを読む計画になっているときは 1 つに戻す。
 
@@ -73,4 +73,4 @@
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
 - Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）。リポジトリの [`.cursor/hooks.json`](../.cursor/hooks.json) が履歴書き換え系 git を `beforeShellExecution` で拒否する（#553 項目 6。手順は development の同節）
 - 計画・実装・レビューを分けるとき: [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)。マージ可能になったら [agents-phase-log.md](agents-phase-log.md) に `verified_head_sha` と **phase-history**（フェンス内 YAML）のエントリを足す
-- 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `feature-436` → `next`；必要なら `develop` へ cherry-pick
+- 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `develop` 向けの feature ブランチ（歴史的経路は節内の記述を参照）

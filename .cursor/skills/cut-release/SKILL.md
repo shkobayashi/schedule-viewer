@@ -4,8 +4,8 @@ description: >-
   Changes schedule-viewer release workflow, version bump scripts, and release
   documentation. Use for stable, alpha, and beta GitHub Releases, release/X.Y.Z
   branches, version:check / version:bump behavior, updater endpoint URLs,
-  updater-X channel releases, cutting the next branch, and shipping the next
-  major while 1.x is still maintained. Not for app UI, settings dialog fields,
+  updater-X channel releases, and shipping stable or Pre-release from develop.
+  Not for app UI, settings dialog fields,
   or choosing the feature branch while implementing the app.
 ---
 
@@ -46,18 +46,15 @@ description: >-
 
 自動更新の版比較は semver である。Ubuntu の deb の版比較は Debian の規則である。文書では、この 2 つを 1 つの「進む」にまとめない。デスクトップ版は入っている版のメジャー用 `updater-X` の `latest.json` を見る。同じメジャーのより新しい安定版だけ入れる。Pre-release を入れたあとも同じメジャーの `updater-X` を見るが、チャンネルは安定版だけを指す。判定上、接尾辞を外した安定版は Pre-release より新しいが、Ubuntu では `dpkg` がダウングレードとして拒否する。手で `apt install` するときも、先に Pre-release の deb を外す
 
-## 1.x と次のメジャー
+## ブランチと Pre-release
 
-手順の正本は [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」である。アプリの実装は [implement-change](../implement-change/SKILL.md) のままにし、実装の計画にこの節を並べて読ませない。
+手順の正本は [docs/development.md](../../../docs/development.md) の「ブランチと CI」と「アルファリリース」「ベータリリース」である。v2.0.0 出荷後、統合ブランチは `develop` と `main` だけである（旧 `next` は廃止）。
 
-`next` を切る作業、次メジャーのリリース、2.0 を出したあとに 1.x の安定版を出せるようワークフローを広げる作業は、この節を読む。手順は development.md の上から順に行い、次を省かない。
-
-1. `next` を `develop` へマージするのは、次メジャーの安定版を `main` に載せたあとだけである
-2. 1.x 安定版を `next` に取り込んだマージでは、版番号をその安定版の `X.Y.Z` に揃える（[development.md](../../../docs/development.md) の「変更の入れ先」手順 5）。次メジャーの Pre-release（アルファ）に上げるのは `release/2.0.0` を切ったあとである
-3. `release/X.Y.Z` は、その版の Pre-release（アルファ・ベータ）を出してから消すまでだけ使う
-4. 公開する契約を壊す変更は `next` に置く。1.x のまま出せる変更は `develop` に置く
-5. `main` へ次メジャーを載せると、Store の同じ製品の利用者にはその版が届く
-6. 次メジャーを `main` に載せたあと、1.x の修正を `main` へマージしても、1.x の安定版にはならない。続けるときは `maint/1` を足し、ブランチ名は `release/` にしない。より大きいメジャーがあるときに Latest を付けない判定は残す
+1. Pre-release 用の `release/X.Y.Z` は `develop` から切る
+2. `release/X.Y.Z` は、その版の Pre-release（アルファ・ベータ）を出してから消すまでだけ使う
+3. 安定版は `release/X.Y.Z` を `main` へマージして出す
+4. `main` が 2.x になったあと 1.x の安定版を続けるときは、[development.md](../../../docs/development.md) の「2.0 を出したあとの 1.x」に従い `maint/1` を足す
+5. 将来、再び 1.x と次メジャーを並行する統合ブランチが要るときは、git 履歴の旧「1.x を出しながら次のメジャーを進める」を参照する
 
 ## 確認
 
