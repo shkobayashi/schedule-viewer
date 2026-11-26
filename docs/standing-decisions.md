@@ -16,7 +16,7 @@
 - スキルやルール文書の変更は、その一連の作業が終わるまで `feature-436` に置いてよい。
 - `next`（と必要なら `develop`）へマージするときに、まとめて移す。
 - 子 Issue のたびに、移すだけの PR は開かない。
-- `feature-436` は 2026-11-17 に [PR #611](https://github.com/shkobayashi/schedule-viewer/pull/611) で `next` に入った。この節は履歴として残し、新しい作業には使わない。
+- `feature-436` は 2026-11-17 に [PR #611](https://github.com/shkobayashi/schedule-viewer/pull/611) で `next` に入った（当時のブランチ名）。`next` は v2.0.0 出荷後に廃止した。この節は履歴として残し、新しい作業には使わない。
 
 ## PR599 のデバッグ教訓 {#pr599}
 

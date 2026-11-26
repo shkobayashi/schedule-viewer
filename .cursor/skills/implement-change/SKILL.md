@@ -52,7 +52,7 @@ description: >-
 2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
 3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。層の向きと `src/operations/` の役割は [docs/internal-spec.md](../../../docs/internal-spec.md)「コードの境界」のみに従う（要約は [agents-agent-index.md](../../../docs/agents-agent-index.md)）。Rust は JSON の意味を解釈しない
 4. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す
-5. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
+5. 変更は `develop` から feature ブランチを切り、`develop` へ戻す。計画が別のブランチを書いていても、[docs/development.md](../../../docs/development.md) のブランチ節と照合し、結果は実装の結果に残す
 6. 計画が操作の種類を列挙しているとき、チェックリストに足りない種類を「未対応」と書いて終えない。足すか、計画どおり実装する
 7. 計画に無い依存と `tsconfig.json` の `compilerOptions.types` は、作業の基点ブランチでも同じ型エラーが出るなら、この変更には入れない
 8. 循環解消やリファクタの PR では、計画に無いファイルの内容が丸ごと差し替わっていないか、差分のファイル一覧と変更量を見る。**ガード:** P-AG-04（[review-implementation](../review-implementation/SKILL.md)「差分の範囲」）（原則 1 · 4 · 5 · 6 · 7 · 8）

@@ -2,7 +2,7 @@ name: Browser regression
 
 on:
   pull_request:
-    branches: [develop, next]
+    branches: [develop]
     types: [opened, synchronize]
   schedule:
     - cron: "0 16 * * *"

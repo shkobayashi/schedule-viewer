@@ -84,9 +84,9 @@ AGENTS 節ごとの詳細対応は **§1**。implement-change 51 分割全文は
 
 | ブランチ | 備考 |
 | --- | --- |
-| `feature-436` | 段 8 統合ブランチ |
-| `next` | 合流後の次メジャー正本 |
-| `develop` | 1.x。ルール・CI 文言は必要なら cherry-pick |
+| `develop` | 統合ブランチ（v2.0 以降）。ルール・CI 文言もここ |
+| `main` | 安定版 |
+| `feature-436` / `next` | 履歴（2.0 統合時のみ。`next` は v2.0.0 出荷後に廃止） |
 
 Issue #490 本文の madge 表現更新案は [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md)（人手）。
 

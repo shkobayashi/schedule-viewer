@@ -39,17 +39,17 @@
 | MX-H-21 | 計算 | 編集する | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-H-22 | 計算 | 選択と移動 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
-| MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない |
+| MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない。2026-11-26 v2.0.0-beta.2 のあと必須の手動範囲外 |
 | MX-H-25 | 見た目 | 詳細パネルと線 | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
 | MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
 | MX-H-27 | UI | タスクへの色 | 一部手動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#shows the color field on detail, bulk, and duplicate, and separates leave-unchanged from none。自動:e2e/browser-regression/specs/view-appearance.spec.ts#leaves unknown color ids and catalog-only risk unpainted, and hides the color field on the startup sample。手動のまま:色一覧の行の地色と Excel 行地は人が見る |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-29 | UI | 右クリックと複製 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks |
-| MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない |
+| MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない。2026-11-26 v2.0.0-beta.2 のあと必須の手動範囲外 |
 | MX-H-31 | 計算 | 追加と削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9 |
 | MX-H-33 | 計算 | 取り消しと、入力中のキー | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
-| MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない |
+| MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない。2026-11-26 v2.0.0-beta.2 のあと必須の手動範囲外 |
 | MX-H-35 | 見た目 | 書き出す | 一部手動 | 手動:RG-F5-2。自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen |
 | MX-H-36 | 計算 | 書き出す | 一部自動 | 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:src/model/exportHtml.test.ts#refuses export when visible rows exceed 10000。自動:src/model/exportExcel.test.ts#refuses export when visible rows exceed 10000 |
 | MX-H-37 | UI | 設定 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
@@ -61,7 +61,7 @@
 | MX-H-42 | UI | 閉じたあとに、また開くとき | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03f: blocks date moves until startup recovery settles |
 | MX-H-43 | UI | 操作早見表 | 一部自動 | 手動:RG-F2-2。自動:e2e/browser-regression/specs/layout-f2.spec.ts#folds the shortcut list into one column at 480 by 640 |
 | MX-H-44 | UI | 操作早見表 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the shortcut list from keys and the menu but not from search |
-| MX-H-45 | UI | モード中のキー | 手動のまま | 手動:RG-F1-5。手動のまま:変換中の矢印は実機の日本語変換でしか確認できない |
+| MX-H-45 | UI | モード中のキー | 手動のまま | 手動:RG-F1-5。手動のまま:変換中の矢印は実機の日本語変換でしか確認できない。2026-11-26 v2.0.0-beta.2 のあと必須の手動範囲外 |
 | MX-H-46 | UI | モード中のキー | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens add dialogs from shortcuts and skips them while typing or linking |
 | MX-H-47 | 集約 | 困ったとき | 対象外 | 理由:総見出し。子の見出しで確認する。この行だけでは合格にしない |
 | MX-H-48 | UI | ファイルが開けない | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps the open schedule when a broken file is rejected |
@@ -128,15 +128,15 @@
 | MX-O-49 | UI | ズーム（ホイール） | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
 | MX-O-50 | UI | 横スクロール（ホイール） | 一部自動 | 手動:RG-S2-4。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#shifts the chart horizontally with shift and the wheel |
 | MX-O-51 | UI | 横スクロール（ホイール） | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#shifts the chart horizontally with shift and the wheel |
-| MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない |
+| MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない。2026-11-26 v2.0.0-beta.2 のあと必須の手動範囲外 |
 | MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the saved file contains 回帰の指示 and the example file does not |
 | MX-O-54 | UI | 階層の名前・意味・指示を編集 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied |
 | MX-O-55 | UI | 絞り込みパネルを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters assignees from the panel and clears one chip |
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-58 | UI | 系統（繋がりも辿る） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
-| MX-O-59 | UI | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
-| MX-O-60 | 見た目 | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
+| MX-O-59 | UI | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動:RG-F4-2。手動のまま:ドラッグ中の追随矢印は赤くならない。Escape 後に線が増えないことは e2e が見る |
+| MX-O-60 | 見た目 | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動:RG-F4-2。手動のまま:ドラッグ中の追随矢印は赤くならない。Escape 後に線が増えないことは e2e が見る |
 | MX-O-61 | UI | マイルストン帯の印を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-62 | UI | このマイルストンだけ表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-63 | UI | マイルストン帯の行を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
