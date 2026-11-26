@@ -17,7 +17,7 @@
 | node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest（Node） | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Vitest（jsdom） | `npm test` | `src/**/*.test.tsx`。jsdom と Testing Library。React コンポーネントの DOM 特性（Issue #490、C3 のあと） |
-| Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb） |
+| Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb。起動待ちは、前面の `current_schedule` にシードタスクが載り、開いている全窓が起動復旧を終える（`startupSettled=true`）まで） |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階2） | `npm run check:operation-entries` | `operation-entries.md` 主表の各列とソースカタログ（`operationEntryCatalog.ts`）の機械照合。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
