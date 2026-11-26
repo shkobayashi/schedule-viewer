@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-26
+
 ### 変更
 
 - Issue #475（操作入口の欠け）のうち、見方の MCP/CLI 書き込みとして `set_view` に `lineage` と `hiddenMilestoneIds` を足し、`file_action` の Excel 書き出しで `excelColumns` と `excelFieldColumns` を書き出しダイアログと同じ真偽マップで受け付ける。人の操作は MCP/CLI から可能とするが、JSON 貼り付け UI やダイアログの機械再生といった**逆方向の対称**は求めない。このスライスで想定していた人→機械の書き込みは PR #584 で入った。CHANGELOG や証跡 README に残っていた「チャート操作の MCP 化」や未定義のフィルタ欄書き込みなどの未完記述は、もはや残作業ではない。Issue #475 はオーナーが閉じるまで開いたままにする（確定日付まわりの境界内。`edit_plan` の拡張とは別）
